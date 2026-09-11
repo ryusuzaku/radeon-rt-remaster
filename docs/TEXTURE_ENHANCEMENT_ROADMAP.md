@@ -7,6 +7,9 @@ Current foundation: v15 captures initialized managed RGBA and DXT1/DXT3/DXT5
 chains with external hashed assets and isolated native pixel comparisons.
 V16 additionally admits proven whole-chain default-pool uploads, and v17 records
 explicit full-dirty notifications. V18 adds partial UpdateSurface coverage.
+V19 adds observed texture-mip surface lock/unlock tracking, so a game that
+stages a SYSTEMMEM texture through a mip-surface alias lock no longer loses its
+upload proof. See SURFACE_LOCK_QUALIFICATION.md.
 Game-sized material comparison and real-game material evidence remain before replacement
 or upscaling work. See COMPRESSED_TEXTURE_QUALIFICATION.md.
 

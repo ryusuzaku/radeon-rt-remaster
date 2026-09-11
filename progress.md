@@ -1,3 +1,33 @@
+## 2026-09-11 — v19 surface-lock qualification and version-control baseline
+
+- Diagnosis of the 0-capture v18 pass completed. The ledger header selects
+  `surfaceLocks?19:surfaceUploads?18`, and the pass ran at **18**: with surface
+  locks off, every mip-surface `LockRect`/`UnlockRect` on a tracked texture fell
+  through to `TextureInvalidate(resource, operation)`, which cleared the whole
+  coverage mask, set `fullDirty=false` and dropped the dirty proof. Recorded
+  diagnostics match exactly: `source_not_fully_dirty`, `upload_source_invalidation`
+  `UnlockRect`, `upload_source_lock_flags` null, `known_bytes 0`, revision 1, on
+  usage0 DEFAULT DXT5 slot resources. The v19 tracking was already implemented
+  and wired but had never been run or tested.
+- Added the missing fixture actions (`aliasfull`, `aliaspartial`, `aliasmip`,
+  `aliasreadonly`) in `material_fixture.inc`. They rewrite the source mips with
+  `D3DLOCK_NO_DIRTY_UPDATE` first, so only the alias lock can supply the upload
+  proof. `aliasfull` (whole level-0 alias lock) is admitted with
+  `dirty_proof=top_lock`; partial, lower-mip and read-only aliases are not.
+- Added `texture_locks` (`tests/qualify_surface_locks.py`, wired through
+  `verify_texture_paths.py --kind locks`) covering RGBA and DXT5 admission with
+  byte-exact mips, extracted assets, capture-ledger equality, replay match,
+  native-baseline equality, four rejection controls, the v18 regression and
+  three fail-closed option chains.
+- Validation: `texture_locks` passes Release 7.61 s and Debug 9.95 s; the full
+  `texture_*` group passes 7/7 Release 164.61 s and 7/7 Debug 217.80 s with no
+  other test changed. x86 Release/Debug proxy and fixture rebuilds are warning
+  free. Documented in docs/SURFACE_LOCK_QUALIFICATION.md.
+- Repository placed under version control with a single baseline commit of the
+  2026-09-08 tree (283 files); `build/`, traces, pixels, scenes and bytecode
+  caches are ignored. No game was launched and no proxy was deployed this
+  session; HL2 remains un-run at v19.
+
 ## Compact-mask capture complete; exit pending (2026-09-08)
 
 User ready; triggered once. Valid v18 attempt_limit4096,460 recorded rows,0 captures.

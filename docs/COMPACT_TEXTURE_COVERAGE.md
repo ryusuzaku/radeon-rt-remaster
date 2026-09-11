@@ -43,8 +43,11 @@ limit, and releasing them permits a subsequent initialized texture to be capture
 The native renderer still compares each fixture image against the independent
 vertex-material evaluation.
 
-Next useful HL2 pass retains2560x1440:3/full v18 settings and observes whether the
-smaller masks relieve tracking failures and which precise upload check remains.
+Next useful HL2 pass retains2560x1440:3 and adds the v19 surface-lock option
+(`--position-surface-locks`) on top of the full v18 chain. The recorded v18 pass
+ran with surface locks off, so every mip-surface lock invalidated the source
+shadow and produced `source_not_fully_dirty`; v19 is qualified on fixtures but
+has never been run against a game. See SURFACE_LOCK_QUALIFICATION.md.
 
 Validation: Release6/6 passed184.67s plus final selection/pressure6.54s;
 Debug2/2 passed13.62s.64-texture capture,96-texture rejection and release

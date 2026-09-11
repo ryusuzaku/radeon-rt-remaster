@@ -57,6 +57,18 @@ void MaterialFixture(bool paired=false){
                     if(action==L"dirtytop"){D3DLOCKED_RECT locked{};Check(sourceTexture->LockRect(0,&locked,nullptr,0));Check(sourceTexture->UnlockRect(0));}
                     Check(d->UpdateTexture(sourceTexture,destinations[slot].Get()));
                 }
+                // Surface-alias dirty declarations. The mip bytes are rewritten without a dirty
+                // declaration first, so only the alias lock can supply the upload proof.
+                if(action.rfind(L"alias",0)==0&&action!=L"sourcealias"){
+                    fill(1,D3DLOCK_NO_DIRTY_UPDATE);
+                    ComPtr<IDirect3DSurface9> surface;Check(sourceTexture->GetSurfaceLevel(action==L"aliasmip"?1:0,&surface));D3DLOCKED_RECT locked{};
+                    RECT part{0,0,4,4};
+                    if(action==L"aliasfull"){Check(surface->LockRect(&locked,nullptr,0));Check(surface->UnlockRect());}
+                    if(action==L"aliaspartial"){Check(surface->LockRect(&locked,&part,0));Check(surface->UnlockRect());}
+                    if(action==L"aliasmip"){Check(surface->LockRect(&locked,nullptr,0));Check(surface->UnlockRect());}
+                    if(action==L"aliasreadonly"){Check(surface->LockRect(&locked,nullptr,D3DLOCK_READONLY));Check(surface->UnlockRect());}
+                    Check(d->UpdateTexture(sourceTexture,destinations[slot].Get()));
+                }
                 if(action==L"refresh"){fill(1);Check(d->UpdateTexture(sourceTexture,destinations[slot].Get()));}
                 if(action==L"sourcechanged")fill(1);
                 if(action==L"consumed")Check(d->UpdateTexture(sourceTexture,destinations[slot].Get()));

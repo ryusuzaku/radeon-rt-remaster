@@ -1,5 +1,25 @@
 # Current implementation plan
 
+## Texture-mip surface lock tracking (2026-09-11)
+
+- [x] Confirm the recorded v18 failure chain and separate it from any implementation defect.
+- [x] Add fixture alias-lock actions that isolate the alias proof from the fill proof.
+- [x] Qualify v19 admission, rejection controls, the v18 regression and fail-closed option chains.
+- [x] Run the focused texture suites in Release and Debug and document the contract.
+
+v19 surface-lock tracking was already implemented and wired but had never been
+exercised. Diagnosis: the v18 passes ran with `surfaceLocks` off, so every
+mip-surface `LockRect`/`UnlockRect` invalidated the parent texture shadow instead
+of being tracked — exactly the recorded `source_not_fully_dirty` /
+`UnlockRect` diagnostics. Added `alias*` fixture actions and `texture_locks`,
+which rewrites source mips with `D3DLOCK_NO_DIRTY_UPDATE` so only the alias lock
+can supply the upload proof. `aliasfull` is admitted with `dirty_proof=top_lock`;
+partial, lower-mip and read-only aliases, the DEFAULT destination alias, the
+same case at v18 and three invalid option chains are all rejected. Release 7.61 s,
+Debug 9.95 s; full `texture_*` group 7/7 Release 164.61 s and 7/7 Debug 217.80 s.
+See docs/SURFACE_LOCK_QUALIFICATION.md. Remaining: real-game upstream admission,
+the DEFAULT-pool `shadow_budget` ceiling and unsupported shader families.
+
 ## Compact texture coverage and precise upload checks (2026-09-08)
 
 - [x] Verify last game closed and owned proxy absent.

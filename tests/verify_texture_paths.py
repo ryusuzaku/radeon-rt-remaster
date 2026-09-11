@@ -14,7 +14,7 @@ from position_pixel_material import DIGEST as PIXEL_DIGEST
 
 p=argparse.ArgumentParser(description=__doc__)
 for name in ('fixture','proxy','inventory'):p.add_argument('--'+name,type=Path,required=True)
-p.add_argument('--kind',choices=('compressed','upload','dirty','surface','scope','selection'),required=True)
+p.add_argument('--kind',choices=('compressed','upload','dirty','surface','locks','scope','selection'),required=True)
 a=p.parse_args();inspect(a.inventory);code=pixel=None
 with a.inventory.open(encoding='utf-8') as stream:
     for line in stream:
@@ -29,7 +29,7 @@ suffixes=('FRAME_SAMPLING','MULTI_DRAW','RENDER_STATE','CLEAR_EVIDENCE','WRITE_E
           'COLOR_REPLAY','MATERIAL_INPUTS','PIXEL_MATERIAL','TEXTURE_INPUTS','TEXTURE_ASSETS')
 flags={'RRT_POSITION_'+s:'1' for s in suffixes};flags['RRT_POSITION_SELECTION']='128x96:1'
 module={'compressed':'qualify_compressed_capture','upload':'qualify_texture_upload',
-        'dirty':'qualify_dirty_texture','surface':'qualify_surface_upload','scope':'qualify_pixel_scope','selection':'qualify_selection_capture'}[a.kind]
+        'dirty':'qualify_dirty_texture','surface':'qualify_surface_upload','locks':'qualify_surface_locks','scope':'qualify_pixel_scope','selection':'qualify_selection_capture'}[a.kind]
 importlib.import_module(module).qualify(a.fixture.resolve(),a.proxy.resolve(),root,clean,flags,code,pixel)
 print('PASS '+a.kind+': '+str(root))
 

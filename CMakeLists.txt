@@ -261,7 +261,7 @@ add_test(NAME hl2_position COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_
 set_tests_properties(hl2_position PROPERTIES TIMEOUT 120)
 add_test(NAME position_capture COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_position_capture.py --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy> --inventory "${RRT_HL2_POSITION_INVENTORY}")
 set_tests_properties(position_capture PROPERTIES TIMEOUT 180)
-foreach(texture_kind compressed upload dirty surface scope selection)
+foreach(texture_kind compressed upload dirty surface locks scope selection)
 add_test(NAME texture_${texture_kind} COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_texture_paths.py --kind ${texture_kind} --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy> --inventory "${RRT_HL2_POSITION_INVENTORY}")
 set_tests_properties(texture_${texture_kind} PROPERTIES TIMEOUT 120 RESOURCE_LOCK native_texture_fixture)
 endforeach()

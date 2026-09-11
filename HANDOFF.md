@@ -1,5 +1,39 @@
 # Session handoff — 2026-09-07
 
+## v19 surface-lock qualification complete; HL2 v19 pass not yet run (2026-09-11)
+
+The 0-capture v18 diagnosis is closed and was not an implementation defect. The
+ledger header selects `surfaceLocks?19:surfaceUploads?18`, and those passes ran
+at **18**: with surface locks off, `BeforeWriter` treated every mip-surface
+`LockRect`/`UnlockRect` on a tracked texture as an untracked write and called
+`TextureInvalidate(resource, operation)`, clearing the coverage mask and dropping
+the dirty proof. Recorded diagnostics match exactly (`source_not_fully_dirty`,
+`upload_source_invalidation UnlockRect`, `upload_source_lock_flags` null,
+`known_bytes 0`, usage0 DEFAULT DXT5). The v19 tracking already existed in
+`texture_tracking.inc` and `generated_observers.inc` and was already exposed as
+`tools/game_pass.py --position-surface-locks`, but had never been run or tested.
+
+Added `aliasfull`/`aliaspartial`/`aliasmip`/`aliasreadonly` fixture actions and
+the `texture_locks` CTest (`tests/qualify_surface_locks.py`). The fixture
+rewrites source mips with `D3DLOCK_NO_DIRTY_UPDATE` first, so only the alias lock
+can supply the upload proof: `aliasfull` is admitted with
+`dirty_proof=top_lock`, and partial, lower-mip, read-only and DEFAULT-destination
+aliases are rejected, as are the same case at v18 and three invalid option
+chains. Documented in docs/SURFACE_LOCK_QUALIFICATION.md.
+
+Validation: `texture_locks` Release 7.61 s / Debug 9.95 s; full `texture_*` group
+7/7 Release 164.61 s and 7/7 Debug 217.80 s; x86 Release/Debug proxy and fixture
+rebuilds warning free. The repository is now under git with a single baseline
+commit of the 2026-09-08 tree.
+
+Next: no game was launched this session and no proxy is deployed. Prepare a fresh
+provenance-checked bundle at 2560x1440:3 with the full v18 flag chain **plus**
+`--position-surface-locks`, wait for user gameplay readiness before triggering,
+then inspect whether upstream admission now succeeds and which of the remaining
+failures dominate. The DEFAULT-pool `shadow_budget` ceiling (512x512 DXT5)
+and the 44 sampled unsupported shader families are the known residuals. Do not
+reuse a previous bundle or proxy hash, and do not rebuild a deployed proxy.
+
 ## Compact-mask capture complete; exit pending (2026-09-08)
 
 User ready; triggered once. Valid v18 attempt_limit4096,460 recorded rows,0 captures.

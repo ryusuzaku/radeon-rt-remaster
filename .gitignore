@@ -3,3 +3,4 @@
 *.pixels
 *.rrscene
 __pycache__/
+/.reasonix/
