@@ -1,0 +1,33 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "windows-x86",
+      "displayName": "Windows x86 / Visual Studio 2022",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "Win32",
+      "binaryDir": "${sourceDir}/build/x86-vs",
+      "cacheVariables": { "BUILD_TESTING": "ON" }
+    },
+    {
+      "name": "windows-x64-renderer",
+      "displayName": "Standalone renderer x64 / Visual Studio 2022",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/x64-renderer",
+      "cacheVariables": { "BUILD_TESTING": "ON", "RRT_RENDERER_ONLY": "ON" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "windows-x86", "configuration": "Debug" },
+    { "name": "release", "configurePreset": "windows-x86", "configuration": "Release" },
+    { "name": "renderer-debug", "configurePreset": "windows-x64-renderer", "configuration": "Debug" },
+    { "name": "renderer-release", "configurePreset": "windows-x64-renderer", "configuration": "Release" }
+  ],
+  "testPresets": [
+    { "name": "debug", "configurePreset": "windows-x86", "configuration": "Debug", "output": { "outputOnFailure": true } },
+    { "name": "release", "configurePreset": "windows-x86", "configuration": "Release", "output": { "outputOnFailure": true } },
+    { "name": "renderer-debug", "configurePreset": "windows-x64-renderer", "configuration": "Debug", "output": { "outputOnFailure": true } },
+    { "name": "renderer-release", "configurePreset": "windows-x64-renderer", "configuration": "Release", "output": { "outputOnFailure": true } }
+  ]
+}

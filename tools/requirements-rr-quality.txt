@@ -1,0 +1,2 @@
+# Optional offline CPU reference only; not a renderer or SDK dependency.
+numpy==1.26.4

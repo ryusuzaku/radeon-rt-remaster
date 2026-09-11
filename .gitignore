@@ -1,0 +1,5 @@
+/build/
+*.rrt.jsonl
+*.pixels
+*.rrscene
+__pycache__/
