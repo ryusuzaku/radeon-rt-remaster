@@ -102,3 +102,28 @@ def qualify(fixture,proxy,root,clean,flags,code,pixel):
         if accepted:assert len(report['captures'])==16 and report['completion']=='capture_limit'
         else:
             assert any(t['admission']=='shadow_budget' for t in report['texture_diagnostics']),report
+
+    # DEFAULT-pool destinations pay payload + mask + a fixed 128-entry surface-history charge, so the
+    # 128MiB cap admits fewer of them and the refusal surfaces as texture_tracking_missing.
+    _,report,_=run('defbudget','128x96:1',True,case='defbudget')
+    assert len(report['captures'])==16 and report['completion']=='capture_limit',report
+    assert not report['texture_diagnostics'],report
+    rows=[json.loads(l) for l in (root/'defbudget.jsonl').read_text().splitlines() if json.loads(l).get('status')=='captured']
+    transfers=[t for r in rows for t in r['texture_inputs'] if t['origin']=='observed_private_default_update']
+    assert transfers,rows[0]
+    for t in transfers:
+        assert t['transfer']['operation']=='UpdateTexture' and t['transfer']['scope']=='whole_chain',t
+        assert t['transfer']['dirty_proof']=='top_lock' and t['transfer']['source']!=t['id'],t
+
+    _,report,_=run('defexhaust','128x96:1',True,case='defexhaust')
+    assert not report['captures'],report
+    assert report['rejections'].get('unsupported_or_missing_evidence'),report
+    assert report['evidence_failures']==[{'stage':'texture_inputs','detail':'texture_tracking_missing','recorded_rejections':report['attempts_recorded']}],report
+    assert report['texture_diagnostics'],report
+    for t in report['texture_diagnostics']:
+        assert not t['tracked'] and t['admission']=='shadow_budget',t
+        assert t['descriptor'][:2]==[512,512] and t['descriptor'][4]==0,t
+        assert t['total_bytes']==0 and t['known_bytes']==0,t
+
+    _,report,_=run('defrelease','128x96:1',True,case='defrelease')
+    assert len(report['captures'])==16 and report['completion']=='capture_limit',report

@@ -1,3 +1,32 @@
+## 2026-09-11 — shared shadow-budget ceiling quantified and asserted
+
+- Quantified the 128MiB shared shadow budget. `Retained()` is charged only in
+  buffer `Lock` (total*2) and `TextureCreated` (payload+mask+128*sizeof(SurfaceTransfer)
+  for DEFAULT), released only in `~Shadow`/`~TextureShadow`; every early return in
+  `TextureCreated` reverts its charge and a rejected texture never sets
+  `tag->texture`, so there is no leak or double release. The limit is a priority
+  limit, not an accounting defect.
+- Per-chain capacity reproduces the retired 64-accept/96-reject workload exactly
+  (64x1485494=95.1MB in, 96x1485494=142.6MB out), validating the model.
+  `sizeof(SurfaceTransfer)` verified as 56 (RECT 16, POINT 8, LLP64), so the
+  DEFAULT history charge is 7168 bytes.
+- From a fresh budget 512x512 DEFAULT DXT5 fits 354 times, but the recording pass
+  had 155 tracked and 76 refused: creation order alone decides admission and
+  nothing is reclaimed while a resource stays alive. Maps the residual as v19
+  addressing the 305 `texture_upload_proof_missing` while the 76
+  `texture_tracking_missing` are this ceiling, all pool 0.
+- Added `defbudget`/`defexhaust`/`defrelease` fixture cases and assertions in
+  `texture_selection`. A DEFAULT destination cannot be filled directly, so the
+  cases allocate 512x512 DXT5 DEFAULT textures and supply the proof from a
+  SYSTEMMEM source `UpdateTexture`. 300 is admitted with 16 captures and a
+  whole-chain `top_lock` transfer; 370 is refused with no captures,
+  `texture_inputs`/`texture_tracking_missing` evidence and a 512x512 pool-0
+  `shadow_budget` diagnostic with zero total/known bytes; release restores 16.
+- Validation: `texture_selection` Release 7.20s, Debug 11.14s; full `texture_*`
+  group 7/7 Release 148.82s and 7/7 Debug 191.01s with no other test changed.
+  Release/Debug fixture rebuilds warning free. Documentation only otherwise; no
+  runtime or budget change was made.
+
 ## 2026-09-11 — v19 surface-lock qualification and version-control baseline
 
 - Diagnosis of the 0-capture v18 pass completed. The ledger header selects

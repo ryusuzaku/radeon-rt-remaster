@@ -48,6 +48,17 @@ This reproduces the retired 64-texture accept / 96-texture reject workload
 exactly (64x1485494 = 95.1MB accepted, 96x1485494 = 142.6MB rejected), so the
 model above is the one the code implements.
 
+`texture_selection` asserts the DEFAULT-pool boundary through the `defbudget` /
+`defexhaust` / `defrelease` fixture cases. A DEFAULT destination cannot be filled
+directly, so each case allocates 512x512 DXT5 DEFAULT textures and supplies the
+proof from a SYSTEMMEM source `UpdateTexture`. 300 is admitted with 16 captures
+and a whole-chain `top_lock` transfer; 370 is refused with no captures, an
+`evidence_failures` entry of `texture_inputs`/`texture_tracking_missing`, and a
+`shadow_budget` diagnostic whose descriptor is 512x512, pool 0, with zero total
+and known bytes; releasing and reallocating restores 16 captures. With the 512x512
+SYSTEMMEM source also charged (371008 bytes) the computed boundary is 353, so the
+test brackets it to (300, 370] rather than pinning the exact count.
+
 From a fresh budget, 512x512 DEFAULT DXT5 fits 354 times. The recording pass had
 155 of these tracked and 76 refused, so the live set had already consumed
 essentially the whole cap with textures created earlier in the session. Creation

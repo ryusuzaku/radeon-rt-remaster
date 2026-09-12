@@ -1,5 +1,19 @@
 # Current implementation plan
 
+## Shared shadow-budget ceiling (2026-09-11)
+
+- [x] Quantify the 128MiB shared budget and confirm it is a priority limit, not a leak.
+- [x] Add `defbudget`/`defexhaust`/`defrelease` fixture cases and selection assertions.
+- [x] Run the focused texture suites in Release and Debug.
+
+The DEFAULT-pool boundary is now bracketed by `texture_selection`: 300 admitted,
+370 refused with `texture_inputs`/`texture_tracking_missing` evidence and a
+pool-0 `shadow_budget` diagnostic. With the 512x512 SYSTEMMEM source charged the
+computed boundary is 353, so the test brackets rather than pins it. No runtime or
+budget change: the remaining options (lazy payload for DEFAULT destinations,
+buffer/texture partitioning, reclaim on unbind) are explicit budget-policy
+decisions and have not been adopted. See docs/COMPACT_TEXTURE_COVERAGE.md.
+
 ## Texture-mip surface lock tracking (2026-09-11)
 
 - [x] Confirm the recorded v18 failure chain and separate it from any implementation defect.

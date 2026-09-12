@@ -92,6 +92,15 @@ void MaterialFixture(bool paired=false){
             if(modeName==L"maskrelease"){budgetTextures.clear();allocate();}
             textures[0]=budgetTextures.back();FillCompressed(textures[0].Get(),0,false);
         }
+        // DEFAULT-pool destinations additionally pay a fixed 128-entry surface-history charge and
+        // cannot be filled directly, so the proof comes from a SYSTEMMEM source upload.
+        if(modeName==L"defbudget"||modeName==L"defexhaust"||modeName==L"defrelease"){
+            auto allocate=[&](){ComPtr<IDirect3DTexture9> t;Check(d->CreateTexture(512,512,0,0,D3DFMT_DXT5,D3DPOOL_DEFAULT,&t,nullptr));budgetTextures.push_back(std::move(t));};
+            for(unsigned i=0;i<(modeName==L"defbudget"?300u:370u);++i)allocate();
+            if(modeName==L"defrelease"){budgetTextures.clear();allocate();}
+            ComPtr<IDirect3DTexture9> source;Check(d->CreateTexture(512,512,0,0,D3DFMT_DXT5,D3DPOOL_SYSTEMMEM,&source,nullptr));FillCompressed(source.Get(),0,false);
+            Check(d->UpdateTexture(source.Get(),budgetTextures.back().Get()));textures[0]=budgetTextures.back();
+        }
         if(std::wstring(mode)==L"texalias"||std::wstring(mode)==L"texrefresh"){ComPtr<IDirect3DSurface9> surface;Check(textures[0]->GetSurfaceLevel(0,&surface));D3DLOCKED_RECT lock{};Check(surface->LockRect(&lock,nullptr,0));DWORD value=0xff557799;memcpy(lock.pBits,&value,4);Check(surface->UnlockRect());if(std::wstring(mode)==L"texrefresh")fillTexture(0,true);}
         if(std::wstring(mode)==L"texfailedlock"){D3DLOCKED_RECT lock{};Need(FAILED(textures[0]->LockRect(99,&lock,nullptr,0)),"invalid mip lock succeeded");}
         if(std::wstring(mode)==L"texcopy")Need(FAILED(d->UpdateTexture(textures[0].Get(),textures[1].Get())),"managed destination copy succeeded");
