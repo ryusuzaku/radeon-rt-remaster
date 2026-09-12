@@ -23,6 +23,42 @@ For DXT5, payload plus coverage storage drops from32 to17 bytes per block (46.87
 less); RGBA drops from8 to5 bytes per texel (37.5% less). Metadata/driver storage
 is additional, as before. No larger per-texture, ledger or asset budget is used.
 
+## Shared shadow-budget ceiling
+
+Measured 2026-09-11. `Retained()` is the process-wide reservation counter. It is
+charged in exactly two places — buffer locks (`total*2` payload plus mask) and
+`TextureCreated` (`payload + mask + 128*sizeof(SurfaceTransfer)` when the pool is
+DEFAULT with surface uploads enabled) — and released only in `~Shadow` and
+`~TextureShadow`. Every early return in `TextureCreated` reverts its own charge,
+and a rejected texture never sets `tag->texture`, so its shadow is destroyed with
+a zero reservation. There is no leak and no double release; `maskrelease` already
+proves release on destruction.
+
+The limit is therefore a *priority* limit, not an accounting defect. Per-chain
+reservations and how many fit in the unchanged 128MiB cap:
+
+| chain | payload | mask | history | total | fits |
+| --- | --- | --- | --- | --- | --- |
+| MANAGED 1024x1024 DXT5 | 1398112 | 87382 | 0 | 1416494 | 90 |
+| DEFAULT 512x512 DXT5 | 349184 | 21824 | 7168 | 378176 | 354 |
+| DEFAULT 512x256 DXT5 | 174080 | 10880 | 7168 | 192128 | 698 |
+| DEFAULT 128x512 DXT5 | 86016 | 5376 | 7168 | 98560 | 1361 |
+
+This reproduces the retired 64-texture accept / 96-texture reject workload
+exactly (64x1485494 = 95.1MB accepted, 96x1485494 = 142.6MB rejected), so the
+model above is the one the code implements.
+
+From a fresh budget, 512x512 DEFAULT DXT5 fits 354 times. The recording pass had
+155 of these tracked and 76 refused, so the live set had already consumed
+essentially the whole cap with textures created earlier in the session. Creation
+order alone decides admission: the cap admits what the game creates until it is
+full, and nothing is reclaimed while a resource stays alive.
+
+Mapping onto the recorded failures: v19 surface-lock tracking addresses the 305
+`texture_upload_proof_missing`; the 76 `texture_tracking_missing` are this
+ceiling. All 76 are pool 0 (DEFAULT). Any change to that balance is an explicit
+budget-policy decision; no larger budget has been adopted.
+
 ## Upload diagnostics
 
 The former source_dirty_or_epoch label is split into source_not_fully_dirty,
