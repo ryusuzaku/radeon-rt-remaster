@@ -191,6 +191,28 @@ and docs/HL2_MATERIAL_AUDIT.md. Texture upscaling remains planned in
 docs/TEXTURE_ENHANCEMENT_ROADMAP.md. See docs/GAME_SIZED_MATERIAL_COMPARISON.md
 for comparison scope and the next gameplay pass. This slice does not launch HL2.
 
+## Latest implementation: texture-mip surface locks v19 (2026-09-11)
+
+- --position-surface-locks / RRT_POSITION_SURFACE_LOCKS=1 requires v18. Tracks
+  observed IDirect3DSurface9 LockRect/UnlockRect on the mip surfaces of a tracked
+  MANAGED/SYSTEMMEM texture instead of invalidating the parent shadow. A whole
+  level-0 alias lock declares fullDirty with dirty proof top_lock; partial,
+  lower-mip and read-only alias locks never declare a whole-chain proof. DEFAULT
+  owners stay untracked, so a DEFAULT destination alias lock still invalidates.
+- The v18 material passes ran with surface locks off (header version 18), so every
+  mip-surface lock invalidated the source shadow and produced source_not_fully_dirty.
+  That accounted for the 305 texture_upload_proof_missing; the 76
+  texture_tracking_missing are the separate 128MiB DEFAULT-pool budget ceiling.
+- New texture_locks CTest (verify_texture_paths --kind locks, qualify_surface_locks)
+  plus aliasfull/aliaspartial/aliasmip/aliasreadonly fixture actions that rewrite
+  source mips with D3DLOCK_NO_DIRTY_UPDATE first so only the alias lock can supply
+  the proof. Contract in docs/SURFACE_LOCK_QUALIFICATION.md.
+- texture_selection now also brackets the DEFAULT-pool budget boundary through
+  defbudget/defexhaust/defrelease. See docs/COMPACT_TEXTURE_COVERAGE.md.
+- Held: no HL2 launch or proxy deployment. Bundle
+  build/game-passes/hl2-surface-locks-v19-20260911 is prepared with the reused
+  baseline and not triggered.
+
 ## Latest implementation: game-sized material diagnostic (2026-09-08)
 
 - Explicit normalized mode preserves target dimensions and viewport. Uses a fresh

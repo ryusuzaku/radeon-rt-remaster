@@ -56,10 +56,15 @@ fixture comparisons at that extent do not establish real-game material fidelity.
 
 Another targeted HL2 gameplay pass is now useful after qualification passes.
 Use a fresh reversible game-pass bundle, the existing provenance/baseline workflow,
-and the full v18 flag chain through `--position-surface-uploads`, with selection
-`5120x1440:3`, multi-draw sampling and shader inventory. Capture a short repeatable
+and the full v19 flag chain through `--position-surface-locks`, with selection
+`2560x1440:3`, multi-draw sampling and shader inventory. Capture a short repeatable
 scene using the previously successful route. Keep the bounded capture defaults.
 After normal exit and verified proxy cleanup, inspect the ledger/assets and run:
+
+Superseded 2026-09-11: this recommendation originally named the v18 chain through
+`--position-surface-uploads` and `5120x1440:3`. Surface locks are required to keep
+the upload proof (SURFACE_LOCK_QUALIFICATION.md), and the observed 2560x1440 target
+is the one that actually matches (HL2_MATERIAL_V18_RESULT.md).
 
 ```powershell
 python tools/replay_pixel_material.py <capture.jsonl> --fixture build/x86-vs/Release/rrt_shader_fixture.exe --normalized-material
