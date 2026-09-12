@@ -60,6 +60,30 @@ still apply. Scene asset capture is not supported in this mode. Before triggerin
 the file is empty; explicit finish produces a valid zero-event trace, but games
 that never explicitly finish may leave an empty file on exit.
 
+### Full material and texture evidence chain (v19)
+
+The texture/material chain is ordered and each step requires the previous one, so a
+full pass enables every flag from `--position-capture` through
+`--position-surface-locks`:
+
+```powershell
+python tools/game_pass.py run build/game-passes/PASS --mode proxy --name material `
+  --wait-trigger --shader-inventory --position-capture --position-frames `
+  --position-selection 2560x1440:3 --position-multi-draw `
+  --position-render-state --position-clear-evidence --position-write-evidence `
+  --position-surface-scope --position-color-replay --position-material-inputs `
+  --position-pixel-material --position-texture-inputs --position-texture-assets `
+  --position-compressed-textures --position-texture-uploads `
+  --position-dirty-textures --position-surface-uploads --position-surface-locks
+python tools/game_pass.py trigger build/game-passes/PASS --name material
+```
+
+Omit `--position-surface-locks` and the pass runs at v18: every mip-surface
+`LockRect`/`UnlockRect` on a tracked texture then invalidates the parent shadow, so
+uploads report `source_not_fully_dirty` and no material is admitted. The option
+must be present for the evidence chain to work at all; see
+[SURFACE_LOCK_QUALIFICATION.md](SURFACE_LOCK_QUALIFICATION.md).
+
 After rebuilding only the proxy, `reuse-baseline NEW_PASS --from-pass OLD_PASS`
 can retain an earlier successful native baseline. Executable path/hash and native
 arguments must match, and the original report must show uninstrumented normal

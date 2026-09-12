@@ -34,6 +34,14 @@ failures dominate. The DEFAULT-pool `shadow_budget` ceiling (512x512 DXT5)
 and the 44 sampled unsupported shader families are the known residuals. Do not
 reuse a previous bundle or proxy hash, and do not rebuild a deployed proxy.
 
+Bundle `build/game-passes/hl2-surface-locks-v19-20260911` is already prepared and
+pre-flighted: its recorded proxy sha256 still matches `build/x86-vs/Release/d3d9.dll`,
+the executable hash is unchanged, nothing is deployed, and the full v19 flag chain
+satisfies every `run_pass` dependency. The exact command is in
+[docs/GAME_PASS.md](docs/GAME_PASS.md) under "Full material and texture evidence
+chain"; trigger with `tools/game_pass.py trigger <PASS> --name material`.
+
+
 ## Compact-mask capture complete; exit pending (2026-09-08)
 
 User ready; triggered once. Valid v18 attempt_limit4096,460 recorded rows,0 captures.
