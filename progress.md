@@ -1,3 +1,26 @@
+## 2026-09-11 — capture workbench over the runner APIs
+
+- Added `tools/workbench.py`, a standard-library local page (default
+  http://127.0.0.1:8765) covering the capture loop without shell commands:
+  prepare, run, trigger, cleanup, reuse-baseline, bundle listing and the active
+  run's log. Roadmap section 3 first slice; no new dependency.
+- The workbench owns no resources: every action shells out to `tools/game_pass.py`,
+  so it inherits the runner's provenance, deployment and cleanup rules rather than
+  reimplementing them, and a UI action cannot be safer or more dangerous than the
+  equivalent command. The tests assert the runner's own refusals surface through
+  the API, including deploying over an existing `d3d9.dll` and a missing proxy
+  subdirectory.
+- Confinement: bundle paths must resolve inside `build/game-passes`, only one pass
+  may be active at a time, run options are whitelisted, and bodies are capped and
+  must be JSON.
+- Added `workbench` CTest (`tests/verify_workbench.py`): real server against the
+  real runner, covering routes, malformed and empty bodies, path confinement for
+  every bundle action, run-option validation, the runner's deployment refusals and
+  the single-active-pass guard. It prepares and removes its own bundles and never
+  launches a game. Release 2.62s, Debug 2.41s.
+- Documented in docs/WORKBENCH.md; roadmap section 3 records the slice and the
+  unbuilt preview/authoring/export items.
+
 ## 2026-09-11 — HL2 v19 live run; unfiltered selection and trigger arming
 
 - Ran the prepared v19 bundle against HL2. The proxy intercepted and v19 was

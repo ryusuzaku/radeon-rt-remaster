@@ -1,5 +1,17 @@
 # Current implementation plan
 
+## Capture workbench (2026-09-11)
+
+- [x] Serve a local page over the runner APIs for prepare, run, trigger, inspect and cleanup.
+- [x] Confine bundle paths, whitelist run options and allow one active pass at a time.
+- [x] Qualify with a headless CTest that drives the real server and runner.
+
+`tools/workbench.py` is the first slice of roadmap section 3 and owns no
+resources: it delegates every action to `tools/game_pass.py`, so the runner's
+provenance and cleanup guards are what the page shows. Release 2.62 s, Debug
+2.41 s. Preview, authoring and export controls remain unbuilt. See
+docs/WORKBENCH.md.
+
 ## Unfiltered selection and trigger arming (2026-09-11)
 
 - [x] Add `any:MIN_TRIANGLES` so the v5-v19 chain runs without a hardcoded resolution.

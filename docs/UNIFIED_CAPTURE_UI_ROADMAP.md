@@ -47,6 +47,10 @@ budget exhaustion is reported; independent reconstruction matches the chosen gat
 
 Build a UI over the tested runner/session APIs rather than duplicating safety or
 capture logic. Choose UI technology later, after the backend contract stabilizes.
+Started 2026-09-11 with a standard-library local page over `tools/game_pass.py`
+covering prepare, run, trigger, inspect and cleanup; see
+[WORKBENCH.md](WORKBENCH.md). The preview, authoring and export items below remain
+unbuilt.
 
 - Game/profile selection and checks for architecture, proxy conflicts and known
   compatibility limitations.
