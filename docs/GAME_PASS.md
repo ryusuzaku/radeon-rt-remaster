@@ -69,7 +69,7 @@ full pass enables every flag from `--position-capture` through
 ```powershell
 python tools/game_pass.py run build/game-passes/PASS --mode proxy --name material `
   --wait-trigger --shader-inventory --position-capture --position-frames `
-  --position-selection 2560x1440:3 --position-multi-draw `
+  --position-selection any:3 --position-multi-draw `
   --position-render-state --position-clear-evidence --position-write-evidence `
   --position-surface-scope --position-color-replay --position-material-inputs `
   --position-pixel-material --position-texture-inputs --position-texture-assets `
@@ -83,6 +83,21 @@ Omit `--position-surface-locks` and the pass runs at v18: every mip-surface
 uploads report `source_not_fully_dirty` and no material is admitted. The option
 must be present for the evidence chain to work at all; see
 [SURFACE_LOCK_QUALIFICATION.md](SURFACE_LOCK_QUALIFICATION.md).
+
+`any:MIN_TRIANGLES` accepts any render-target extent while still applying the
+minimum-primitive filter, so **the chain no longer requires knowing the game's
+resolution in advance**. The exact `WIDTHxHEIGHT:MIN_TRIANGLES` form is unchanged
+and still selects one target precisely. In `any` mode every rejected draw carries
+`selection_observed`, so the ledger reports which targets the game actually
+rendered and which of them reach the scene passes; `any` requires
+`--position-multi-draw` and fails closed without it.
+
+A triggered capture arms on the first successful Present after the trigger and
+starts its interval numbering there. If the game is not presenting when the
+trigger lands — the usual case when the window is in the background — nothing is
+attempted and the attempt budget is untouched, so the pass waits for a real frame
+instead of draining itself. Untriggered sampling keeps the historical interval
+numbering.
 
 After rebuilding only the proxy, `reuse-baseline NEW_PASS --from-pass OLD_PASS`
 can retain an earlier successful native baseline. Executable path/hash and native

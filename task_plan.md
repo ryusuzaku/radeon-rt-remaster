@@ -1,5 +1,20 @@
 # Current implementation plan
 
+## Unfiltered selection and trigger arming (2026-09-11)
+
+- [x] Add `any:MIN_TRIANGLES` so the v5-v19 chain runs without a hardcoded resolution.
+- [x] Arm triggered captures on the first successful Present after the trigger.
+- [x] Cover both in `texture_selection` and keep the qualified v3 interval contract unchanged.
+
+`MULTI_DRAW` previously required a non-zero `targetWidth`, so the whole evidence
+chain needed the game's exact render-target size. `any:MIN` now applies only the
+primitive minimum and records `any_target` in the header. A triggered capture also
+waits for a real frame boundary before attempting anything, which removes the
+0-capture failure mode where a trigger landing on a non-presenting window spent
+all 4096 attempts inside one interval. Validation: `texture_*` 7/7 Release
+(222.00 s) and 7/7 Debug (156.54 s) plus the position/shader/runner suites in both
+configurations. See progress.md and docs/GAME_PASS.md.
+
 ## Shared shadow-budget ceiling (2026-09-11)
 
 - [x] Quantify the 128MiB shared budget and confirm it is a priority limit, not a leak.

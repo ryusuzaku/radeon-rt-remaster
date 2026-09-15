@@ -1,3 +1,46 @@
+## 2026-09-11 — HL2 v19 live run; unfiltered selection and trigger arming
+
+- Ran the prepared v19 bundle against HL2. The proxy intercepted and v19 was
+  active (header version 19, 4096 attempts, texture assets directory created),
+  and the session produced a valid trace (60 presents, 129,997 events, 8716
+  shader draws, 0 failed calls; exit 0, proxy removed, executable unchanged).
+- The position capture nonetheless recorded 0 captures, and the cause was not
+  texture evidence: after the trigger `presents` stayed 0 and `present_interval`
+  was a constant 382 across every recorded draw, so all 4096 attempts were spent
+  inside a single interval with no Present. Only 27 draws passed selection and all
+  27 failed the `D3DPT_TRIANGLELIST` topology guard, so nothing reached
+  `texture_inputs` and the run is neutral on v19. The dominant observed target was
+  5120x1440 (58 of 79 sampled mismatches), not the 2560x1440 the previous result
+  doc recommended.
+- Root cause of the selection friction: `RRT_POSITION_MULTI_DRAW` refused to start
+  unless `targetWidth` was non-zero, and every feature from v5 to v19 requires
+  multi-draw. The evidence chain was therefore welded to a hardcoded
+  `WIDTHxHEIGHT:MIN`, which cannot be right for a workflow meant to work on an
+  arbitrary game.
+- Added `any:MIN_TRIANGLES` (A). It applies the primitive minimum while accepting
+  any render-target extent, so the chain runs without knowing the resolution; the
+  header records `selection:{any_target,min_primitives}` and every rejected draw
+  carries `selection_observed`. The exact form is unchanged, and `any` fails
+  closed without multi-draw. Reader, runner and help text updated.
+- Fixed trigger arming (B). A triggered capture now waits for the first successful
+  Present after the trigger and restarts interval numbering there, so a trigger
+  landing while the game is not presenting attempts nothing instead of spending
+  the 4096-attempt budget. Untriggered sampling keeps the historical numbering, so
+  the qualified v3 contract is untouched. The first attempt bounded attempts per
+  interval by attempts rather than captures was reverted: that per-interval
+  behaviour is deliberate and the diagnostic stress contract depends on it.
+- New coverage in `texture_selection`: `any:1` admitted with 16 captures and no
+  rejections, `any:4096` rejecting only with `selection_primitive_minimum` and
+  observations at the real target, and `any:1` without multi-draw producing no
+  capture file. Also fixed a latent assumption in `texture_locks`, where the
+  sampler index was used as the fixture texture index even though the fixture
+  binds `textures[(sampler+variant)%2]`; the index is now recovered from the bound
+  extent.
+- Validation: full `texture_*` group 7/7 Release 222.00s and 7/7 Debug 156.54s;
+  `position_capture`, `shader_proxy`, `hl2_position`, `recorded_position_oracle`
+  and `game_pass_workflow` pass in both configurations. Release/Debug rebuilds
+  warning free; Python compile passes.
+
 ## 2026-09-11 — shared shadow-budget ceiling quantified and asserted
 
 - Quantified the 128MiB shared shadow budget. `Retained()` is charged only in

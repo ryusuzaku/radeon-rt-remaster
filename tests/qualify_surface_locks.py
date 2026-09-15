@@ -81,8 +81,11 @@ def qualify(fixture, proxy, root, clean, asset_env, code, pixel_code):
                 assert transfer['source'] > 0 and transfer['source'] != texture['id'], (case, transfer)
                 assert transfer['revision'] > 0, (case, transfer)
                 slot = ids.index(texture['id'])
+                # The fixture binds textures[(sampler+variant)%2], so the sampler index is not the
+                # fixture texture index; recover it from the bound level-0 extent (16 or 32 wide).
+                index = 0 if sampler['texture']['descriptors'][0][0] == 16 else 1
                 for level, (mip, desc) in enumerate(zip(texture['mips'], sampler['texture']['descriptors'])):
-                    data = mip_bytes(name, level + 1, slot, desc)
+                    data = mip_bytes(name, level + 1, index, desc)
                     assert mip == {'sha256': hashlib.sha256(data).hexdigest(), 'size': len(data)}, (case, slot, level, mip)
                     assert (Path(str(path) + '.assets') / (mip['sha256'] + '.bin')).read_bytes() == data, (case, slot, level)
         assert Capture(path).report()['candidates'][0]['texture_inputs'] == rows[0]['texture_inputs'], case

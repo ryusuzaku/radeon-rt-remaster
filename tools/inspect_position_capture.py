@@ -53,8 +53,12 @@ def inspect_bytes(data,include_records=False,assets=None):
                     expected['limits']=limits;total_limit=16;interval_limit=4
                 if version>=4:
                     selection=row.get('selection')
-                    need(isinstance(selection,dict) and set(selection)=={'target_width','target_height','min_primitives'},'selection policy')
-                    need(all(type(v) is int and 1<=v<=(4096 if k=='min_primitives' else 16384) for k,v in selection.items()),'selection bounds')
+                    need(isinstance(selection,dict),'selection policy')
+                    if set(selection)=={'any_target','min_primitives'}:
+                        need(selection['any_target'] is True and type(selection['min_primitives']) is int and 1<=selection['min_primitives']<=4096,'selection bounds')
+                    else:
+                        need(set(selection)=={'target_width','target_height','min_primitives'},'selection policy')
+                        need(all(type(v) is int and 1<=v<=(4096 if k=='min_primitives' else 16384) for k,v in selection.items()),'selection bounds')
                     expected['selection']=selection
                 if 'selection_rejections' in row:
                     policy=row['selection_rejections']
@@ -111,8 +115,8 @@ def inspect_bytes(data,include_records=False,assets=None):
                 t=observed['target'];n=observed['primitives']
                 need(type(t) is list and len(t)==4 and all(type(v) is int and 0<=v<2**32 for v in t) and t[0]>0 and t[1]>0,'selection observation target')
                 need(type(n) is int and 0<=n<2**32,'selection observation primitives')
-                if row.get('reason')=='selection_target_mismatch':need(t[:2]!=[selection['target_width'],selection['target_height']],'selection mismatch observation')
-                if row.get('reason')=='selection_primitive_minimum':need(t[:2]==[selection['target_width'],selection['target_height']] and n<selection['min_primitives'],'selection minimum observation')
+                if row.get('reason')=='selection_target_mismatch':need('any_target' not in selection and t[:2]!=[selection['target_width'],selection['target_height']],'selection mismatch observation')
+                if row.get('reason')=='selection_primitive_minimum':need(n<selection['min_primitives'] and ('any_target' in selection or t[:2]==[selection['target_width'],selection['target_height']]),'selection minimum observation')
                 observed_targets[tuple(t)]+=1
             if row.get('status')=='rejected':
                 reason=row.get('reason');need(isinstance(reason,str) and 0<len(reason)<=128,'rejection reason');reasons[reason]+=1;continue
@@ -177,7 +181,8 @@ def inspect_bytes(data,include_records=False,assets=None):
             viewport=struct.unpack('<4I2f',blob(row,'viewport',24));need(all(map(math.isfinite,viewport[4:])),'nonfinite viewport')
             target=row.get('target');need(isinstance(target,list) and len(target)==4 and all(type(v) is int and 0<=v<2**32 for v in target),'target metadata')
             if selection is not None:
-                need(target[:2]==[selection['target_width'],selection['target_height']] and row['primitives']>=selection['min_primitives'],'capture violates selection')
+                need('any_target' in selection or target[:2]==[selection['target_width'],selection['target_height']],'capture violates selection')
+                need(row['primitives']>=selection['min_primitives'],'capture violates selection')
             corners=row['primitives']*3
             need(row['start']*2+corners*2<=row['ib_size'],'index buffer range')
             indices=struct.unpack('<'+'H'*corners,blob(row,'indices',corners*2))

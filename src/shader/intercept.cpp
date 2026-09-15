@@ -37,6 +37,7 @@ struct Context {
     bool positionMode{},triggered{};std::wstring trigger;std::uint64_t nextProbe{},attempts{},captured{};HANDLE file=INVALID_HANDLE_VALUE;std::size_t written{};
     bool frameSampling{};std::string session;std::uint64_t presents{};
     UINT targetWidth{},targetHeight{},minPrimitives{};
+    bool anyTarget{};
     bool multiDraw{};
     bool renderState{};
     bool clearEvidence{};
@@ -56,9 +57,16 @@ struct Context {
             if(!positionMode||!frameSampling||n>32){done=true;return;}
             const wchar_t* cursor=p;
             auto number=[&](UINT& value,UINT maximum){if(*cursor<L'0'||*cursor>L'9')return false;while(*cursor>=L'0'&&*cursor<=L'9'){value=value*10+(*cursor++-L'0');if(value>maximum)return false;}return value>0;};
-            if(!number(targetWidth,16384)||*cursor++!=L'x'||!number(targetHeight,16384)||*cursor++!=L':'||!number(minPrimitives,4096)||*cursor||std::to_wstring(targetWidth)+L"x"+std::to_wstring(targetHeight)+L":"+std::to_wstring(minPrimitives)!=p){done=true;return;}
+            // "any:MIN" keeps the minimum-primitive filter but accepts any render-target extent, so the
+            // evidence chain no longer requires knowing the game's resolution in advance.
+            if(p[0]==L'a'&&p[1]==L'n'&&p[2]==L'y'&&p[3]==L':'){
+                cursor+=4;anyTarget=true;
+                if(!number(minPrimitives,4096)||*cursor||std::wstring(L"any:")+std::to_wstring(minPrimitives)!=p){done=true;return;}
+            }
+            else if(!number(targetWidth,16384)||*cursor++!=L'x'||!number(targetHeight,16384)||*cursor++!=L':'||!number(minPrimitives,4096)||*cursor||std::to_wstring(targetWidth)+L"x"+std::to_wstring(targetHeight)+L":"+std::to_wstring(minPrimitives)!=p){done=true;return;}
         }
-        n=GetEnvironmentVariableW(L"RRT_POSITION_MULTI_DRAW",p,32768);if(n){if(n!=1||p[0]!=L'1'||!targetWidth){done=true;return;}multiDraw=true;}
+        n=GetEnvironmentVariableW(L"RRT_POSITION_MULTI_DRAW",p,32768);if(n){if(n!=1||p[0]!=L'1'||!(targetWidth||anyTarget)){done=true;return;}multiDraw=true;}
+        if(anyTarget&&!multiDraw){done=true;return;} // unfiltered selection belongs to the bounded multi-draw window
         n=GetEnvironmentVariableW(L"RRT_POSITION_RENDER_STATE",p,32768);if(n){if(n!=1||p[0]!=L'1'||!multiDraw){done=true;return;}renderState=true;}
         n=GetEnvironmentVariableW(L"RRT_POSITION_CLEAR_EVIDENCE",p,32768);if(n){if(n!=1||p[0]!=L'1'||!renderState){done=true;return;}clearEvidence=true;}
         n=GetEnvironmentVariableW(L"RRT_POSITION_WRITE_EVIDENCE",p,32768);if(n){if(n!=1||p[0]!=L'1'||!clearEvidence){done=true;return;}writeEvidence=true;}
@@ -79,15 +87,16 @@ struct Context {
     bool Active() const{return !path.empty()&&!done;}
     bool Line(const std::string& text){DWORD n{};bool ok=WriteFile(file,text.data(),static_cast<DWORD>(text.size()),&n,nullptr)&&n==text.size();written+=n;return ok;}
     void Stop(const char* reason){if(file!=INVALID_HANDLE_VALUE){Line(std::string("{\"kind\":\"end\",\"reason\":\"")+reason+"\",\"attempts\":"+std::to_string(attempts)+",\"captured\":"+std::to_string(captured)+(frameSampling?",\"presents\":"+std::to_string(presents):"")+"}\n");CloseHandle(file);file=INVALID_HANDLE_VALUE;}done=true;devices.clear();}
-    bool Ready(){if(triggered)return attempts<4096&&captured<CaptureLimit();if(!trigger.empty()){auto now=GetTickCount64();if(now<nextProbe)return false;nextProbe=now+100;auto a=GetFileAttributesW(trigger.c_str());if(a==INVALID_FILE_ATTRIBUTES||(a&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT)))return false;}
+    bool Ready(){if(triggered)return attempts<4096&&captured<CaptureLimit()&&(!frameSampling||trigger.empty()||presents>0);if(!trigger.empty()){auto now=GetTickCount64();if(now<nextProbe)return false;nextProbe=now+100;auto a=GetFileAttributesW(trigger.c_str());if(a==INVALID_FILE_ATTRIBUTES||(a&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT)))return false;}
         file=CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE){done=true;return false;}
         triggered=true;auto header=frameSampling?"{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":3,\"session\":\""+session+"\",\"sampling\":\"one-per-present-interval\"}\n":std::string("{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":2}\n");
         if(targetWidth)header="{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":4,\"session\":\""+session+"\",\"sampling\":\"one-per-present-interval\",\"selection\":{\"target_width\":"+std::to_string(targetWidth)+",\"target_height\":"+std::to_string(targetHeight)+",\"min_primitives\":"+std::to_string(minPrimitives)+"}}\n";
-        if(multiDraw)header="{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":"+std::to_string(surfaceLocks?19:surfaceUploads?18:dirtyTextures?17:textureUploads?16:compressedTextures?15:externalTextures?14:textureInputs?13:pixelMaterial?12:materialInputs?11:colorReplay?10:surfaceScope?9:writeEvidence?8:clearEvidence?7:renderState?6:5)+",\"session\":\""+session+"\",\"sampling\":\"bounded-per-present-interval\",\"limits\":{\"per_interval\":4,\"total\":16},\"selection\":{\"target_width\":"+std::to_string(targetWidth)+",\"target_height\":"+std::to_string(targetHeight)+",\"min_primitives\":"+std::to_string(minPrimitives)+"}}\n";
+        if(multiDraw){auto selection=anyTarget?std::string("{\"any_target\":true,\"min_primitives\":")+std::to_string(minPrimitives)+"}":std::string("{\"target_width\":")+std::to_string(targetWidth)+",\"target_height\":"+std::to_string(targetHeight)+",\"min_primitives\":"+std::to_string(minPrimitives)+"}";
+            header="{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":"+std::to_string(surfaceLocks?19:surfaceUploads?18:dirtyTextures?17:textureUploads?16:compressedTextures?15:externalTextures?14:textureInputs?13:pixelMaterial?12:materialInputs?11:colorReplay?10:surfaceScope?9:writeEvidence?8:clearEvidence?7:renderState?6:5)+",\"session\":\""+session+"\",\"sampling\":\"bounded-per-present-interval\",\"limits\":{\"per_interval\":4,\"total\":16},\"selection\":"+selection+"}\n";}
         if(surfaceUploads)header.insert(header.size()-2,",\"selection_rejections\":\"first4-per-target-reason-up-to64-keys-plus-every64th-attempt\"");
         if(surfaceUploads)header.insert(header.size()-2,",\"shader_rejections\":\"first4-per-target-reason-up-to64-keys-plus-every64th-attempt\"");
         if(!Line(header)){Stop("io_error");return false;}
-        if(externalTextures&&!CreateDirectoryW((path+L".assets").c_str(),nullptr)){Stop("io_error");return false;}return true;}
+        if(externalTextures&&!CreateDirectoryW((path+L".assets").c_str(),nullptr)){Stop("io_error");return false;}return !frameSampling||trigger.empty()||presents>0;}
 };
 Context& State(){static auto* c=new Context;return *c;}
 void Need(bool ok){if(!ok)throw std::runtime_error("shader evidence rejected");}
@@ -227,8 +236,13 @@ void PixelConstants(std::uint64_t id,UINT start,UINT count,HRESULT hr) noexcept 
 void Boundary(std::uint64_t id,int kind,HRESULT hr) noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);if(!c.Active()||FAILED(hr))return;auto& d=Device(c,id);++d.revision;if(kind==0){++d.resetEpoch;d.interval=0;d.drawSequence=0;d.reserved=false;d.samples=0;}d.constants.fill(false);d.pixelConstants.fill(false);d.recording=kind==1;}catch(...) {}}
 bool FrameSampling() noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);return c.Active()&&c.positionMode&&c.frameSampling;}catch(...){return false;}}
 void Presented(std::uint64_t id,HRESULT hr) noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);if(!c.Active()||!c.positionMode||!c.frameSampling||hr!=S_OK)return;
-    auto& d=Device(c,id);++d.interval;d.drawSequence=0;d.reserved=false;d.samples=0;
-    if(c.triggered&&++c.presents>=120)c.Stop("present_limit");
+    auto& d=Device(c,id);
+    // Triggered captures open their window on a real frame boundary: the first present after arming
+    // restarts interval 0, so a trigger landing while the game is not presenting cannot spend the
+    // attempt budget on draws belonging to no frame. Untriggered sampling keeps the historical numbering.
+    if(c.triggered&&++c.presents==1&&!c.trigger.empty())d.interval=0;else ++d.interval;
+    d.drawSequence=0;d.reserved=false;d.samples=0;
+    if(c.triggered&&c.presents>=120)c.Stop("present_limit");
 }catch(...) {}}
 void Applied(HRESULT hr) noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);if(c.Active()&&SUCCEEDED(hr))for(auto& [id,d]:c.devices){++d.revision;d.constants.fill(false);d.pixelConstants.fill(false);}}catch(...) {}}
 void CompositionBoundary(std::uint64_t id,bool clear,HRESULT hr) noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);if(!c.Active()||!c.renderState||FAILED(hr))return;auto& d=Device(c,id);if(clear)++d.clearSerial;else ++d.bindingSerial;}catch(...) {}}
@@ -262,10 +276,10 @@ std::unique_ptr<Pending> BeforeDraw(std::uint64_t id,IDirect3DDevice9* d,D3DPRIM
             if(c.frameSampling){result->sampled=true;result->device=id;result->epoch=timing.resetEpoch;result->interval=timing.interval;timing.reserved=true;
                 result->record+=",\"timing\":{\"reset_epoch\":"+std::to_string(timing.resetEpoch)+",\"present_interval\":"+std::to_string(timing.interval)+",\"indexed_draw\":"+std::to_string(drawSequence)+"}";}
             result->stage="topology";Need(type==D3DPT_TRIANGLELIST);result->stage="device_state";auto& state=Device(c,id);Need(!state.recording);
-            result->stage="selection";if(c.targetWidth){ComPtr<IDirect3DSurface9> surface;D3DSURFACE_DESC desc{};
+            result->stage="selection";if(c.targetWidth||c.anyTarget){ComPtr<IDirect3DSurface9> surface;D3DSURFACE_DESC desc{};
                 if(FAILED(d->GetRenderTarget(0,&surface))||!surface||FAILED(surface->GetDesc(&desc))){result->reason="selection_target_unavailable";return result;}
                 result->selectionObserved="\"target\":["+std::to_string(desc.Width)+","+std::to_string(desc.Height)+","+std::to_string(desc.Format)+","+std::to_string(desc.MultiSampleType)+"],\"primitives\":"+std::to_string(draw.primitives);
-                if(desc.Width!=c.targetWidth||desc.Height!=c.targetHeight){result->reason="selection_target_mismatch";return result;}
+                if(!c.anyTarget&&(desc.Width!=c.targetWidth||desc.Height!=c.targetHeight)){result->reason="selection_target_mismatch";return result;}
                 if(draw.primitives<c.minPrimitives){result->reason="selection_primitive_minimum";return result;}}
             result->stage="buffer_binding";ComPtr<IDirect3DVertexBuffer9> vb;ComPtr<IDirect3DIndexBuffer9> ib;UINT offset{},stride{};
             Need(SUCCEEDED(d->GetStreamSource(0,&vb,&offset,&stride))&&SUCCEEDED(d->GetIndices(&ib)));

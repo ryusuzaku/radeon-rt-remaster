@@ -144,9 +144,11 @@ def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64
     need(not position_surface_uploads or position_dirty_textures,'surface uploads require dirty texture evidence')
     need(not position_surface_locks or position_surface_uploads,'surface locks require surface uploads')
     if position_selection is not None:
-        need(position_frames and isinstance(position_selection,str) and len(position_selection)<=32 and re.fullmatch(r'[1-9][0-9]*x[1-9][0-9]*:[1-9][0-9]*',position_selection), 'selection requires frame sampling and WIDTHxHEIGHT:MIN_TRIANGLES')
-        dimensions,minimum=position_selection.split(':');width,height=map(int,dimensions.split('x'))
-        need(width<=16384 and height<=16384 and int(minimum)<=4096,'position selection bounds')
+        need(position_frames and isinstance(position_selection,str) and len(position_selection)<=32 and re.fullmatch(r'(any|[1-9][0-9]*x[1-9][0-9]*):[1-9][0-9]*',position_selection), 'selection requires frame sampling and WIDTHxHEIGHT:MIN_TRIANGLES or any:MIN_TRIANGLES')
+        dimensions,minimum=position_selection.split(':')
+        if dimensions!='any':
+            width,height=map(int,dimensions.split('x'));need(width<=16384 and height<=16384,'position selection bounds')
+        need(int(minimum)<=4096,'position selection bounds')
     destination = Path(plan['destination'])
     need(not os.path.lexists(destination), 'existing d3d9.dll blocks this run; nothing overwritten')
     if mode != 'baseline':
@@ -346,7 +348,7 @@ def main():
     launch.add_argument('--shader-inventory', action='store_true')
     launch.add_argument('--position-capture', action='store_true')
     launch.add_argument('--position-frames', action='store_true', help='one accepted position draw per successful-Present interval (v3)')
-    launch.add_argument('--position-selection', metavar='WIDTHxHEIGHT:MIN_TRIANGLES', help='explicit target-size and triangle-count filter (v4; requires --position-frames)')
+    launch.add_argument('--position-selection', metavar='WIDTHxHEIGHT:MIN_TRIANGLES|any:MIN_TRIANGLES', help='explicit target-size filter, or any:MIN to accept any render-target extent (v4; requires --position-frames, and --position-multi-draw for any:MIN)')
     launch.add_argument('--position-multi-draw', action='store_true', help='up to4 selected draws per interval,16 total (v5)')
     launch.add_argument('--position-render-state', action='store_true', help='surface identity and selected composition-state evidence (v6; requires multi-draw)')
     launch.add_argument('--position-clear-evidence', action='store_true', help='bounded latest successful clear payload (v7; requires render-state)')

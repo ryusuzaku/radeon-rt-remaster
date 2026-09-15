@@ -38,6 +38,28 @@ def qualify(fixture,proxy,root,clean,flags,code,pixel):
     _,report,_=run('matching','128x96:1',True)
     assert len(report['captures'])==16 and report['completion']=='capture_limit',report
 
+    # Unfiltered selection: every render-target extent is accepted, so the evidence chain runs without
+    # knowing the game's resolution in advance. The exact form above stays unaffected.
+    path,report,actual=run('alltargets','any:1',True)
+    assert report['selection']=={'any_target':True,'min_primitives':1},report['selection']
+    assert len(report['captures'])==16 and report['completion']=='capture_limit',report
+    assert not report['rejections'],report
+    rows=[json.loads(l) for l in path.read_text().splitlines() if json.loads(l).get('kind')=='draw']
+    assert rows and all(r['target'][:2]==[128,96] for r in rows),rows[0]
+    # The primitive minimum still applies without a target filter: the same rejection as the exact
+    # 128x96 form, never a target mismatch, and the observed target is what the draw really used.
+    minimum,minimum_report,_=run('alltargets-minimum','any:4096',True)
+    assert not minimum_report['captures'] and set(minimum_report['rejections'])=={'selection_primitive_minimum'},minimum_report
+    observed=[json.loads(l)['selection_observed'] for l in minimum.read_text().splitlines() if json.loads(l).get('kind')=='draw']
+    assert observed and all(o['target'][:2]==[128,96] and o['primitives']<4096 for o in observed),observed[:1]
+    # Unfiltered selection belongs to the bounded multi-draw window; without it the capture fails closed.
+    absent=root/'alltargets-nomulti.jsonl'
+    env=dict(clean,**{k:v for k,v in base.items() if k not in ('RRT_POSITION_MULTI_DRAW','RRT_POSITION_SELECTION')},RRT_FIXTURE_PROXY=str(proxy),
+             RRT_POSITION_CAPTURE_FILE=str(absent),RRT_MATERIAL_FIXTURE_CASE='valid',RRT_POSITION_SELECTION='any:1')
+    r=subprocess.run([str(fixture),'--pixel-material'],input=code+'\n'+pixel+'\n',env=env,text=True,capture_output=True,timeout=60)
+    assert r.returncode==0,(r.stdout,r.stderr)
+    assert not absent.exists()
+
     path,report,actual=run('stress','127x96:1',True,True)
     assert report['completion']=='attempt_limit' and report['attempts_total']==4096,report
     assert report['attempts_recorded']==67 and path.stat().st_size<1024*1024,report
