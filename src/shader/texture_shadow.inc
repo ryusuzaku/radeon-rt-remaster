@@ -12,6 +12,7 @@ struct TextureShadow {
     const char* uploadSourceInvalidation="unavailable";
     std::uint64_t uploadSource{},uploadRevision{};
     std::vector<SurfaceTransfer> surfaceTransfers;
-    ~TextureShadow(){Retained().fetch_sub(reserved);}
+    // reserved is set only once the reservation is granted, so a refused shadow releases nothing.
+    ~TextureShadow(){if(!reserved)return;Retained().fetch_sub(reserved);RetainedTextures().fetch_sub(reserved);LiveTextures().fetch_sub(1);}
     void Invalidate(){lastInvalidation="internal";++revision;fullDirty=false;dirtyProof=uploadDirtyProof=nullptr;uploadSource=uploadRevision=0;surfaceTransfers.clear();for(auto& m:mips){std::fill(m.known.begin(),m.known.end(),0);m.pending=m.copied=false;m.pointer=nullptr;}}
 };

@@ -1,3 +1,27 @@
+## 2026-09-16 — shadow-budget attribution: buffers are 1.3% of the cap
+
+- Added attribution to the capture footer: `retained`, `retained_buffers`,
+  `retained_textures`, `live_textures`, written when the capture stops. The proxy
+  keeps `Retained()` unchanged and charges/releases the two parts alongside it, so
+  the existing 128MiB admission rules are untouched. A refused texture shadow
+  releases nothing (its reservation is only set on success), and the reader
+  validates the fields when present and requires the total to equal the parts.
+- The trace cannot answer the budget question: `ObjectCreated` records only the
+  interface name, so no resource size or descriptor is recoverable. Attribution
+  had to be measured at the accounting site.
+- First measurement from the `material3` trace window (60 presents): only 2
+  distinct buffers were ever locked, bounding their shadow charge at 1,711,596
+  bytes = 1.63MiB, **1.3% of the cap**. Partitioning the counter between buffers
+  and textures would therefore buy nothing, and that option is ruled out. The
+  ceiling is texture shadows — the observed 1024x512 `A16B16G16R16` dynamic
+  sampler inputs cost ~4.5MiB each. The window is not the whole session; the new
+  footer gives the exact full-pass split on the next run.
+- Validation: `texture_selection` now also asserts the split when a footer exists
+  and asserts no attribution is claimed when a fixture exits without a stop
+  reason. Release 12/12 (228.73s) and Debug 11/11 (337.08s) across texture_*,
+  position_capture, shader_proxy, workbench and game_pass_workflow; rebuilds
+  warning free.
+
 ## 2026-09-16 — first real HL2 material capture: 16 captures
 
 The dynamic in-place work plus the v19 surface locks produced the project's first

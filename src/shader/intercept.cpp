@@ -15,6 +15,11 @@ using Microsoft::WRL::ComPtr;
 namespace {
 const GUID Guid={0xeb57f441,0x62a7,0x44c8,{0x99,0x12,0x14,0x2e,0x58,0x9a,0x77,0x1a}};
 std::atomic<std::size_t>& Retained(){static auto* n=new std::atomic<std::size_t>{0};return *n;}
+// The shared ceiling is one counter, but attribution is what a budget decision needs: buffer
+// shadows and texture shadows are charged and released alongside it so the footer can report both.
+std::atomic<std::size_t>& RetainedBuffers(){static auto* n=new std::atomic<std::size_t>{0};return *n;}
+std::atomic<std::size_t>& RetainedTextures(){static auto* n=new std::atomic<std::size_t>{0};return *n;}
+std::atomic<std::size_t>& LiveTextures(){static auto* n=new std::atomic<std::size_t>{0};return *n;}
 std::atomic<std::uint64_t>& ShadowIds(){static auto* n=new std::atomic<std::uint64_t>{1};return *n;}
 #include "texture_shadow.inc"
 struct Shadow final:IUnknown {
@@ -26,7 +31,7 @@ struct Shadow final:IUnknown {
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,void** p) override {if(!p)return E_POINTER;*p=nullptr;if(iid!=__uuidof(IUnknown))return E_NOINTERFACE;*p=this;AddRef();return S_OK;}
     ULONG STDMETHODCALLTYPE AddRef() override{return ++refs;}
     ULONG STDMETHODCALLTYPE Release() override{auto n=--refs;if(!n)delete this;return n;}
-    ~Shadow(){Retained().fetch_sub(bytes.size()*2);}
+    ~Shadow(){const auto released=bytes.size()*2;Retained().fetch_sub(released);RetainedBuffers().fetch_sub(released);}
 };
 struct Knowledge {std::array<bool,61> constants{};std::array<bool,31> pixelConstants{};bool recording{},reserved{};std::uint64_t resetEpoch{},revision{},interval{},drawSequence{},clearSerial{},bindingSerial{};UINT samples{};std::string lastClear="null",lastClearScope="null";};
 struct WriteEvent {WriterPending call;HRESULT hr{};std::uint64_t serial{},clearSerial{};std::int64_t ordinal=-1;};
@@ -86,7 +91,7 @@ struct Context {
     }
     bool Active() const{return !path.empty()&&!done;}
     bool Line(const std::string& text){DWORD n{};bool ok=WriteFile(file,text.data(),static_cast<DWORD>(text.size()),&n,nullptr)&&n==text.size();written+=n;return ok;}
-    void Stop(const char* reason){if(file!=INVALID_HANDLE_VALUE){Line(std::string("{\"kind\":\"end\",\"reason\":\"")+reason+"\",\"attempts\":"+std::to_string(attempts)+",\"captured\":"+std::to_string(captured)+(frameSampling?",\"presents\":"+std::to_string(presents):"")+"}\n");CloseHandle(file);file=INVALID_HANDLE_VALUE;}done=true;devices.clear();}
+    void Stop(const char* reason){if(file!=INVALID_HANDLE_VALUE){Line(std::string("{\"kind\":\"end\",\"reason\":\"")+reason+"\",\"attempts\":"+std::to_string(attempts)+",\"captured\":"+std::to_string(captured)+(frameSampling?",\"presents\":"+std::to_string(presents):"")+",\"retained\":"+std::to_string(Retained().load())+",\"retained_buffers\":"+std::to_string(RetainedBuffers().load())+",\"retained_textures\":"+std::to_string(RetainedTextures().load())+",\"live_textures\":"+std::to_string(LiveTextures().load())+"}\n");CloseHandle(file);file=INVALID_HANDLE_VALUE;}done=true;devices.clear();}
     bool Ready(){if(triggered)return attempts<4096&&captured<CaptureLimit()&&(!frameSampling||trigger.empty()||presents>0);if(!trigger.empty()){auto now=GetTickCount64();if(now<nextProbe)return false;nextProbe=now+100;auto a=GetFileAttributesW(trigger.c_str());if(a==INVALID_FILE_ATTRIBUTES||(a&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT)))return false;}
         file=CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE){done=true;return false;}
         triggered=true;auto header=frameSampling?"{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":3,\"session\":\""+session+"\",\"sampling\":\"one-per-present-interval\"}\n":std::string("{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":2}\n");
@@ -224,7 +229,8 @@ void Lock(IDirect3DResource9* r,UINT offset,UINT length,void* pointer,DWORD flag
         auto s=Get(r,true);Need(bool(s));
         if(s->bytes.empty()){const auto reserved=std::size_t(total)*2;auto before=Retained().fetch_add(reserved);
             if(before+reserved>(c.positionMode?128:16)*1024*1024){Retained().fetch_sub(reserved);throw std::runtime_error("shadow budget");}
-            try{std::vector<std::uint8_t> bytes(total),mask(total);s->bytes.swap(bytes);s->known.swap(mask);}catch(...){Retained().fetch_sub(reserved);throw;}}
+            RetainedBuffers().fetch_add(reserved);
+            try{std::vector<std::uint8_t> bytes(total),mask(total);s->bytes.swap(bytes);s->known.swap(mask);}catch(...){Retained().fetch_sub(reserved);RetainedBuffers().fetch_sub(reserved);throw;}}
         Need(s->bytes.size()==total);if(flags&D3DLOCK_DISCARD){++s->revision;std::fill(s->known.begin(),s->known.end(),0);}
         s->offset=offset;s->length=length;s->pointer=static_cast<const std::uint8_t*>(pointer);s->pending=true;
     }catch(...){Invalidate(r);}

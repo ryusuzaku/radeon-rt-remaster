@@ -124,6 +124,16 @@ def qualify(fixture,proxy,root,clean,flags,code,pixel):
         if accepted:assert len(report['captures'])==16 and report['completion']=='capture_limit'
         else:
             assert any(t['admission']=='shadow_budget' for t in report['texture_diagnostics']),report
+        # The footer attributes the shared ceiling, so a budget decision can be made from evidence.
+        # Attribution appears exactly when the capture stopped itself; a fixture that exits without a
+        # stop reason records no footer and must not claim any.
+        retained=report.get('retained')
+        if report['completion']=='partial':
+            assert retained is None,report
+        else:
+            assert retained and set(retained)=={'retained','retained_buffers','retained_textures','live_textures'},retained
+            assert retained['retained']==retained['retained_buffers']+retained['retained_textures'],retained
+            assert retained['live_textures']>0 and retained['retained_textures']>retained['retained_buffers'],{case:retained}
 
     # DEFAULT-pool destinations pay payload + mask + a fixed 128-entry surface-history charge, so the
     # 128MiB cap admits fewer of them and the refusal surfaces as texture_tracking_missing.

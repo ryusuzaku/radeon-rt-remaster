@@ -70,6 +70,26 @@ Mapping onto the recorded failures: v19 surface-lock tracking addresses the 305
 ceiling. All 76 are pool 0 (DEFAULT). Any change to that balance is an explicit
 budget-policy decision; no larger budget has been adopted.
 
+### Attribution (2026-09-16)
+
+The footer now reports the split, so the policy question can be answered from
+evidence rather than inference: `retained`, `retained_buffers`,
+`retained_textures` and `live_textures`, written when the capture stops
+(`capture_limit`/`attempt_limit`/`present_limit`). The reader validates them when
+present, requires the total to equal the two parts, and a ledger with no stop
+reason claims no attribution. The trace cannot supply this: `ObjectCreated`
+records only the interface name, so no resource size or descriptor is recoverable
+from it.
+
+First measurement, from the `material3` trace window (60 presents): only **2
+distinct buffers** were ever locked, and their total locked extent bounds their
+shadow charge at **1,711,596 bytes = 1.63 MiB, 1.3% of the cap**. Buffer shadows
+are therefore negligible here, and **partitioning the counter between buffers and
+textures would buy essentially nothing** — that option is ruled out. The ceiling
+is consumed by texture shadows, where the observed 1024x512 `A16B16G16R16`
+dynamic inputs cost ~4.5 MiB each. The trace window is not the whole session, so
+the exact split for a full pass comes from the new footer on the next run.
+
 ## Upload diagnostics
 
 The former source_dirty_or_epoch label is split into source_not_fully_dirty,
