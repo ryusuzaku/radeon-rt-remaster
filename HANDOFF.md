@@ -19,6 +19,12 @@ Remaining texture failure is now **only** the shared budget: 20 x
 `unsupported_shader` (pinned-program allowlist) and 6 x
 `selection_primitive_minimum`.
 
+The run closed clean after 369.969 s: exit 0, `status
+observation-ready-for-review`, owned proxy removed and independently absent,
+executable hash unchanged, trace `frame_limit` with 60 presents / 153,665 events
+/ 14,562 shader draws / 0 failed calls. No proxy is deployed and no game is
+running, so the proxy may be rebuilt freely again.
+
 Next: decide the 128MiB budget policy. The lazy-payload option now has a concrete
 target — the 4.5MiB dynamic float textures are what exhaust the cap — and the
 DEFAULT-pool boundary is already asserted by `texture_selection`
