@@ -131,9 +131,13 @@ def qualify(fixture,proxy,root,clean,flags,code,pixel):
         if report['completion']=='partial':
             assert retained is None,report
         else:
-            assert retained and set(retained)=={'retained','retained_buffers','retained_textures','live_textures'},retained
+            assert retained and {'retained','retained_buffers','retained_textures','live_textures'}<=set(retained),retained
             assert retained['retained']==retained['retained_buffers']+retained['retained_textures'],retained
             assert retained['live_textures']>0 and retained['retained_textures']>retained['retained_buffers'],{case:retained}
+            # The high-water mark is what a refusal is actually measured against.
+            assert retained['retained_peak']>=retained['retained'],retained
+            assert retained['retained_peak']==retained['peak_buffers']+retained['peak_textures'],retained
+            assert retained['peak_textures']>=retained['retained_textures'],retained
 
     # DEFAULT-pool destinations pay payload + mask + a fixed 128-entry surface-history charge, so the
     # 128MiB cap admits fewer of them and the refusal surfaces as texture_tracking_missing.

@@ -18,7 +18,7 @@ void TextureCreated(IDirect3DTexture9* texture,bool privateResource) noexcept {
             m.columns=(m.width+m.unit-1)/m.unit;m.rows=(m.height+m.unit-1)/m.unit;
             tag->textureAdmission="chain_budget";auto bytes=std::uint64_t(m.columns)*m.rows*m.unitBytes;auto budget=c.externalTextures?16*1024*1024:65536;Need(bytes<=budget&&total+bytes<=budget);total+=static_cast<std::size_t>(bytes);maskTotal+=std::size_t(m.columns)*m.rows;state->mips.push_back(std::move(m));}
         bool surfaceHistory=c.surfaceUploads&&state->pool==D3DPOOL_DEFAULT;
-        tag->textureAdmission="shadow_budget";auto reservation=total+maskTotal+(surfaceHistory?128*sizeof(SurfaceTransfer):0);auto before=Retained().fetch_add(reservation);if(before+reservation>128*1024*1024){Retained().fetch_sub(reservation);return;}state->reserved=reservation;RetainedTextures().fetch_add(reservation);LiveTextures().fetch_add(1);
+        tag->textureAdmission="shadow_budget";auto reservation=total+maskTotal+(surfaceHistory?128*sizeof(SurfaceTransfer):0);auto before=Retained().fetch_add(reservation);if(before+reservation>128*1024*1024){Retained().fetch_sub(reservation);return;}state->reserved=reservation;RetainedTextures().fetch_add(reservation);LiveTextures().fetch_add(1);UpdateRetainedPeak();
         if(surfaceHistory)state->surfaceTransfers.reserve(128);
         tag->textureAdmission="allocation";for(auto& m:state->mips){m.bytes.resize(std::size_t(m.columns)*m.rows*m.unitBytes);m.known.resize(std::size_t(m.columns)*m.rows);}
         Need(!tag->texture);tag->texture=std::move(state);tag->textureAdmission="tracked";

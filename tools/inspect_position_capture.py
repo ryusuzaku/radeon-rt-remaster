@@ -79,12 +79,17 @@ def inspect_bytes(data,include_records=False,assets=None):
                     need(type(row.get('presents')) is int and 0<=row['presents']<=120,'present count')
                     if row['reason']=='present_limit':need(row['presents']==120,'early present stop')
                 # Optional shadow-budget attribution: the shared ceiling split by resource kind.
-                attributed=('retained','retained_buffers','retained_textures','live_textures')
+                attributed=('retained','retained_buffers','retained_textures','live_textures',
+                            'retained_peak','peak_buffers','peak_textures')
                 for name in attributed:
                     if name in row:need(type(row[name]) is int and 0<=row[name]<2**40,'footer budget attribution')
                 if 'retained' in row:
                     need(type(row.get('retained_buffers')) is int and type(row.get('retained_textures')) is int,'footer budget split')
                     need(row['retained']==row['retained_buffers']+row['retained_textures'],'footer budget attribution total')
+                if 'retained_peak' in row:
+                    need(type(row.get('peak_buffers')) is int and type(row.get('peak_textures')) is int,'footer peak split')
+                    need(row['retained_peak']==row['peak_buffers']+row['peak_textures'],'footer peak total')
+                    need(row['retained_peak']>=row.get('retained',0),'footer peak below stop value')
                 footer=row;continue
             ordinal=row.get('ordinal');hr=row.get('hr')
             need(row.get('kind')=='draw' and type(ordinal) is int and 0<=ordinal<4096 and ordinal not in seen,'draw ordinal');seen.add(ordinal)
@@ -212,6 +217,8 @@ def inspect_bytes(data,include_records=False,assets=None):
     result={'completion':footer['reason'] if footer else 'partial','version':version,'resource_provenance':version>=2,'session':session,'selection':selection,'limits':{'per_interval':interval_limit if version>=3 else None,'total':total_limit},'frame_sampling':version>=3,'attempts_recorded':len(seen),'captures':captured,'rejections':dict(reasons)}
     if footer and 'retained' in footer:
         result['retained']={name:footer[name] for name in ('retained','retained_buffers','retained_textures','live_textures')}
+        if 'retained_peak' in footer:
+            result['retained'].update({name:footer[name] for name in ('retained_peak','peak_buffers','peak_textures')})
     need(policy is None or version in (18,19),'selection sampling version')
     result['texture_diagnostics']=[dict(json.loads(t),recorded_rejections=n) for t,n in sorted(texture_diagnostics.items())]
     result['shader_rejection_sampling']=shader_policy

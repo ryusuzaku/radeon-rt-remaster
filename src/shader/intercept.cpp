@@ -20,6 +20,20 @@ std::atomic<std::size_t>& Retained(){static auto* n=new std::atomic<std::size_t>
 std::atomic<std::size_t>& RetainedBuffers(){static auto* n=new std::atomic<std::size_t>{0};return *n;}
 std::atomic<std::size_t>& RetainedTextures(){static auto* n=new std::atomic<std::size_t>{0};return *n;}
 std::atomic<std::size_t>& LiveTextures(){static auto* n=new std::atomic<std::size_t>{0};return *n;}
+// A texture can be refused against the ceiling only when the live total was higher than it is when
+// the capture stops, so the split that decides policy is the one at the high-water mark.
+std::atomic<std::size_t>& RetainedPeak(){static auto* n=new std::atomic<std::size_t>{0};return *n;}
+std::atomic<std::size_t>& PeakBuffers(){static auto* n=new std::atomic<std::size_t>{0};return *n;}
+std::atomic<std::size_t>& PeakTextures(){static auto* n=new std::atomic<std::size_t>{0};return *n;}
+// Sampled from the authoritative split counters at whichever charge raises the total, so the split
+// always adds up to the reported peak. Charges hold the state mutex; releases may not, so a torn
+// sample is possible in principle and the peak is a diagnostic, never an admission input.
+void UpdateRetainedPeak(){
+    const auto buffers=RetainedBuffers().load(),textures=RetainedTextures().load(),total=buffers+textures;
+    auto peak=RetainedPeak().load();
+    while(total>peak&&!RetainedPeak().compare_exchange_weak(peak,total)){}
+    if(total>=RetainedPeak().load()){PeakBuffers().store(buffers);PeakTextures().store(textures);}
+}
 std::atomic<std::uint64_t>& ShadowIds(){static auto* n=new std::atomic<std::uint64_t>{1};return *n;}
 #include "texture_shadow.inc"
 struct Shadow final:IUnknown {
@@ -91,7 +105,7 @@ struct Context {
     }
     bool Active() const{return !path.empty()&&!done;}
     bool Line(const std::string& text){DWORD n{};bool ok=WriteFile(file,text.data(),static_cast<DWORD>(text.size()),&n,nullptr)&&n==text.size();written+=n;return ok;}
-    void Stop(const char* reason){if(file!=INVALID_HANDLE_VALUE){Line(std::string("{\"kind\":\"end\",\"reason\":\"")+reason+"\",\"attempts\":"+std::to_string(attempts)+",\"captured\":"+std::to_string(captured)+(frameSampling?",\"presents\":"+std::to_string(presents):"")+",\"retained\":"+std::to_string(Retained().load())+",\"retained_buffers\":"+std::to_string(RetainedBuffers().load())+",\"retained_textures\":"+std::to_string(RetainedTextures().load())+",\"live_textures\":"+std::to_string(LiveTextures().load())+"}\n");CloseHandle(file);file=INVALID_HANDLE_VALUE;}done=true;devices.clear();}
+    void Stop(const char* reason){if(file!=INVALID_HANDLE_VALUE){Line(std::string("{\"kind\":\"end\",\"reason\":\"")+reason+"\",\"attempts\":"+std::to_string(attempts)+",\"captured\":"+std::to_string(captured)+(frameSampling?",\"presents\":"+std::to_string(presents):"")+",\"retained\":"+std::to_string(Retained().load())+",\"retained_buffers\":"+std::to_string(RetainedBuffers().load())+",\"retained_textures\":"+std::to_string(RetainedTextures().load())+",\"live_textures\":"+std::to_string(LiveTextures().load())+",\"retained_peak\":"+std::to_string(RetainedPeak().load())+",\"peak_buffers\":"+std::to_string(PeakBuffers().load())+",\"peak_textures\":"+std::to_string(PeakTextures().load())+"}\n");CloseHandle(file);file=INVALID_HANDLE_VALUE;}done=true;devices.clear();}
     bool Ready(){if(triggered)return attempts<4096&&captured<CaptureLimit()&&(!frameSampling||trigger.empty()||presents>0);if(!trigger.empty()){auto now=GetTickCount64();if(now<nextProbe)return false;nextProbe=now+100;auto a=GetFileAttributesW(trigger.c_str());if(a==INVALID_FILE_ATTRIBUTES||(a&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT)))return false;}
         file=CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE){done=true;return false;}
         triggered=true;auto header=frameSampling?"{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":3,\"session\":\""+session+"\",\"sampling\":\"one-per-present-interval\"}\n":std::string("{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":2}\n");
@@ -229,7 +243,7 @@ void Lock(IDirect3DResource9* r,UINT offset,UINT length,void* pointer,DWORD flag
         auto s=Get(r,true);Need(bool(s));
         if(s->bytes.empty()){const auto reserved=std::size_t(total)*2;auto before=Retained().fetch_add(reserved);
             if(before+reserved>(c.positionMode?128:16)*1024*1024){Retained().fetch_sub(reserved);throw std::runtime_error("shadow budget");}
-            RetainedBuffers().fetch_add(reserved);
+            RetainedBuffers().fetch_add(reserved);UpdateRetainedPeak();
             try{std::vector<std::uint8_t> bytes(total),mask(total);s->bytes.swap(bytes);s->known.swap(mask);}catch(...){Retained().fetch_sub(reserved);RetainedBuffers().fetch_sub(reserved);throw;}}
         Need(s->bytes.size()==total);if(flags&D3DLOCK_DISCARD){++s->revision;std::fill(s->known.begin(),s->known.end(),0);}
         s->offset=offset;s->length=length;s->pointer=static_cast<const std::uint8_t*>(pointer);s->pending=true;
