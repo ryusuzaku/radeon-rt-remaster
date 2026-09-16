@@ -90,6 +90,28 @@ is consumed by texture shadows, where the observed 1024x512 `A16B16G16R16`
 dynamic inputs cost ~4.5 MiB each. The trace window is not the whole session, so
 the exact split for a full pass comes from the new footer on the next run.
 
+**That trace-derived conclusion was wrong and is retracted.** The `material4`
+footer, measured over the whole session, reports:
+
+| | bytes | MiB | share of the 128MiB cap |
+| --- | --- | --- | --- |
+| retained total | 104499516 | 99.66 | 77.9% |
+| buffer shadows | 22664152 | 21.61 | 16.9% |
+| texture shadows | 81835364 | 78.04 | 61.0% |
+
+with **636 live textures** (about 125KiB each). Buffers hold roughly 13x more than
+the 60-present window suggested: in that window only two buffers happened to be
+locked, while across a session many more are locked and held for life. The lesson
+is the one that motivated the instrument — a window is not the session, and
+attribution has to come from the accounting site. Handling 1024x512
+`A16B16G16R16` dynamic inputs at ~4.5MiB each is still what tips the cap over, but
+buffers are a real, non-trivial share and partitioning is back on the table.
+
+Caveat on those numbers: the footer is written when the capture stops, and a
+refused texture proves the total was higher at that moment (a 4.5MiB reservation
+cannot be refused against 99.66MiB of 128MiB). The split at the *peak* is what
+decides the policy, so the instrument should also report a high-water mark.
+
 ## Upload diagnostics
 
 The former source_dirty_or_epoch label is split into source_not_fully_dirty,
