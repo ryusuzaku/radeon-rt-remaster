@@ -1,3 +1,78 @@
+# Session handoff — 2026-09-16
+
+## material2 v19 result: healthy run, 0 captures; dynamic-texture fix implemented, needs Windows build+qualify
+
+`build/game-passes/hl2-any-target-v19b-20260911/runs/material2` finished clean
+(exit 0, proxy removed, 60/60 presents frame_limit, 10001 shader draws, 0 failed
+calls, game at 1920x1080, user actively playing). Ledger v19: 4096 attempts
+(attempt_limit), 439 recorded, **0 captures**. Failures: 350
+`texture_tracking_missing` at `texture_inputs`, 66 `unsupported_shader`, 23
+primitive minimum. Texture diagnostics: 275x slot-1 1024x512 A16B16G16R16
+DYNAMIC DEFAULT (`descriptor_pool_usage_extent`, Usage==0 gate — the v19 lock
+work never gets a chance), 75x slot-0 512x512 DXT5 DEFAULT (`shadow_budget`,
+shared 128 MiB ceiling fills over the session). No `top_lock` evidence appears
+because nothing survives to that stage.
+
+Fix (unbuilt, unqualified — no Windows compiler on this side): v19 now admits
+DEFAULT+DYNAMIC non-target textures, A16B16G16R16 as byte-opaque unit-1
+payloads, DISCARD/NOOVERWRITE in-place locks (DISCARD drops coverage), surface
+aliases of dynamic owners, and a `dynamicInPlace` proof leg at `texture_inputs`
+(origin `observed_private_default_dynamic`, `dynamic_proof=top_lock`, no
+transfer block). All gated on the v19 `surfaceLocks` flag, so v18 keeps failing
+closed. Fixture `dynamic*` modes + extended `texture_locks` test (accepted
+dynamicfull/dynamicnooverwrite/dynamicfloat, rejected dynamicpartial/
+dynamicreadonly, v18 legacy; float asserts capture+assets only, replay is
+RGBA/DXT-only). Files: `src/shader/texture_{tracking,shadow,inputs}.inc`,
+`material_fixture.inc`, `tests/qualify_surface_locks.py`,
+`docs/SURFACE_LOCK_QUALIFICATION.md`.
+
+Next: rebuild x86 proxy + fixture on Windows (warning-free), run
+`texture_locks` Release/Debug plus the `texture_*` group, then re-run the game
+pass (fresh name, e.g. material3) and check the ledger for dynamic captures.
+
+## material2 v19 result: healthy run, 0 captures; dynamic-texture fix built and qualified
+
+`build/game-passes/hl2-any-target-v19b-20260911/runs/material2` finished clean
+(exit 0, proxy removed, 60/60 presents frame_limit, 10001 shader draws, 0 failed
+calls, game at 1920x1080, user actively playing). Ledger v19: 4096 attempts
+(attempt_limit), 439 recorded, **0 captures**. Failures: 350
+`texture_tracking_missing` at `texture_inputs`, 66 `unsupported_shader`, 23
+primitive minimum. Texture diagnostics: 275x slot-1 1024x512 A16B16G16R16
+DYNAMIC DEFAULT (`descriptor_pool_usage_extent`, Usage==0 gate — the v19 lock
+work never gets a chance), 75x slot-0 512x512 DXT5 DEFAULT (`shadow_budget`,
+shared 128 MiB ceiling fills over the session). No `top_lock` evidence appears
+because nothing survives to that stage.
+
+Fix (built, qualified and committed 2026-09-16 on Windows): v19 admits
+DEFAULT+DYNAMIC non-target textures, A16B16G16R16 as byte-opaque unit-1
+payloads, in-place locks (DISCARD drops coverage), surface aliases of dynamic
+owners, and a `dynamicInPlace` proof leg at `texture_inputs` (origin
+`observed_private_default_dynamic`, `dynamic_proof=top_lock`, no transfer block).
+All gated on the v19 `surfaceLocks` flag, so v18 keeps failing closed. Fixture
+`dynamic*` modes plus the extended `texture_locks` test (accepted dynamicfull/
+dynamicnodiscard/dynamicfloat, rejected dynamicpartial/dynamicreadonly, v18
+legacy; float asserts capture+assets only, replay is RGBA/DXT-only). Files:
+`src/shader/texture_{tracking,shadow,inputs}.inc`, `material_fixture.inc`,
+`tests/qualify_surface_locks.py`, `docs/SURFACE_LOCK_QUALIFICATION.md`.
+
+Qualification found three things the unbuilt version could not: this driver
+returns `D3DERR_INVALIDCALL` for `D3DLOCK_NOOVERWRITE` on textures at any level,
+`D3DLOCK_DISCARD` is only accepted when it covers the whole level (pass a null
+rect), and the strict reader needed the new shape. `dynamicnooverwrite` became
+`dynamicnodiscard` (whole-level plain lock), the tail mips use plain locks while
+level 0 discards, and `tools/position_texture_inputs.py` now validates the
+dynamic variant including the A16B16G16R16 8-byte texel. Full 5-level chains are
+kept. `fixture.cpp`'s `Check` now reports the failing HRESULT instead of a bare
+message.
+
+Validation: `texture_*`, `position_capture`, `shader_proxy`, `game_pass_workflow`
+and `workbench` pass 11/11 in Release (193.76 s) and 11/11 in Debug (365.38 s);
+Release/Debug proxy and fixture rebuilds warning free.
+
+Next: re-run the game pass with a fresh bundle and proxy hash (the proxy changed)
+and a fresh run name such as material3, then check the ledger for dynamic
+captures. The bundle proxy hash must be regenerated before deploying.
+
 # Session handoff — 2026-09-07
 
 ## v19 surface-lock qualification complete; HL2 v19 pass not yet run (2026-09-11)

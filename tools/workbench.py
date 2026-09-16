@@ -62,6 +62,86 @@ def run_runner(arguments, timeout=120):
         raise Failure((completed.stderr or text or 'runner produced no report').strip()[:2000])
 
 
+def suggest_run_name(resolved, name):
+    """First free run name derived from a taken one: X, X2, X3, ..."""
+    candidate, index = str(name), 2
+    while (resolved / 'runs' / candidate).exists():
+        candidate = f'{name}{index}'
+        index += 1
+    return candidate
+
+
+def build_run_arguments(resolved, name, extra):
+    """Assemble runner argv for a run, always carrying the UI's run name."""
+    requested = extra or []
+    if not isinstance(requested, list) or len(requested) > 40:
+        raise Failure('extra arguments must be a short list')
+    arguments = ['run', str(resolved)]
+    pending = list(requested)
+    while pending:
+        item = pending.pop(0)
+        if item == '--name':
+            raise Failure('pass the run name in the Run name field, not as an extra option')
+        if item in RUN_SWITCHES:
+            arguments.append(item)
+        elif item in RUN_FLAGS:
+            if not pending:
+                raise Failure(f'{item} needs a value')
+            arguments += [item, str(pending.pop(0))]
+        elif item == '--position-selection':
+            if not pending:
+                raise Failure('--position-selection needs a value')
+            value = str(pending.pop(0))
+            if not SELECTION.match(value):
+                raise Failure('selection must be WIDTHxHEIGHT:MIN or any:MIN')
+            arguments += [item, value]
+        else:
+            raise Failure(f'unsupported run option: {item}')
+    arguments += ['--name', str(name)]
+    return arguments
+
+
+def describe_trigger_state(resolved, name):
+    """Explain why a trigger would not fire; None means the run is armed."""
+    run_directory = resolved / 'runs' / str(name)
+    report_path = run_directory / 'report.json'
+    if not report_path.is_file():
+        existing = sorted(entry.name for entry in (resolved / 'runs').iterdir()
+                          if (entry / 'report.json').is_file()) if (resolved / 'runs').is_dir() else []
+        known = f"existing runs: {', '.join(existing)}" if existing else 'no runs exist in this bundle yet'
+        return f"no run named '{name}' in this bundle ({known}); press Start first with the same Run name"
+    try:
+        report = json.loads(report_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None  # let the runner read it and report the real problem
+    marker = run_directory / 'capture.trigger'
+    if report.get('mode') != 'proxy' or report.get('trigger_file') != str(marker):
+        return (f"run '{name}' was not started with --wait-trigger (status: {report.get('status')}); "
+                'Start a new run with Wait for a trigger checked, then trigger while it is running')
+    if report.get('status') != 'running':
+        return (f"run '{name}' is no longer armed (status: {report.get('status')}); "
+                'the game already exited — Start a new run with a fresh name such as '
+                f"'{suggest_run_name(resolved, name)}', then trigger while it is running")
+    if marker.exists():
+        return f"run '{name}' was already triggered; give the game a moment, then check its trace"
+    return None
+
+
+def describe_cleanup_state(resolved, name):
+    """Explain why a cleanup would not run; None means the runner should decide."""
+    report_path = resolved / 'runs' / str(name) / 'report.json'
+    if not report_path.is_file():
+        return f"no run named '{name}' in this bundle; nothing to clean up"
+    try:
+        report = json.loads(report_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if report.get('proxy_removed'):
+        return (f"run '{name}' has nothing to clean up (its proxy is already removed); "
+                'just Start a new run with a fresh name')
+    return None
+
+
 def summarise(resolved):
     """Describe one bundle: its plan, its runs and the newest capture's counters."""
     plan = json.loads((resolved / 'plan.json').read_text(encoding='utf-8'))
@@ -76,6 +156,12 @@ def summarise(resolved):
         entry['trace'] = row.get('trace')
         entry['selection'] = row.get('position_selection')
         entry['surface_locks'] = row.get('position_surface_locks')
+        marker = report.parent / 'capture.trigger'
+        trigger_capable = row.get('mode') == 'proxy' and row.get('trigger_file') == str(marker)
+        entry['owns_proxy'] = bool(row.get('installed_by_runner')) and not bool(row.get('proxy_removed'))
+        entry['armed'] = bool(trigger_capable and row.get('status') == 'running' and not marker.exists())
+        entry['triggered'] = bool(marker.exists())
+        entry['needs_cleanup'] = bool(entry['owns_proxy'] and row.get('status') != 'running')
         ledger = report.with_name('position-capture.jsonl')
         if ledger.is_file() and ledger.stat().st_size:
             try:
@@ -194,9 +280,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, run_runner(arguments))
             if route == '/api/trigger':
                 resolved = pass_directory(body.get('directory'))
+                problem = describe_trigger_state(resolved, str(body.get('name', 'material')))
+                if problem is not None:
+                    raise Failure(problem)
                 return self._send(200, run_runner(['trigger', str(resolved), '--name', str(body.get('name', 'material'))]))
             if route == '/api/cleanup':
                 resolved = pass_directory(body.get('directory'))
+                problem = describe_cleanup_state(resolved, str(body.get('name', 'material')))
+                if problem is not None:
+                    raise Failure(problem)
                 arguments = ['cleanup', str(resolved), '--name', str(body.get('name', 'material'))]
                 if body.get('game_closed'):
                     arguments.append('--game-closed')
@@ -216,32 +308,14 @@ class Handler(BaseHTTPRequestHandler):
         resolved = pass_directory(body.get('directory'))
         if not (resolved / 'plan.json').is_file():
             raise Failure('the pass directory has no plan.json')
-        requested = body.get('extra') or []
-        if not isinstance(requested, list) or len(requested) > 40:
-            raise Failure('extra arguments must be a short list')
-        arguments = ['run', str(resolved)]
-        pending = list(requested)
-        while pending:
-            item = pending.pop(0)
-            if item in RUN_SWITCHES:
-                arguments.append(item)
-            elif item in RUN_FLAGS:
-                if not pending:
-                    raise Failure(f'{item} needs a value')
-                arguments += [item, str(pending.pop(0))]
-            elif item == '--position-selection':
-                if not pending:
-                    raise Failure('--position-selection needs a value')
-                value = str(pending.pop(0))
-                if not SELECTION.match(value):
-                    raise Failure('selection must be WIDTHxHEIGHT:MIN or any:MIN')
-                arguments += [item, value]
-            else:
-                raise Failure(f'unsupported run option: {item}')
         name = body.get('name') or 'material'
         if not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,63}', str(name)):
             raise Failure('run name must be a short lowercase identifier')
-        return WORKBENCH.start(resolved, arguments, str(name))
+        name = str(name)
+        if (resolved / 'runs' / name).exists():
+            raise Failure(f"run name '{name}' already exists in this bundle; "
+                          f"pick a new name — e.g. '{suggest_run_name(resolved, name)}'")
+        return WORKBENCH.start(resolved, build_run_arguments(resolved, name, body.get('extra')), name)
 
 
 PAGE = """<!doctype html><meta charset="utf-8"><title>Radeon RT Remaster workbench</title>
@@ -292,8 +366,9 @@ PAGE = """<!doctype html><meta charset="utf-8"><title>Radeon RT Remaster workben
     <div><label>Selection</label><input id="selection" value="any:3"></div></div>
    <label><input type="checkbox" id="wait_trigger" checked style="width:auto"> Wait for a trigger (arm, then capture on demand)</label>
    <label><input type="checkbox" id="chain" checked style="width:auto"> Full material/texture evidence chain (v19)</label>
-   <div class="row"><button onclick="start()">Start</button><button class="ghost" onclick="trigger()">Trigger</button>
-    <button class="ghost" onclick="cleanup()">Cleanup</button></div>
+   <div class="row"><button id="startBtn" onclick="start()">Start</button><button id="triggerBtn" class="ghost" onclick="trigger()">Trigger</button>
+    <button id="cleanupBtn" class="ghost" onclick="cleanup()">Cleanup</button></div>
+   <div id="runhint" class="muted" style="margin-top:10px">Select a bundle to begin.</div>
    <div id="active" class="muted" style="margin-top:10px"></div>
    <div id="err" class="err"></div>
    <pre id="log" style="margin-top:10px">no active run</pre></section>
@@ -323,7 +398,33 @@ function render(){
  const b=state.bundles.find(x=>x.directory===current);
  $('sel').textContent=b?b.directory: 'No bundle selected';
  if(b){const last=b.runs[b.runs.length-1];const led=last&&last.ledger;
-  $('detail').innerHTML=(b.baseline_reused?'<p>Baseline reused under provenance.</p>':'<p class="muted">No recorded baseline.</p>')+
+  const pills=r=>{const p=[`<span class="pill">${r.status||'?'}</span>`];
+   if(r.armed)p.push('<span class="pill ok">armed</span>');
+   if(r.triggered)p.push('<span class="pill">triggered</span>');
+   if(r.needs_cleanup)p.push('<span class="pill bad">cleanup needed</span>');
+   return p.join(' ');};
+  const overview=b.runs.length?b.runs.map(r=>`<div><b>${r.name}</b> (${r.mode}) ${pills(r)}`+
+   (r.needs_cleanup?` <button class="ghost" style="width:auto;padding:2px 10px;margin:2px 0" onclick="cleanupRun('${r.name}')">Cleanup '${r.name}'</button>`:'')+
+   `</div>`).join(''):'<p class="muted">No runs yet.</p>';
+  const freeName=base=>{const taken=new Set(b.runs.map(r=>r.name));if(!taken.has(base))return base;
+   let i=2;while(taken.has(base+i))i++;return base+i;};
+  const nm=(($('name').value||'material').trim()||'material');
+  const run=b.runs.find(r=>r.name===nm);
+  const busy=state.active&&state.active.running;
+  let hint='';
+  if(busy)hint=`${state.active.name} is running (pid ${state.active.pid}) — get into gameplay, press Trigger, then exit the game normally so its proxy is removed.`;
+  else if(run&&run.armed)hint=`'${nm}' is armed — press Trigger, then alt-tab back and play.`;
+  else if(run&&run.triggered)hint=`'${nm}' already triggered — play on, then exit the game normally.`;
+  else if(run)hint=`'${nm}' finished (${run.status||'?'}) — Start a fresh name such as '${freeName(nm)}'.`;
+  else hint=`No run named '${nm}' yet — press Start to create it. Close any hand-launched game first; the runner launches its own instance.`;
+  if(run&&!busy&&!(run.armed||run.triggered))hint+=` (Run name '${nm}' is taken — Start would refuse it.)`;
+  const stale=b.runs.find(r=>r.needs_cleanup);
+  if(stale)hint+=` '${stale.name}' still owns its proxy — close the game, then press its Cleanup button.`;
+  $('runhint').textContent=hint;
+  $('startBtn').disabled=!!busy;
+  $('triggerBtn').disabled=!(run&&run.armed);
+  $('detail').innerHTML='<p><b>Runs</b></p>'+overview+
+   (b.baseline_reused?'<p>Baseline reused under provenance.</p>':'<p class="muted">No recorded baseline.</p>')+
    `<p>Executable: <span class="muted">${b.executable}</span></p>`+
    (last?`<p>Last run <b>${last.name}</b> (${last.mode}) — ${last.status||'?'}`+
      (last.selection?`, selection <code>${last.selection}</code>`:'')+
@@ -335,6 +436,7 @@ function render(){
        (led.selection?`<p>Selection policy: <code>${JSON.stringify(led.selection)}</code></p>`:'')
       :'<p class="muted">No ledger yet.</p>')
     :'<p class="muted">No runs yet.</p>');}
+ else{$('runhint').textContent='Select a bundle on the left first.';$('startBtn').disabled=true;$('triggerBtn').disabled=true;}
  const a=state.active;
  $('active').textContent=a?`${a.name} — ${a.running?'running':'finished'}`+(a.running?` (pid ${a.pid})`:' (exit '+a.exit_code+')'):'idle';
  $('log').textContent=a&&a.log?a.log:'no active run';
@@ -352,6 +454,9 @@ async function trigger(){try{clearErr();if(!current)throw new Error('select a bu
  await api('/api/trigger',{directory:current,name:$('name').value});await refresh();}catch(e){fail(e);}}
 async function cleanup(){try{clearErr();if(!current)throw new Error('select a bundle first');
  await api('/api/cleanup',{directory:current,name:$('name').value,game_closed:true});await refresh();}catch(e){fail(e);}}
+async function cleanupRun(name){try{clearErr();if(!current)throw new Error('select a bundle first');
+ $('name').value=name;await api('/api/cleanup',{directory:current,name:name,game_closed:true});await refresh();}catch(e){fail(e);}}
+$('name').addEventListener('input',()=>{if(state)render();});
 refresh();setInterval(refresh,2000);
 </script>"""
 

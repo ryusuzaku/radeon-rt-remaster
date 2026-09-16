@@ -35,9 +35,24 @@ had never been exercised against a game or covered by a test.
 - The owner texture is resolved by container identity plus the level-identity
   walk; unresolved level identity falls back to invalidation, never to a
   dimension guess.
-- **DEFAULT-pool** owners stay untracked at this stage. A lock attempt on a
-  DEFAULT destination surface invalidates its shadow, which is the intended
-  rejection: an `UpdateTexture` source must be SYSTEMMEM.
+- **DEFAULT-pool** owners stay untracked at this stage, except **DYNAMIC**
+  textures: a DEFAULT texture with `D3DUSAGE_DYNAMIC` and no render/depth-target
+  bits is tracked when the v19 option is on. It is written in place through
+  observed locks, never through `UpdateTexture`, so a fully observed revision is
+  admitted with origin `observed_private_default_dynamic` and in-place proof
+  `dynamic_proof=top_lock` instead of a transfer block. A `DISCARD` lock drops
+  previous coverage (contents are lost); partial and read-only locks never
+  declare whole-mip proof. A lock attempt on a non-dynamic DEFAULT destination
+  surface invalidates its shadow, which is the intended rejection: an
+  `UpdateTexture` source must be SYSTEMMEM.
+- **Driver limits found while qualifying.** This driver returns
+  `D3DERR_INVALIDCALL` for `D3DLOCK_NOOVERWRITE` on textures at any level, so the
+  in-place path is exercised through `DISCARD` (which is only accepted when it
+  covers the whole level — pass a null rect) and plain locks on the tail mips.
+  The engine still accepts `NOOVERWRITE` where a driver does offer it.
+- 16-bit float (`D3DFMT_A16B16G16R16`) texels are byte-opaque unit-1 payloads,
+  admitted only on dynamic textures. Static float textures keep the
+  `format_or_alignment` rejection.
 - Option admission is unchanged and fails closed: locks require surface uploads,
   which require dirty tracking, uploads, compressed formats, external assets,
   texture inputs and the full multi-draw position chain. An out-of-range or
@@ -56,7 +71,15 @@ baseline) and the rejected `aliaspartial`, `aliasmip`, `aliasreadonly` and
 reject, and three invalid option chains must produce no capture file.
 
 Fixture coverage added in `material_fixture.inc` (`alias*` actions) alongside
-the pre-existing `sourcealias`, `dirtytop` and `partial` controls.
+the pre-existing `sourcealias`, `dirtytop` and `partial` controls. Dynamic
+coverage (`dynamic*` modes, full mip chains, RGBA plus float payloads) asserts
+the accepted `dynamicfull`, `dynamicnodiscard` and `dynamicfloat` cases (16
+captures, in-place proof, every mip digest and extracted asset byte-exact,
+native output equal to the no-proxy baseline; RGBA also replays exactly — the
+replay harness only rebuilds RGBA/DXT payloads) and the rejected
+`dynamicpartial` and `dynamicreadonly` cases, plus the v18 rejection of
+`dynamicfull`. Surface aliases of dynamic owners resolve through the same lock
+path by container identity.
 
 ## Limits
 

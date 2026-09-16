@@ -31,7 +31,24 @@ void MaterialFixture(bool paired=false){
     auto fillTexture=[&](unsigned slot,bool partial,UINT generation=0,DWORD flags=0){for(UINT level=0;level<textures[slot]->GetLevelCount();++level){D3DSURFACE_DESC desc{};Check(textures[slot]->GetLevelDesc(level,&desc));
         unsigned parts=partial&&desc.Width>1?2:1;for(unsigned part=0;part<parts;++part){RECT rect{LONG(desc.Width*part/parts),0,LONG(desc.Width*(part+1)/parts),LONG(desc.Height)};D3DLOCKED_RECT lock{};Check(textures[slot]->LockRect(level,&lock,&rect,flags));
             for(LONG y=rect.top;y<rect.bottom;++y)for(LONG x=rect.left;x<rect.right;++x){DWORD value=0xff000000|((32+x*13+(level+generation)*7)<<16)|((40+y*17+slot*31)<<8)|(60+(level+generation)*19);memcpy(static_cast<char*>(lock.pBits)+(y-rect.top)*lock.Pitch+(x-rect.left)*4,&value,4);}Check(textures[slot]->UnlockRect(level));}}};
-    if(paired){for(unsigned slot=0;slot<2;++slot){bool large=std::wstring(mode)==L"texlarge",dynamic=std::wstring(mode)==L"texdynamic";auto format=compressed?D3DFORMAT(MAKEFOURCC('D','X','T',char(modeName[3]))):D3DFMT_A8R8G8B8;
+    // In-place dynamic textures: DEFAULT pool, DYNAMIC usage, staged through DISCARD/NOOVERWRITE
+    // locks with no UpdateTexture. Mirrors the floating-point sampler input observed in-game.
+    auto fillDynamic=[&](unsigned slot){bool floating=modeName==L"dynamicfloat";
+        Check(d->CreateTexture(16,8,0,D3DUSAGE_DYNAMIC,floating?D3DFMT_A16B16G16R16:D3DFMT_A8R8G8B8,D3DPOOL_DEFAULT,&textures[slot],nullptr));
+        if(modeName==L"dynamicreadonly"){D3DLOCKED_RECT lock{};Check(textures[slot]->LockRect(0,&lock,nullptr,D3DLOCK_READONLY));Check(textures[slot]->UnlockRect(0));return;}
+        // This driver rejects D3DLOCK_NOOVERWRITE on textures outright, and DISCARD must cover the whole
+        // level, so the streamed level discards and the tail is written with plain locks that still
+        // count as observed in-place writes.
+        for(UINT level=0;level<textures[slot]->GetLevelCount();++level){D3DSURFACE_DESC desc{};Check(textures[slot]->GetLevelDesc(level,&desc));
+            bool partial=modeName==L"dynamicpartial"&&level==0;
+            RECT rect{0,0,partial?4:LONG(desc.Width),LONG(desc.Height)};
+            DWORD flags=level||partial?DWORD(0):D3DLOCK_DISCARD;
+            D3DLOCKED_RECT lock{};Check(textures[slot]->LockRect(level,&lock,partial?&rect:nullptr,flags));
+            for(LONG y=rect.top;y<rect.bottom;++y)for(LONG x=rect.left;x<rect.right;++x){
+                if(floating){for(unsigned b=0;b<8;++b){unsigned char v=static_cast<unsigned char>((slot*67+x*8+y*131+level*37+b*17)&0xff);memcpy(static_cast<char*>(lock.pBits)+(y-rect.top)*lock.Pitch+(x-rect.left)*8+b,&v,1);}}
+                else{DWORD value=0xff000000|((32+x*13+level*7)<<16)|((40+y*17+slot*31)<<8)|(60+level*19);memcpy(static_cast<char*>(lock.pBits)+(y-rect.top)*lock.Pitch+(x-rect.left)*4,&value,4);}}
+            Check(textures[slot]->UnlockRect(level));}};
+    if(paired){for(unsigned slot=0;slot<2;++slot){if(modeName.rfind(L"dynamic",0)==0){fillDynamic(slot);continue;}bool large=std::wstring(mode)==L"texlarge",dynamic=std::wstring(mode)==L"texdynamic";auto format=compressed?D3DFORMAT(MAKEFOURCC('D','X','T',char(modeName[3]))):D3DFMT_A8R8G8B8;
             Check(d->CreateTexture(compressed||uploading?(slot?32:16):(large?256:(slot?8:4)),compressed||uploading?(slot?16:8):(large?128:4),0,dynamic?D3DUSAGE_DYNAMIC:0,format,uploading?D3DPOOL_SYSTEMMEM:dynamic?D3DPOOL_DEFAULT:D3DPOOL_MANAGED,&textures[slot],nullptr));
             DWORD flags=uploading&&modeName.find(L"dirtycreation")!=std::wstring::npos?D3DLOCK_NO_DIRTY_UPDATE:0;
             if(compressed)FillCompressed(textures[slot].Get(),slot,modeName.find(L"partialinit")!=std::wstring::npos||(!uploading&&modeName.find(L"partial")!=std::wstring::npos),0,flags);else fillTexture(slot,std::wstring(mode)==L"texpartial"||modeName.find(L"partialinit")!=std::wstring::npos,0,flags);}

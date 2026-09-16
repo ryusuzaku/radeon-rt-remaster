@@ -169,6 +169,61 @@ class WorkbenchApi(unittest.TestCase):
         self.assertFalse(bench.status()['running'])
         self.assertEqual('{"a":1}', bench.status()['log'])
 
+    def test_run_forwards_name_to_runner(self):
+        arguments = workbench.build_run_arguments(BUNDLE, 'material2', ['--mode', 'proxy', '--wait-trigger'])
+        self.assertIn('--name', arguments)
+        self.assertEqual('material2', arguments[arguments.index('--name') + 1])
+
+    def test_run_refuses_taken_name_with_suggestion(self):
+        stub = BUNDLE / 'runs' / 'taken-probe'
+        stub.mkdir(parents=True, exist_ok=True)
+        (stub / 'report.json').write_text('{}', encoding='utf-8')
+        self.addCleanup(shutil.rmtree, stub, True)
+        status, error = self.call('POST', '/api/run', {'directory': str(BUNDLE), 'name': 'taken-probe',
+                                                       'extra': ['--mode', 'proxy']})
+        self.assertEqual(400, status, error)
+        self.assertIn('already exists', error['error'])
+        self.assertIn('taken-probe2', error['error'])
+
+    def test_trigger_explains_finished_and_unknown_runs(self):
+        stub = BUNDLE / 'runs' / 'trig-probe'
+        stub.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(shutil.rmtree, stub, True)
+        (stub / 'report.json').write_text(json.dumps(
+            {'mode': 'proxy', 'name': 'trig-probe', 'status': 'trace-rejected',
+             'trigger_file': str(stub / 'capture.trigger')}), encoding='utf-8')
+        status, error = self.call('POST', '/api/trigger', {'directory': str(BUNDLE), 'name': 'trig-probe'})
+        self.assertEqual(400, status, error)
+        self.assertIn('trace-rejected', error['error'])
+        status, error = self.call('POST', '/api/trigger', {'directory': str(BUNDLE), 'name': 'no-such-run'})
+        self.assertEqual(400, status, error)
+        self.assertIn('no-such-run', error['error'])
+
+    def test_state_reports_armed_and_cleanup_flags(self):
+        armed = BUNDLE / 'runs' / 'armed-probe'
+        armed.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(shutil.rmtree, armed, True)
+        (armed / 'report.json').write_text(json.dumps(
+            {'mode': 'proxy', 'name': 'armed-probe', 'status': 'running',
+             'trigger_file': str(armed / 'capture.trigger'),
+             'installed_by_runner': True, 'proxy_removed': False}), encoding='utf-8')
+        stale = BUNDLE / 'runs' / 'stale-probe'
+        stale.mkdir(parents=True, exist_ok=True)
+        self.addCleanup(shutil.rmtree, stale, True)
+        (stale / 'report.json').write_text(json.dumps(
+            {'mode': 'proxy', 'name': 'stale-probe', 'status': 'interrupted',
+             'installed_by_runner': True, 'proxy_removed': False}), encoding='utf-8')
+        status, state = self.call('GET', '/api/state')
+        self.assertEqual(200, status, state)
+        bundle = next(entry for entry in state['bundles'] if entry['directory'] == str(BUNDLE))
+        armed_row = next(row for row in bundle['runs'] if row['name'] == 'armed-probe')
+        self.assertTrue(armed_row['armed'])
+        self.assertFalse(armed_row['triggered'])
+        self.assertFalse(armed_row['needs_cleanup'])
+        stale_row = next(row for row in bundle['runs'] if row['name'] == 'stale-probe')
+        self.assertFalse(stale_row['armed'])
+        self.assertTrue(stale_row['needs_cleanup'])
+
     def test_empty_body_is_a_clean_refusal(self):
         status, error = self.call('POST', '/api/prepare', None)
         self.assertEqual(400, status, error)

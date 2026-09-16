@@ -27,10 +27,14 @@ std::string TextureInputs(Context& c,IDirect3DDevice9* d,Pending* diagnostic){
     for(UINT slot=0;slot<2;++slot){try{ComPtr<IDirect3DBaseTexture9> texture;TextureNeed(SUCCEEDED(d->GetTexture(slot,&texture))&&texture,"texture_binding_query");auto tag=Get(texture.Get());TextureNeed(tag&&tag->texture,"texture_tracking_missing");
         const auto& t=*tag->texture;TextureNeed(t.epoch==c.textureEpoch&&t.revision>0,"texture_revision_or_epoch");if(slot)s+=",";
         bool uploaded=t.pool==D3DPOOL_DEFAULT;bool surface=c.surfaceUploads&&uploaded&&!t.surfaceTransfers.empty();
-        TextureNeed(t.pool==D3DPOOL_MANAGED||surface||(c.textureUploads&&uploaded&&t.uploadSource&&t.uploadRevision),"texture_upload_proof_missing");
-        s+="{\"id\":"+std::to_string(tag->id)+",\"revision\":"+std::to_string(t.revision)+",\"origin\":\""+(surface?std::string("observed_private_default_surface"):uploaded?std::string("observed_private_default_update"):std::string("observed_private_managed"))+"\"";
-        if(uploaded&&!surface){s+=",\"transfer\":{\"operation\":\"UpdateTexture\",\"scope\":\"whole_chain\",\"source\":"+std::to_string(t.uploadSource)+",\"revision\":"+std::to_string(t.uploadRevision);
+        // Dynamic textures are written in place through observed locks, never uploaded: a fully
+        // observed revision carries its own proof and needs no UpdateTexture chain.
+        bool dynamicInPlace=c.surfaceLocks&&c.textureUploads&&uploaded&&t.dynamic&&t.revision>0;
+        TextureNeed(t.pool==D3DPOOL_MANAGED||surface||(c.textureUploads&&uploaded&&t.uploadSource&&t.uploadRevision)||dynamicInPlace,"texture_upload_proof_missing");
+        s+="{\"id\":"+std::to_string(tag->id)+",\"revision\":"+std::to_string(t.revision)+",\"origin\":\""+(surface?std::string("observed_private_default_surface"):dynamicInPlace?std::string("observed_private_default_dynamic"):uploaded?std::string("observed_private_default_update"):std::string("observed_private_managed"))+"\"";
+        if(uploaded&&!surface&&!dynamicInPlace){s+=",\"transfer\":{\"operation\":\"UpdateTexture\",\"scope\":\"whole_chain\",\"source\":"+std::to_string(t.uploadSource)+",\"revision\":"+std::to_string(t.uploadRevision);
             if(c.dirtyTextures){Need(t.uploadDirtyProof);s+=",\"dirty_proof\":\""+std::string(t.uploadDirtyProof)+"\"";}s+="}";}
+        if(dynamicInPlace&&!surface&&c.dirtyTextures){Need(t.dirtyProof);s+=",\"dynamic_proof\":\""+std::string(t.dirtyProof)+"\"";}
         if(surface){s+=",\"surface_transfers\":[";bool first=true;for(const auto& e:t.surfaceTransfers){if(!first)s+=",";first=false;
             s+="{\"source\":"+std::to_string(e.source)+",\"revision\":"+std::to_string(e.revision)+",\"source_level\":"+std::to_string(e.sourceLevel)+",\"destination_level\":"+std::to_string(e.destinationLevel)+",\"source_extent\":["+std::to_string(e.sourceWidth)+","+std::to_string(e.sourceHeight)+"],\"source_rect\":["+std::to_string(e.rect.left)+","+std::to_string(e.rect.top)+","+std::to_string(e.rect.right)+","+std::to_string(e.rect.bottom)+"],\"destination\":["+std::to_string(e.destination.x)+","+std::to_string(e.destination.y)+"]}";}s+="]";}
         s+=",\"mips\":[";

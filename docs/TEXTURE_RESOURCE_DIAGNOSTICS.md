@@ -27,6 +27,12 @@ dynamic/default direct writes remain unqualified. Metadata strings have static
 storage and per-resource state is fixed-size. The existing shadow byte budget
 remains unchanged; the new fields add a few pointers to each tracking object.
 
+Superseded 2026-09-16 for **dynamic** DEFAULT textures: DEFAULT + `D3DUSAGE_DYNAMIC`
+non-target textures written in place through observed locks are now admitted and
+qualified (origin `observed_private_default_dynamic`). Non-dynamic DEFAULT
+destination writes still require a proven `UpdateTexture`. See
+[SURFACE_LOCK_QUALIFICATION.md](SURFACE_LOCK_QUALIFICATION.md).
+
 The inspector validates shape, scope, descriptors, IDs, byte/level/history bounds,
 tracking consistency and bounded labels, then groups identical contexts with
 recorded_rejections counts. Old v18 ledgers remain readable; captured draw fields

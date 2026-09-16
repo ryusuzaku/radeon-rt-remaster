@@ -18,7 +18,7 @@ using Microsoft::WRL::ComPtr;
 using namespace rrt::shader;
 namespace {
 void Need(bool x,const char* why) { if(!x) throw std::runtime_error(why); }
-void Check(HRESULT hr) { Need(SUCCEEDED(hr),"fixture D3D failure"); }
+void Check(HRESULT hr) { if(FAILED(hr)) throw std::runtime_error("fixture D3D failure hr="+std::to_string(static_cast<std::int32_t>(hr))); }
 template<class F> void Reject(F f) { bool rejected=false;try{f();}catch(const std::exception&){rejected=true;}Need(rejected,"invalid snapshot accepted"); }
 struct Device {
     HWND window{}; HMODULE runtime{};ComPtr<IDirect3D9> factory;ComPtr<IDirect3DDevice9> device;

@@ -157,6 +157,8 @@ def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64
         baseline = json.loads(baseline_path.read_text(encoding='utf-8'))
         need(baseline.get('exit_code') == 0 and baseline.get('mode') == 'baseline' and baseline.get('executable_sha256') == plan['executable_sha256'], 'successful matching baseline is required')
     run_directory = directory / 'runs' / name
+    if run_directory.exists():
+        need(False, f"run name '{name}' already exists in this bundle; choose a new --name")
     run_directory.mkdir(exist_ok=False)
     report = {'schema': 'rrt-game-pass-run', 'version': 1, 'mode': mode, 'name': name, 'note': note,
               'executable_sha256': plan['executable_sha256'], 'proxy_sha256': plan['proxy_sha256'],
@@ -293,9 +295,16 @@ def trigger_capture(directory, name):
     load_plan(directory)
     need(re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,63}', name), 'invalid run name')
     run_directory=directory/'runs'/name
-    report=json.loads((run_directory/'report.json').read_text(encoding='utf-8'))
+    report_path=run_directory/'report.json'
+    if not report_path.is_file():
+        runs_directory=directory/'runs'
+        existing=sorted(entry.name for entry in runs_directory.iterdir() if (entry/'report.json').is_file()) if runs_directory.is_dir() else []
+        known=f"existing runs: {', '.join(existing)}" if existing else 'no runs exist in this bundle yet'
+        raise ValueError(f"no run named '{name}' in this bundle ({known}); start it first with --name {name}")
+    report=json.loads(report_path.read_text(encoding='utf-8'))
     marker=run_directory/'capture.trigger'
-    need(report.get('mode')=='proxy' and report.get('status')=='running' and report.get('trigger_file')==str(marker), 'run is not armed for capture')
+    need(report.get('mode')=='proxy' and report.get('status')=='running' and report.get('trigger_file')==str(marker),
+         f"run '{name}' is not armed for capture (status: {report.get('status')}); start it with --wait-trigger and trigger while its report says running")
     with marker.open('x',encoding='ascii') as stream:
         stream.write('capture\n')
     return {'trigger_requested': True, 'marker': str(marker)}

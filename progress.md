@@ -1,3 +1,29 @@
+## 2026-09-16 — dynamic in-place texture capture built and qualified
+
+- Built and qualified the dynamic DEFAULT-pool texture work on Windows. It admits
+  DEFAULT + `D3DUSAGE_DYNAMIC` non-target textures, `D3DFMT_A16B16G16R16` as
+  byte-opaque unit-1 payloads, in-place locks (DISCARD drops coverage), surface
+  aliases of dynamic owners, and a `dynamicInPlace` proof leg at `texture_inputs`
+  (origin `observed_private_default_dynamic`, `dynamic_proof=top_lock`, no
+  transfer block). Gated on the v19 `surfaceLocks` flag, so v18 fails closed.
+- Qualifying it surfaced three things the unbuilt version could not. This driver
+  returns `D3DERR_INVALIDCALL` for `D3DLOCK_NOOVERWRITE` on textures at any level;
+  `D3DLOCK_DISCARD` is only accepted when it covers the whole level (null rect);
+  and the strict reader rejected the new shape. The fixture now discards the
+  streamed level and plain-locks the tail (`dynamicnooverwrite` renamed
+  `dynamicnodiscard`), full 5-level chains are kept, and
+  `tools/position_texture_inputs.py` validates the dynamic variant including the
+  8-byte texel. `fixture.cpp`'s `Check` now reports the failing HRESULT.
+- Validation: `texture_*`, `position_capture`, `shader_proxy`,
+  `game_pass_workflow` and `workbench` pass 11/11 in Release (193.76s) and 11/11
+  in Debug (365.38s); proxy and fixture rebuilds warning free.
+- The `material2` pass that motivated this is in
+  `build/game-passes/hl2-any-target-v19b-20260911/runs/material2`: clean (exit 0,
+  60 presents, 10001 shader draws, 0 failed calls) but 0 captures, with 275x
+  slot-1 1024x512 `A16B16G16R16` DYNAMIC DEFAULT rejected at
+  `descriptor_pool_usage_extent` and 75x slot-0 512x512 DXT5 DEFAULT at
+  `shadow_budget`. Next is a fresh pass with a regenerated proxy hash.
+
 ## 2026-09-11 — capture workbench over the runner APIs
 
 - Added `tools/workbench.py`, a standard-library local page (default

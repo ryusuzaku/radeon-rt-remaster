@@ -5,7 +5,7 @@ struct TextureMip {
 };
 struct TextureShadow {
     std::vector<TextureMip> mips;std::uint64_t revision{},epoch{};std::size_t reserved{};
-    D3DPOOL pool=D3DPOOL_MANAGED;D3DFORMAT format=D3DFMT_UNKNOWN;bool fullDirty=true;
+    D3DPOOL pool=D3DPOOL_MANAGED;D3DFORMAT format=D3DFMT_UNKNOWN;bool dynamic{};bool fullDirty=true;
     const char* dirtyProof="creation";const char* uploadDirtyProof{};
     const char* lastInvalidation="none";const char* lastUpload="none";
     DWORD lastLockFlags{},uploadSourceLockFlags{};bool lockObserved{},uploadSourceLockObserved{};
