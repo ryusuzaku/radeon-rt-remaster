@@ -1,5 +1,29 @@
 # Session handoff — 2026-09-16
 
+## material3: first real HL2 material capture, 16 captures
+
+`build/game-passes/hl2-dynamic-v19c-20260916/runs/material3` reached
+`capture_limit` with **16 captured draws** — the first material/texture capture
+this project has taken from the live game. 32 texture inputs: 16 whole-chain
+`observed_private_default_update` (proof `top_lock`) and 16 in-place
+`observed_private_default_dynamic` (`dynamic_proof=top_lock`); 19 assets,
+5,327,872 bytes. Captured at target `[1920,1080,21,0]` under
+`--position-selection any:3`, so no render-target extent had to be known in
+advance, and it armed on a real Present and stopped after 4 presents / 668
+attempts rather than burning the 4096-attempt budget.
+
+Remaining texture failure is now **only** the shared budget: 20 x
+`texture_tracking_missing` at slot 1, `[1024,512,36,512,0]` — a 1024x512
+`D3DFMT_A16B16G16R16` DYNAMIC DEFAULT sampler input, ~4.5MiB each — refused at
+`shadow_budget`. Dynamic admission and the float format gates now pass. Also 15 x
+`unsupported_shader` (pinned-program allowlist) and 6 x
+`selection_primitive_minimum`.
+
+Next: decide the 128MiB budget policy. The lazy-payload option now has a concrete
+target — the 4.5MiB dynamic float textures are what exhaust the cap — and the
+DEFAULT-pool boundary is already asserted by `texture_selection`
+(`defbudget`/`defexhaust`/`defrelease`).
+
 ## material2 v19 result: healthy run, 0 captures; dynamic-texture fix implemented, needs Windows build+qualify
 
 `build/game-passes/hl2-any-target-v19b-20260911/runs/material2` finished clean

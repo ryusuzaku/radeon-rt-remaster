@@ -1,3 +1,30 @@
+## 2026-09-16 — first real HL2 material capture: 16 captures
+
+The dynamic in-place work plus the v19 surface locks produced the project's first
+material/texture capture from a live game. `material3` in
+`build/game-passes/hl2-dynamic-v19c-20260916` reached `capture_limit` with **16
+captured draws** where every earlier HL2 pass captured zero.
+
+- 32 texture inputs across the 16 draws: 16 `observed_private_default_update`
+  (whole-chain `UpdateTexture`, dirty proof `top_lock`) and 16
+  `observed_private_default_dynamic` (in-place, `dynamic_proof=top_lock` with no
+  transfer block). 19 external assets written, 5,327,872 bytes.
+- The run used `--position-selection any:3` and captured at target
+  `[1920,1080,21,0]` with no render-target extent supplied in advance: the
+  unfiltered selection replaces the hardcoded resolution.
+- It armed on a real frame boundary and stopped after 4 presents and 668
+  attempts, instead of spending the whole 4096-attempt budget inside one
+  non-presenting interval.
+- Residuals, both unchanged in kind: 20 x `texture_tracking_missing` at slot 1,
+  descriptor `[1024,512,36,512,0]` — a 1024x512 `D3DFMT_A16B16G16R16` DYNAMIC
+  DEFAULT texture — now failing at **`shadow_budget`** rather than admission, i.e.
+  the shared 128MiB ceiling again, and at ~4.5MiB per texture these are what
+  exhaust it; plus 15 x `unsupported_shader` (the pinned-program allowlist) and 6
+  x `selection_primitive_minimum`.
+
+The dynamic admission and format gates are therefore confirmed working against
+the real title, and the remaining texture failure is purely the budget ceiling.
+
 ## 2026-09-16 — dynamic in-place texture capture built and qualified
 
 - Built and qualified the dynamic DEFAULT-pool texture work on Windows. It admits
