@@ -255,6 +255,10 @@ set_tests_properties(codegen_freshness PROPERTIES TIMEOUT 120)
 # Nothing else checks that they agree.
 add_test(NAME capture_version_contract COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_capture_version_contract.py)
 set_tests_properties(capture_version_contract PROPERTIES TIMEOUT 60)
+# The repository is public, so a doc that points at an unpublished file sends
+# readers looking for something that was never shipped.
+add_test(NAME published_references COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_published_references.py)
+set_tests_properties(published_references PROPERTIES TIMEOUT 60)
 add_test(NAME shader_snapshot COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_shader_snapshot.py --fixture $<TARGET_FILE:rrt_shader_fixture>)
 set_tests_properties(shader_snapshot PROPERTIES TIMEOUT 120)
 add_test(NAME shader_proxy COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_shader_proxy.py --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy>)

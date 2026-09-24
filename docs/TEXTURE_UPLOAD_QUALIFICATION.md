@@ -74,7 +74,8 @@ texture-upload-comparison.json beside fixture ledgers.
 Final Release fixtures cover20 accepted cases,80 uploaded draw comparisons,
 56 native/proxy hash comparisons,36 rejected scenarios,40 malformed records and
 four legacy runs. Maximum uploaded shader error6.93656e-8. Build and regression
-results are recorded in progress.md.
+results come from `ctest --test-dir build/x86-vs -C Release -R '^texture_upload$'`,
+which regenerates this evidence rather than recording it in a document.
 
 V17 now qualifies explicit full-dirty notifications and SYSTEMMEM NO_DIRTY_UPDATE
 writes (DIRTY_TEXTURE_QUALIFICATION.md). V18 adds explicit UpdateSurface rectangles

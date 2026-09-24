@@ -53,7 +53,9 @@ remains admitted. Results: dirty-texture-comparison.json beside fixture ledgers.
 
 Release evidence covers20 accepted and16 rejected native scenarios,16 malformed
 records and four legacy runs. All36 native/proxy image hashes match;20 restored
-draws match at maximum6.93656e-8 normalized error. Regression timings are in progress.md.
+draws match at maximum6.93656e-8 normalized error. Regression timings come from
+`ctest --test-dir build/x86-vs -C Release -R '^texture_dirty$'`, which regenerates
+this evidence rather than recording it in a document.
 
 V18 now qualifies explicit UpdateSurface rectangles (SURFACE_UPLOAD_QUALIFICATION.md).
 Next qualify game-sized isolated material comparison. No new HL2 pass is needed
