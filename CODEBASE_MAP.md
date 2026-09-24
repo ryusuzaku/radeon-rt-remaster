@@ -446,14 +446,29 @@ repository entirely.
 `HANDOFF.md`. It is a local-only file now, so it can only mislead a future session
 on this machine, not a reader of the repository. Low value; fix when convenient.
 
-### D8 — Test-time budget is at its limit
-**Evidence:** `HANDOFF.md` records Debug `position_capture` at 156 s against a
-180 s CTest timeout; `texture_*` tests share `RESOURCE_LOCK native_texture_fixture`
-and are therefore serialized; the full texture group measures 164–229 s in
-Release. Debug runs are ~1.5–2× Release.
-**Impact:** this has already forced one test-organization split, and the margin
-is now ~15%.
-**Cost to fix:** small (split or justify a higher timeout) but it will recur.
+### D8 — Texture suites fail transiently for environmental reasons — **recharacterised 2026-09-24**
+**Evidence as found:** `HANDOFF.md` records Debug `position_capture` at 156 s
+against a 180 s CTest timeout, and the texture group measures 164–229 s in Release.
+**Measured 2026-09-24 — the timeout pressure is overstated.** `position_capture`
+runs **59.89 s against 180 s (33%)** and the slowest texture test,
+`texture_surface`, **45.08 s against 120 s (38%)**. There is no timeout squeeze.
+**The real risk is different and worse.** Running the texture group as a subset
+failed two tests: `texture_locks` with `PermissionError: [Errno 13]` on a ledger
+read, and `texture_surface` with the fixture stalling into its 60 s subprocess
+timeout. Both passed on immediate retry (14.42 s, 45.08 s) and had passed in the
+full suite twenty minutes earlier. The stall matches the S_PRESENT_OCCLUDED class
+the last session recorded: the fixture's D3D9 window can be occluded by whatever
+is in the foreground, and frame sampling then never advances past interval 0.
+**Impact:** a flaky test is worse than a slow one. These failures surface as a
+Python traceback, which reads as a code defect, so the instinct is to debug the
+wrong thing. It also means a red suite is not by itself evidence of a regression —
+retry before investigating.
+**Evidence of the variance:** the same 45-test Debug suite took **430.71 s** and
+then **638.70 s** on two runs forty minutes apart, with both green. A 48% swing in
+wall time on identical inputs is the environment, not the code.
+**Cost to fix:** medium. The fixture could report an occluded Present as a distinct
+skip rather than stalling to a timeout, turning a confusing failure into a clear
+one.
 
 ### D9 — Validation claims in the logs are not reproducible in-repo
 **Evidence:** `progress.md` repeatedly cites "all 110 project-local Markdown
@@ -520,7 +535,7 @@ Calendar time is longer (see R2).
 | M0.4 | Decide evidence retention (see §12 Q6), then make the 13 evidence-gated tests either tracked or loudly skipped | §12 Q6 | 1–3 d |
 | M0.5 | ~~Reconcile the planning logs~~ **mostly done 2026-09-24** — `docs/PROJECT_STATUS.md` refreshed from 2026-09-06 to 2026-09-24 and now covers v19, surface locks and the material3 capture; the missing milestone record was published as `docs/HL2_DYNAMIC_MATERIAL_CAPTURE.md` (it had existed only in the local session logs); `PHASE_PLAN.md` declares `PROJECT_STATUS.md` canonical instead of asserting its own stale checkpoint; the four logs are now gitignored. Remaining: the duplicate `material2` section in the local-only `HANDOFF.md` | — | ~~0.5 d~~ 0.1 d |
 | M0.6 | Add CI for the evidence-free subset (x86 Release build + 32 tests), document the SDK/evidence-gated subset as a separate manual job | M0.3, M0.4 | 1–2 d |
-| M0.7 | Split or re-time the Debug `position_capture` matrix to restore headroom | — | 0.5 d |
+| M0.7 | ~~Split or re-time the Debug `position_capture` matrix to restore headroom~~ **recharacterised 2026-09-24** — measured margins are 33% and 38%, not 15%, so there is no timeout squeeze to restore. Replaced by the real issue in D8: the texture suites fail transiently on file locks and window occlusion and surface as tracebacks. Make an occluded Present a distinct skip instead of a 60 s stall | — | 0.5–1 d |
 
 **M0 total: ~3–7 days.** M0.1, M0.2 and M0.3 are done. M0.4 and M0.6 remain the
 long poles; M0.2b and M0.5 are cheap and independent.
@@ -529,16 +544,18 @@ or explicitly reports which tests are unavailable and why; and CI is green on
 the evidence-free subset.
 
 ### M1 — Close the capture budget decision and get real material evidence
-*The immediate product blocker. `progress.md` (2026-09-16) established the
-remaining texture failure is purely the shared 128 MiB shadow cap, and that the
-buffers/textures split buys nothing (buffers measured at 1.3% of the cap).*
+*The immediate product blocker. The remaining texture failure is purely the shared
+128 MiB shadow cap. **Corrected 2026-09-24:** the decision is blocked on measuring
+the **peak**, not on analysis, and the earlier claim that a buffers/textures split
+buys nothing was retracted — over a whole session buffers measure 16.9% of the cap,
+not the 1.3% a 60-present trace window suggested.*
 
 | # | Task | Depends on | Effort |
 |---|---|---|---|
-| M1.1 | **Decide the budget policy** — see §12 Q1 | — | decision |
+| M1.1 | **Decide the budget policy** — see §12 Q1. Blocked on one HL2 pass with the peak instrument, not on analysis | — | decision after 1 game session |
 | M1.2 | Implement the chosen policy; qualify against the existing `defbudget`/`defexhaust`/`defrelease` fixture bracket | M1.1 | 3–5 d |
 | M1.3 | Re-run an HL2 material pass at 2560×1440 — the extent that actually matches (`HL2_MATERIAL_V18_RESULT.md`) — and confirm the 20× `1024x512 A16B16G16R16` failures clear | M1.2, user gameplay | 0.5 d + game time |
-| M1.4 | **Corrected 2026-09-24.** Capture real-game material evidence at a game-sized extent. No tool change is needed: `replay_pixel_material.py --normalized-material` already preserves the captured target width/height and viewport including XY offsets, bounds 1..8192 and ≤8,000,000 px, and `texture_scope` already qualifies 5120×1440 plus an offset 320×240 viewport. What is missing is admitted draws carrying full v19 evidence at that size — `hl2-multidraw-20260907`'s v5 records lack UV/colour/pixel constants and texture bytes, so comparisons at that extent say nothing about the game | M1.3 | 1 d + game time |
+| M1.4 | **Partly done 2026-09-16.** The v19 evidence capture itself works: `material3` recorded 16 draws carrying full v19 evidence (UV/colour/pixel constants, 32 texture inputs, texture bytes) at `[1920,1080,21,0]`. That supersedes `hl2-multidraw-20260907`'s v5 records, which lack all of it. What remains is reaching a **game-sized extent (≥2560×1440)** with that same evidence — and no tool change is needed for that: `replay_pixel_material.py --normalized-material` already preserves the captured target width/height and viewport including XY offsets, bounds 1..8192 and ≤8,000,000 px, and `texture_scope` already qualifies 5120×1440 plus an offset 320×240 viewport. M1.3 covers the pass | M1.3 | 1 d + game time |
 | M1.5 | First real game-sized material comparison (native vs proxy vs replay) on an admitted draw | M1.4 | 1 d + game time |
 
 **M1 total: ~6–8 days + 2–3 game sessions.** The comparison tooling is already
@@ -704,14 +721,21 @@ same resolution-decoupling machinery.
 
 These are the ones I would not want to guess at.
 
-**Q1 — The 128 MiB shadow-budget policy.** `progress.md` (2026-09-16) rules out
-partitioning by resource kind (buffers are 1.3% of the cap) and identifies the
-1024×512 `A16B16G16R16` dynamic sampler inputs at ~4.5 MiB each as what exhausts
-it. Options: (a) lazy payload for DEFAULT destinations, (b) reclaim on unbind,
-(c) raise the cap, (d) accept partial capture and document the ceiling. Each has
-a different honesty cost — (a) and (b) preserve the "no inferred contents"
-principle, (c) weakens a deliberate guard, (d) caps what the tool can ever
-reconstruct. **This blocks M1.**
+**Q1 — The 128 MiB shadow-budget policy.** The whole-session attribution
+**retracted** the earlier trace-window claim that buffers are negligible: measured
+over a full session, buffers are 16.9% of the cap and textures 61.0% across 636
+live textures. The 1024×512 `A16B16G16R16` dynamic sampler inputs at ~4.5 MiB each
+are what tips it over. **The decision is now blocked on a measurement rather than
+on analysis.** The footer reports 99.66 MiB retained while a 4.5 MiB reservation
+was being refused, so the decisive split is the one at the *peak*; the
+`retained_peak` / `peak_buffers` / `peak_textures` instrument landed in the last
+session and **no game pass has run since**, so those numbers do not exist yet. One
+HL2 pass chooses between the candidates: (a) raise the cap — smallest change, needs
+a VRAM rationale; (b) partition buffers from textures — back on the table after the
+retraction; (c) reclaim instead of holding shadows for life — needs a quality
+argument, since nothing is reclaimed while a resource is alive. Full analysis in
+`docs/COMPACT_TEXTURE_COVERAGE.md`, "Where the budget decision stands".
+**This blocks M1.**
 
 **Q2 — Is the next milestone capture fidelity or live presentation?** The repo's
 gates say ship one title's capture first, but the renderer track has momentum and
@@ -825,7 +849,8 @@ recorded `requested_buffer_bytes` exactly; `--probe` reports 8,589,934,592 B on
 x86 and x64 alike and `--budget-test` refuses an over-limit request while charging
 nothing; `verify_dxr_resolution.py` passes end to end on all four binaries with
 1080p/1440p/4K pixel checks and 4096×4096 rendering; and the full CTest suite
-passes **45/45 in x86 Debug (527 s) and 45/45 in x86 Release (446 s)**, re-run after the
+passes **45/45 in x86 Debug** (430.71 s and 638.70 s on two runs) and **45/45 in x86
+Release (446 s)**, re-run after the
 ladder refactor and again after the published-reference work, so the enum/fold
 change is confirmed behaviour-preserving by the version-sensitive `texture_*`
 and `position_capture` matrices.
