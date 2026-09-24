@@ -1,0 +1,63 @@
+Radeon RT Remaster
+Copyright 2026 Tomi Garg-Kaljunen
+
+This product includes software developed as an experimental, user-authorized
+offline/single-player modding runtime for legacy Direct3D 9 titles.
+
+--------------------------------------------------------------------------
+Not affiliated with any hardware or software vendor
+--------------------------------------------------------------------------
+
+This project is an independent work. It is not affiliated with, endorsed by or
+sponsored by AMD, NVIDIA, Microsoft, Valve or any game publisher. Product names
+are used descriptively only.
+
+--------------------------------------------------------------------------
+No game content is distributed
+--------------------------------------------------------------------------
+
+No original game executable, asset, texture, mesh or audio data is distributed
+with or by this repository. Capture, replay and diagnostic artifacts can embed
+extracted game content and are excluded from version control for that reason
+(see .gitignore). The project supports only offline/single-player titles that
+the user is authorized to modify, and performs no anti-cheat or integrity
+circumvention.
+
+--------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------
+
+1. tools/d3d9_interfaces.json
+
+   This file is a machine-readable compilation of Direct3D 9 COM interface and
+   method signatures, generated against Windows SDK 10.0.26100.0. It is derived
+   from publicly documented API surface rather than copied SDK source. It is
+   included so that tools/generate_observers.py can regenerate the forwarding
+   layer without requiring a Windows SDK at build time.
+
+   Windows and Direct3D are trademarks of Microsoft Corporation. No Microsoft
+   source code or header file is redistributed here.
+
+2. AMD FidelityFX SDK
+
+   The FidelityFX Ray Regeneration and Radiance Cache research paths are
+   OPTIONAL, opt-in build configurations gated on the RRT_FSR_SDK and
+   RRT_FSR_RC_SDK CMake cache variables. No FidelityFX SDK source, header,
+   library or signed binary is redistributed in this repository. Users who
+   enable those paths supply their own copy of the SDK, and its licence applies
+   to it. The default build and every default runtime path require no FidelityFX
+   component.
+
+3. Shader compilation
+
+   DXIL is produced at build time by dxc.exe from the Windows SDK. No compiled
+   DXIL is redistributed in this repository.
+
+--------------------------------------------------------------------------
+Hardware evidence
+--------------------------------------------------------------------------
+
+The measurements recorded in docs/ were taken on a single AMD Radeon RX 9070 XT
+with driver 32.0.31041.1004. They do not establish performance or compatibility
+on other GPUs. See docs/COMPATIBILITY_LEDGER.md for the current qualification
+boundary.

@@ -1,0 +1,122 @@
+{
+  "schema": "rrt-capture-version",
+  "version": 1,
+  "description": "Capture ledger versions for the rrt-position-capture schema. Levels 5..19 form an ordered, cumulative evidence ladder emitted on the multi-draw path; the proxy's environment parser refuses a level whose predecessor is not enabled, so the header version is the highest enabled level rather than an independent set of flags. Levels 2..4 are emitted by the other header paths. Level 1 is legacy and no longer produced. Adding a level means updating this file, the CaptureLevel enum and Level() in src/shader/intercept.cpp, and the accepted set in tools/inspect_position_capture.py; tests/verify_capture_version_contract.py fails if they disagree.",
+  "source_of_truth": {
+    "cpp_enum": "src/shader/intercept.cpp (enum class CaptureLevel)",
+    "cpp_fold": "src/shader/intercept.cpp (Context::Level)",
+    "reader": "tools/inspect_position_capture.py (the header version check)"
+  },
+  "legacy": [
+    {
+      "version": 1,
+      "evidence": "legacy position capture; accepted by the reader but no longer produced"
+    }
+  ],
+  "other_headers": [
+    {
+      "version": 2,
+      "evidence": "baseline position capture"
+    },
+    {
+      "version": 3,
+      "evidence": "one-per-present-interval sampling"
+    },
+    {
+      "version": 4,
+      "evidence": "fixed render-target selection"
+    }
+  ],
+  "levels": [
+    {
+      "version": 5,
+      "name": "Bounded",
+      "flag": null,
+      "evidence": "multi-draw baseline: bounded per-present-interval draw and state evidence"
+    },
+    {
+      "version": 6,
+      "name": "RenderState",
+      "flag": "RRT_POSITION_RENDER_STATE",
+      "evidence": "composition boundaries, clear and binding serials"
+    },
+    {
+      "version": 7,
+      "name": "ClearEvidence",
+      "flag": "RRT_POSITION_CLEAR_EVIDENCE",
+      "evidence": "the last clear's rectangles and flags"
+    },
+    {
+      "version": 8,
+      "name": "WriteEvidence",
+      "flag": "RRT_POSITION_WRITE_EVIDENCE",
+      "evidence": "bounded resource-write evidence"
+    },
+    {
+      "version": 9,
+      "name": "SurfaceScope",
+      "flag": "RRT_POSITION_SURFACE_SCOPE",
+      "evidence": "per-draw surface scope and access ranges"
+    },
+    {
+      "version": 10,
+      "name": "ColorReplay",
+      "flag": "RRT_POSITION_COLOR_REPLAY",
+      "evidence": "color-replay state"
+    },
+    {
+      "version": 11,
+      "name": "MaterialInputs",
+      "flag": "RRT_POSITION_MATERIAL_INPUTS",
+      "evidence": "vertex and pixel constants as material inputs"
+    },
+    {
+      "version": 12,
+      "name": "PixelMaterial",
+      "flag": "RRT_POSITION_PIXEL_MATERIAL",
+      "evidence": "pixel-stage material evidence"
+    },
+    {
+      "version": 13,
+      "name": "TextureInputs",
+      "flag": "RRT_POSITION_TEXTURE_INPUTS",
+      "evidence": "sampler inputs and their tracking"
+    },
+    {
+      "version": 14,
+      "name": "ExternalTextures",
+      "flag": "RRT_POSITION_TEXTURE_ASSETS",
+      "evidence": "texture assets written alongside the ledger"
+    },
+    {
+      "version": 15,
+      "name": "CompressedTextures",
+      "flag": "RRT_POSITION_COMPRESSED_TEXTURES",
+      "evidence": "initialized managed RGBA and DXT1/DXT3/DXT5 chains"
+    },
+    {
+      "version": 16,
+      "name": "TextureUploads",
+      "flag": "RRT_POSITION_TEXTURE_UPLOADS",
+      "evidence": "proven whole-chain default-pool uploads"
+    },
+    {
+      "version": 17,
+      "name": "DirtyTextures",
+      "flag": "RRT_POSITION_DIRTY_TEXTURES",
+      "evidence": "explicit full-dirty notifications"
+    },
+    {
+      "version": 18,
+      "name": "SurfaceUploads",
+      "flag": "RRT_POSITION_SURFACE_UPLOADS",
+      "evidence": "partial UpdateSurface coverage"
+    },
+    {
+      "version": 19,
+      "name": "SurfaceLocks",
+      "flag": "RRT_POSITION_SURFACE_LOCKS",
+      "evidence": "observed texture-mip surface lock/unlock tracking"
+    }
+  ]
+}

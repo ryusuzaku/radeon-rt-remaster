@@ -1,0 +1,14 @@
+# Normalise line endings in the repository to LF so the checked-out working tree
+# does not depend on a contributor's core.autocrlf setting. The index is already
+# all LF, so this makes the existing policy explicit rather than changing it.
+* text=auto eol=lf
+
+# PowerShell scripts are most reliable with native Windows endings.
+*.ps1 text eol=crlf
+
+# Capture, replay and image artifacts are binary if they are ever tracked.
+*.png binary
+*.jpg binary
+*.rrt.jsonl binary
+*.rrscene binary
+*.pixels binary

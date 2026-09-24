@@ -1,0 +1,6846 @@
+[
+  {
+    "name": "IDirect3D9",
+    "base": "IUnknown",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "RegisterSoftwareDevice",
+        "args": [
+          {
+            "type": "void*",
+            "name": "pInitializeFunction"
+          }
+        ]
+      },
+      {
+        "ret": "UINT",
+        "name": "GetAdapterCount",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetAdapterIdentifier",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          },
+          {
+            "type": "D3DADAPTER_IDENTIFIER9*",
+            "name": "pIdentifier"
+          }
+        ]
+      },
+      {
+        "ret": "UINT",
+        "name": "GetAdapterModeCount",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "EnumAdapterModes",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "UINT",
+            "name": "Mode"
+          },
+          {
+            "type": "D3DDISPLAYMODE*",
+            "name": "pMode"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetAdapterDisplayMode",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDISPLAYMODE*",
+            "name": "pMode"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckDeviceType",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DevType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "AdapterFormat"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "BackBufferFormat"
+          },
+          {
+            "type": "BOOL",
+            "name": "bWindowed"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckDeviceFormat",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "AdapterFormat"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "D3DRESOURCETYPE",
+            "name": "RType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "CheckFormat"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckDeviceMultiSampleType",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "SurfaceFormat"
+          },
+          {
+            "type": "BOOL",
+            "name": "Windowed"
+          },
+          {
+            "type": "D3DMULTISAMPLE_TYPE",
+            "name": "MultiSampleType"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pQualityLevels"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckDepthStencilMatch",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "AdapterFormat"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "RenderTargetFormat"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "DepthStencilFormat"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckDeviceFormatConversion",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "SourceFormat"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "TargetFormat"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDeviceCaps",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "D3DCAPS9*",
+            "name": "pCaps"
+          }
+        ]
+      },
+      {
+        "ret": "HMONITOR",
+        "name": "GetAdapterMonitor",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateDevice",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "HWND",
+            "name": "hFocusWindow"
+          },
+          {
+            "type": "DWORD",
+            "name": "BehaviorFlags"
+          },
+          {
+            "type": "D3DPRESENT_PARAMETERS*",
+            "name": "pPresentationParameters"
+          },
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppReturnedDeviceInterface"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DDevice9",
+    "base": "IUnknown",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "TestCooperativeLevel",
+        "args": []
+      },
+      {
+        "ret": "UINT",
+        "name": "GetAvailableTextureMem",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "EvictManagedResources",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDirect3D",
+        "args": [
+          {
+            "type": "IDirect3D9**",
+            "name": "ppD3D9"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDeviceCaps",
+        "args": [
+          {
+            "type": "D3DCAPS9*",
+            "name": "pCaps"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDisplayMode",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "D3DDISPLAYMODE*",
+            "name": "pMode"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetCreationParameters",
+        "args": [
+          {
+            "type": "D3DDEVICE_CREATION_PARAMETERS *",
+            "name": "pParameters"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetCursorProperties",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "XHotSpot"
+          },
+          {
+            "type": "UINT",
+            "name": "YHotSpot"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pCursorBitmap"
+          }
+        ]
+      },
+      {
+        "ret": "void",
+        "name": "SetCursorPosition",
+        "args": [
+          {
+            "type": "int",
+            "name": "X"
+          },
+          {
+            "type": "int",
+            "name": "Y"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "BOOL",
+        "name": "ShowCursor",
+        "args": [
+          {
+            "type": "BOOL",
+            "name": "bShow"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateAdditionalSwapChain",
+        "args": [
+          {
+            "type": "D3DPRESENT_PARAMETERS*",
+            "name": "pPresentationParameters"
+          },
+          {
+            "type": "IDirect3DSwapChain9**",
+            "name": "pSwapChain"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetSwapChain",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "IDirect3DSwapChain9**",
+            "name": "pSwapChain"
+          }
+        ]
+      },
+      {
+        "ret": "UINT",
+        "name": "GetNumberOfSwapChains",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Reset",
+        "args": [
+          {
+            "type": "D3DPRESENT_PARAMETERS*",
+            "name": "pPresentationParameters"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Present",
+        "args": [
+          {
+            "type": "CONST RECT*",
+            "name": "pSourceRect"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pDestRect"
+          },
+          {
+            "type": "HWND",
+            "name": "hDestWindowOverride"
+          },
+          {
+            "type": "CONST RGNDATA*",
+            "name": "pDirtyRegion"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetBackBuffer",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "UINT",
+            "name": "iBackBuffer"
+          },
+          {
+            "type": "D3DBACKBUFFER_TYPE",
+            "name": "Type"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppBackBuffer"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetRasterStatus",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "D3DRASTER_STATUS*",
+            "name": "pRasterStatus"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetDialogBoxMode",
+        "args": [
+          {
+            "type": "BOOL",
+            "name": "bEnableDialogs"
+          }
+        ]
+      },
+      {
+        "ret": "void",
+        "name": "SetGammaRamp",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          },
+          {
+            "type": "CONST D3DGAMMARAMP*",
+            "name": "pRamp"
+          }
+        ]
+      },
+      {
+        "ret": "void",
+        "name": "GetGammaRamp",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "D3DGAMMARAMP*",
+            "name": "pRamp"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateTexture",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "UINT",
+            "name": "Levels"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DTexture9**",
+            "name": "ppTexture"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateVolumeTexture",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "UINT",
+            "name": "Depth"
+          },
+          {
+            "type": "UINT",
+            "name": "Levels"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DVolumeTexture9**",
+            "name": "ppVolumeTexture"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateCubeTexture",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "EdgeLength"
+          },
+          {
+            "type": "UINT",
+            "name": "Levels"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DCubeTexture9**",
+            "name": "ppCubeTexture"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateVertexBuffer",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Length"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "DWORD",
+            "name": "FVF"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DVertexBuffer9**",
+            "name": "ppVertexBuffer"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateIndexBuffer",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Length"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DIndexBuffer9**",
+            "name": "ppIndexBuffer"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateRenderTarget",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DMULTISAMPLE_TYPE",
+            "name": "MultiSample"
+          },
+          {
+            "type": "DWORD",
+            "name": "MultisampleQuality"
+          },
+          {
+            "type": "BOOL",
+            "name": "Lockable"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppSurface"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateDepthStencilSurface",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DMULTISAMPLE_TYPE",
+            "name": "MultiSample"
+          },
+          {
+            "type": "DWORD",
+            "name": "MultisampleQuality"
+          },
+          {
+            "type": "BOOL",
+            "name": "Discard"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppSurface"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "UpdateSurface",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pSourceSurface"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pSourceRect"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pDestinationSurface"
+          },
+          {
+            "type": "CONST POINT*",
+            "name": "pDestPoint"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "UpdateTexture",
+        "args": [
+          {
+            "type": "IDirect3DBaseTexture9*",
+            "name": "pSourceTexture"
+          },
+          {
+            "type": "IDirect3DBaseTexture9*",
+            "name": "pDestinationTexture"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetRenderTargetData",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pRenderTarget"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pDestSurface"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetFrontBufferData",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pDestSurface"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "StretchRect",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pSourceSurface"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pSourceRect"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pDestSurface"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pDestRect"
+          },
+          {
+            "type": "D3DTEXTUREFILTERTYPE",
+            "name": "Filter"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "ColorFill",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pSurface"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pRect"
+          },
+          {
+            "type": "D3DCOLOR",
+            "name": "color"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateOffscreenPlainSurface",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppSurface"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetRenderTarget",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "RenderTargetIndex"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pRenderTarget"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetRenderTarget",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "RenderTargetIndex"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppRenderTarget"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetDepthStencilSurface",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pNewZStencil"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDepthStencilSurface",
+        "args": [
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppZStencilSurface"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "BeginScene",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "EndScene",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Clear",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Count"
+          },
+          {
+            "type": "CONST D3DRECT*",
+            "name": "pRects"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          },
+          {
+            "type": "D3DCOLOR",
+            "name": "Color"
+          },
+          {
+            "type": "float",
+            "name": "Z"
+          },
+          {
+            "type": "DWORD",
+            "name": "Stencil"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetTransform",
+        "args": [
+          {
+            "type": "D3DTRANSFORMSTATETYPE",
+            "name": "State"
+          },
+          {
+            "type": "CONST D3DMATRIX*",
+            "name": "pMatrix"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetTransform",
+        "args": [
+          {
+            "type": "D3DTRANSFORMSTATETYPE",
+            "name": "State"
+          },
+          {
+            "type": "D3DMATRIX*",
+            "name": "pMatrix"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "MultiplyTransform",
+        "args": [
+          {
+            "type": "D3DTRANSFORMSTATETYPE",
+            "name": "arg0"
+          },
+          {
+            "type": "CONST D3DMATRIX*",
+            "name": "arg1"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetViewport",
+        "args": [
+          {
+            "type": "CONST D3DVIEWPORT9*",
+            "name": "pViewport"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetViewport",
+        "args": [
+          {
+            "type": "D3DVIEWPORT9*",
+            "name": "pViewport"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetMaterial",
+        "args": [
+          {
+            "type": "CONST D3DMATERIAL9*",
+            "name": "pMaterial"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetMaterial",
+        "args": [
+          {
+            "type": "D3DMATERIAL9*",
+            "name": "pMaterial"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetLight",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "CONST D3DLIGHT9*",
+            "name": "arg1"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetLight",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "D3DLIGHT9*",
+            "name": "arg1"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "LightEnable",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "BOOL",
+            "name": "Enable"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetLightEnable",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "BOOL*",
+            "name": "pEnable"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetClipPlane",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "CONST float*",
+            "name": "pPlane"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetClipPlane",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "float*",
+            "name": "pPlane"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetRenderState",
+        "args": [
+          {
+            "type": "D3DRENDERSTATETYPE",
+            "name": "State"
+          },
+          {
+            "type": "DWORD",
+            "name": "Value"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetRenderState",
+        "args": [
+          {
+            "type": "D3DRENDERSTATETYPE",
+            "name": "State"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pValue"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateStateBlock",
+        "args": [
+          {
+            "type": "D3DSTATEBLOCKTYPE",
+            "name": "Type"
+          },
+          {
+            "type": "IDirect3DStateBlock9**",
+            "name": "ppSB"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "BeginStateBlock",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "EndStateBlock",
+        "args": [
+          {
+            "type": "IDirect3DStateBlock9**",
+            "name": "ppSB"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetClipStatus",
+        "args": [
+          {
+            "type": "CONST D3DCLIPSTATUS9*",
+            "name": "pClipStatus"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetClipStatus",
+        "args": [
+          {
+            "type": "D3DCLIPSTATUS9*",
+            "name": "pClipStatus"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetTexture",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Stage"
+          },
+          {
+            "type": "IDirect3DBaseTexture9**",
+            "name": "ppTexture"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetTexture",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Stage"
+          },
+          {
+            "type": "IDirect3DBaseTexture9*",
+            "name": "pTexture"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetTextureStageState",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Stage"
+          },
+          {
+            "type": "D3DTEXTURESTAGESTATETYPE",
+            "name": "Type"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pValue"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetTextureStageState",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Stage"
+          },
+          {
+            "type": "D3DTEXTURESTAGESTATETYPE",
+            "name": "Type"
+          },
+          {
+            "type": "DWORD",
+            "name": "Value"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetSamplerState",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Sampler"
+          },
+          {
+            "type": "D3DSAMPLERSTATETYPE",
+            "name": "Type"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pValue"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetSamplerState",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Sampler"
+          },
+          {
+            "type": "D3DSAMPLERSTATETYPE",
+            "name": "Type"
+          },
+          {
+            "type": "DWORD",
+            "name": "Value"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "ValidateDevice",
+        "args": [
+          {
+            "type": "DWORD*",
+            "name": "pNumPasses"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPaletteEntries",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "PaletteNumber"
+          },
+          {
+            "type": "CONST PALETTEENTRY*",
+            "name": "pEntries"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPaletteEntries",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "PaletteNumber"
+          },
+          {
+            "type": "PALETTEENTRY*",
+            "name": "pEntries"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetCurrentTexturePalette",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "PaletteNumber"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetCurrentTexturePalette",
+        "args": [
+          {
+            "type": "UINT *",
+            "name": "PaletteNumber"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetScissorRect",
+        "args": [
+          {
+            "type": "CONST RECT*",
+            "name": "pRect"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetScissorRect",
+        "args": [
+          {
+            "type": "RECT*",
+            "name": "pRect"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetSoftwareVertexProcessing",
+        "args": [
+          {
+            "type": "BOOL",
+            "name": "bSoftware"
+          }
+        ]
+      },
+      {
+        "ret": "BOOL",
+        "name": "GetSoftwareVertexProcessing",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetNPatchMode",
+        "args": [
+          {
+            "type": "float",
+            "name": "nSegments"
+          }
+        ]
+      },
+      {
+        "ret": "float",
+        "name": "GetNPatchMode",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawPrimitive",
+        "args": [
+          {
+            "type": "D3DPRIMITIVETYPE",
+            "name": "PrimitiveType"
+          },
+          {
+            "type": "UINT",
+            "name": "StartVertex"
+          },
+          {
+            "type": "UINT",
+            "name": "PrimitiveCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawIndexedPrimitive",
+        "args": [
+          {
+            "type": "D3DPRIMITIVETYPE",
+            "name": "arg0"
+          },
+          {
+            "type": "INT",
+            "name": "BaseVertexIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "MinVertexIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "NumVertices"
+          },
+          {
+            "type": "UINT",
+            "name": "startIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "primCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawPrimitiveUP",
+        "args": [
+          {
+            "type": "D3DPRIMITIVETYPE",
+            "name": "PrimitiveType"
+          },
+          {
+            "type": "UINT",
+            "name": "PrimitiveCount"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pVertexStreamZeroData"
+          },
+          {
+            "type": "UINT",
+            "name": "VertexStreamZeroStride"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawIndexedPrimitiveUP",
+        "args": [
+          {
+            "type": "D3DPRIMITIVETYPE",
+            "name": "PrimitiveType"
+          },
+          {
+            "type": "UINT",
+            "name": "MinVertexIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "NumVertices"
+          },
+          {
+            "type": "UINT",
+            "name": "PrimitiveCount"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pIndexData"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "IndexDataFormat"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pVertexStreamZeroData"
+          },
+          {
+            "type": "UINT",
+            "name": "VertexStreamZeroStride"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "ProcessVertices",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "SrcStartIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "DestIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "VertexCount"
+          },
+          {
+            "type": "IDirect3DVertexBuffer9*",
+            "name": "pDestBuffer"
+          },
+          {
+            "type": "IDirect3DVertexDeclaration9*",
+            "name": "pVertexDecl"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateVertexDeclaration",
+        "args": [
+          {
+            "type": "CONST D3DVERTEXELEMENT9*",
+            "name": "pVertexElements"
+          },
+          {
+            "type": "IDirect3DVertexDeclaration9**",
+            "name": "ppDecl"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetVertexDeclaration",
+        "args": [
+          {
+            "type": "IDirect3DVertexDeclaration9*",
+            "name": "pDecl"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetVertexDeclaration",
+        "args": [
+          {
+            "type": "IDirect3DVertexDeclaration9**",
+            "name": "ppDecl"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetFVF",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "FVF"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetFVF",
+        "args": [
+          {
+            "type": "DWORD*",
+            "name": "pFVF"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateVertexShader",
+        "args": [
+          {
+            "type": "CONST DWORD*",
+            "name": "pFunction"
+          },
+          {
+            "type": "IDirect3DVertexShader9**",
+            "name": "ppShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetVertexShader",
+        "args": [
+          {
+            "type": "IDirect3DVertexShader9*",
+            "name": "pShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetVertexShader",
+        "args": [
+          {
+            "type": "IDirect3DVertexShader9**",
+            "name": "ppShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetVertexShaderConstantF",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST float*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4fCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetVertexShaderConstantF",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "float*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4fCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetVertexShaderConstantI",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST int*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4iCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetVertexShaderConstantI",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "int*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4iCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetVertexShaderConstantB",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST BOOL*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "BoolCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetVertexShaderConstantB",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "BOOL*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "BoolCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetStreamSource",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StreamNumber"
+          },
+          {
+            "type": "IDirect3DVertexBuffer9*",
+            "name": "pStreamData"
+          },
+          {
+            "type": "UINT",
+            "name": "OffsetInBytes"
+          },
+          {
+            "type": "UINT",
+            "name": "Stride"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetStreamSource",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StreamNumber"
+          },
+          {
+            "type": "IDirect3DVertexBuffer9**",
+            "name": "ppStreamData"
+          },
+          {
+            "type": "UINT*",
+            "name": "pOffsetInBytes"
+          },
+          {
+            "type": "UINT*",
+            "name": "pStride"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetStreamSourceFreq",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StreamNumber"
+          },
+          {
+            "type": "UINT",
+            "name": "Setting"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetStreamSourceFreq",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StreamNumber"
+          },
+          {
+            "type": "UINT*",
+            "name": "pSetting"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetIndices",
+        "args": [
+          {
+            "type": "IDirect3DIndexBuffer9*",
+            "name": "pIndexData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetIndices",
+        "args": [
+          {
+            "type": "IDirect3DIndexBuffer9**",
+            "name": "ppIndexData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreatePixelShader",
+        "args": [
+          {
+            "type": "CONST DWORD*",
+            "name": "pFunction"
+          },
+          {
+            "type": "IDirect3DPixelShader9**",
+            "name": "ppShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPixelShader",
+        "args": [
+          {
+            "type": "IDirect3DPixelShader9*",
+            "name": "pShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPixelShader",
+        "args": [
+          {
+            "type": "IDirect3DPixelShader9**",
+            "name": "ppShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPixelShaderConstantF",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST float*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4fCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPixelShaderConstantF",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "float*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4fCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPixelShaderConstantI",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST int*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4iCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPixelShaderConstantI",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "int*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4iCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPixelShaderConstantB",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST BOOL*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "BoolCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPixelShaderConstantB",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "BOOL*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "BoolCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawRectPatch",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Handle"
+          },
+          {
+            "type": "CONST float*",
+            "name": "pNumSegs"
+          },
+          {
+            "type": "CONST D3DRECTPATCH_INFO*",
+            "name": "pRectPatchInfo"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawTriPatch",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Handle"
+          },
+          {
+            "type": "CONST float*",
+            "name": "pNumSegs"
+          },
+          {
+            "type": "CONST D3DTRIPATCH_INFO*",
+            "name": "pTriPatchInfo"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DeletePatch",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Handle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateQuery",
+        "args": [
+          {
+            "type": "D3DQUERYTYPE",
+            "name": "Type"
+          },
+          {
+            "type": "IDirect3DQuery9**",
+            "name": "ppQuery"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DStateBlock9",
+    "base": "IUnknown",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Capture",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Apply",
+        "args": []
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DSwapChain9",
+    "base": "IUnknown",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Present",
+        "args": [
+          {
+            "type": "CONST RECT*",
+            "name": "pSourceRect"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pDestRect"
+          },
+          {
+            "type": "HWND",
+            "name": "hDestWindowOverride"
+          },
+          {
+            "type": "CONST RGNDATA*",
+            "name": "pDirtyRegion"
+          },
+          {
+            "type": "DWORD",
+            "name": "dwFlags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetFrontBufferData",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pDestSurface"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetBackBuffer",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iBackBuffer"
+          },
+          {
+            "type": "D3DBACKBUFFER_TYPE",
+            "name": "Type"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppBackBuffer"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetRasterStatus",
+        "args": [
+          {
+            "type": "D3DRASTER_STATUS*",
+            "name": "pRasterStatus"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDisplayMode",
+        "args": [
+          {
+            "type": "D3DDISPLAYMODE*",
+            "name": "pMode"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPresentParameters",
+        "args": [
+          {
+            "type": "D3DPRESENT_PARAMETERS*",
+            "name": "pPresentationParameters"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DResource9",
+    "base": "IUnknown",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD",
+            "name": "SizeOfData"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pSizeOfData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "FreePrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetPriority",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "PriorityNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetPriority",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "PreLoad",
+        "args": []
+      },
+      {
+        "ret": "D3DRESOURCETYPE",
+        "name": "GetType",
+        "args": []
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DVertexDeclaration9",
+    "base": "IUnknown",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDeclaration",
+        "args": [
+          {
+            "type": "D3DVERTEXELEMENT9*",
+            "name": "pElement"
+          },
+          {
+            "type": "UINT*",
+            "name": "pNumElements"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DVertexShader9",
+    "base": "IUnknown",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetFunction",
+        "args": [
+          {
+            "type": "void*",
+            "name": "arg0"
+          },
+          {
+            "type": "UINT*",
+            "name": "pSizeOfData"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DPixelShader9",
+    "base": "IUnknown",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetFunction",
+        "args": [
+          {
+            "type": "void*",
+            "name": "arg0"
+          },
+          {
+            "type": "UINT*",
+            "name": "pSizeOfData"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DBaseTexture9",
+    "base": "IDirect3DResource9",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD",
+            "name": "SizeOfData"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pSizeOfData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "FreePrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetPriority",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "PriorityNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetPriority",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "PreLoad",
+        "args": []
+      },
+      {
+        "ret": "D3DRESOURCETYPE",
+        "name": "GetType",
+        "args": []
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetLOD",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "LODNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetLOD",
+        "args": []
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetLevelCount",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetAutoGenFilterType",
+        "args": [
+          {
+            "type": "D3DTEXTUREFILTERTYPE",
+            "name": "FilterType"
+          }
+        ]
+      },
+      {
+        "ret": "D3DTEXTUREFILTERTYPE",
+        "name": "GetAutoGenFilterType",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "GenerateMipSubLevels",
+        "args": []
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DTexture9",
+    "base": "IDirect3DBaseTexture9",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD",
+            "name": "SizeOfData"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pSizeOfData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "FreePrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetPriority",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "PriorityNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetPriority",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "PreLoad",
+        "args": []
+      },
+      {
+        "ret": "D3DRESOURCETYPE",
+        "name": "GetType",
+        "args": []
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetLOD",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "LODNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetLOD",
+        "args": []
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetLevelCount",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetAutoGenFilterType",
+        "args": [
+          {
+            "type": "D3DTEXTUREFILTERTYPE",
+            "name": "FilterType"
+          }
+        ]
+      },
+      {
+        "ret": "D3DTEXTUREFILTERTYPE",
+        "name": "GetAutoGenFilterType",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "GenerateMipSubLevels",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetLevelDesc",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Level"
+          },
+          {
+            "type": "D3DSURFACE_DESC *",
+            "name": "pDesc"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetSurfaceLevel",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Level"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppSurfaceLevel"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "LockRect",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Level"
+          },
+          {
+            "type": "D3DLOCKED_RECT*",
+            "name": "pLockedRect"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pRect"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "UnlockRect",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Level"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "AddDirtyRect",
+        "args": [
+          {
+            "type": "CONST RECT*",
+            "name": "pDirtyRect"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DVolumeTexture9",
+    "base": "IDirect3DBaseTexture9",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD",
+            "name": "SizeOfData"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pSizeOfData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "FreePrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetPriority",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "PriorityNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetPriority",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "PreLoad",
+        "args": []
+      },
+      {
+        "ret": "D3DRESOURCETYPE",
+        "name": "GetType",
+        "args": []
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetLOD",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "LODNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetLOD",
+        "args": []
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetLevelCount",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetAutoGenFilterType",
+        "args": [
+          {
+            "type": "D3DTEXTUREFILTERTYPE",
+            "name": "FilterType"
+          }
+        ]
+      },
+      {
+        "ret": "D3DTEXTUREFILTERTYPE",
+        "name": "GetAutoGenFilterType",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "GenerateMipSubLevels",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetLevelDesc",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Level"
+          },
+          {
+            "type": "D3DVOLUME_DESC *",
+            "name": "pDesc"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetVolumeLevel",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Level"
+          },
+          {
+            "type": "IDirect3DVolume9**",
+            "name": "ppVolumeLevel"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "LockBox",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Level"
+          },
+          {
+            "type": "D3DLOCKED_BOX*",
+            "name": "pLockedVolume"
+          },
+          {
+            "type": "CONST D3DBOX*",
+            "name": "pBox"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "UnlockBox",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Level"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "AddDirtyBox",
+        "args": [
+          {
+            "type": "CONST D3DBOX*",
+            "name": "pDirtyBox"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DCubeTexture9",
+    "base": "IDirect3DBaseTexture9",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD",
+            "name": "SizeOfData"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pSizeOfData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "FreePrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetPriority",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "PriorityNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetPriority",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "PreLoad",
+        "args": []
+      },
+      {
+        "ret": "D3DRESOURCETYPE",
+        "name": "GetType",
+        "args": []
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetLOD",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "LODNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetLOD",
+        "args": []
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetLevelCount",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetAutoGenFilterType",
+        "args": [
+          {
+            "type": "D3DTEXTUREFILTERTYPE",
+            "name": "FilterType"
+          }
+        ]
+      },
+      {
+        "ret": "D3DTEXTUREFILTERTYPE",
+        "name": "GetAutoGenFilterType",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "GenerateMipSubLevels",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetLevelDesc",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Level"
+          },
+          {
+            "type": "D3DSURFACE_DESC *",
+            "name": "pDesc"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetCubeMapSurface",
+        "args": [
+          {
+            "type": "D3DCUBEMAP_FACES",
+            "name": "FaceType"
+          },
+          {
+            "type": "UINT",
+            "name": "Level"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppCubeMapSurface"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "LockRect",
+        "args": [
+          {
+            "type": "D3DCUBEMAP_FACES",
+            "name": "FaceType"
+          },
+          {
+            "type": "UINT",
+            "name": "Level"
+          },
+          {
+            "type": "D3DLOCKED_RECT*",
+            "name": "pLockedRect"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pRect"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "UnlockRect",
+        "args": [
+          {
+            "type": "D3DCUBEMAP_FACES",
+            "name": "FaceType"
+          },
+          {
+            "type": "UINT",
+            "name": "Level"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "AddDirtyRect",
+        "args": [
+          {
+            "type": "D3DCUBEMAP_FACES",
+            "name": "FaceType"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pDirtyRect"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DVertexBuffer9",
+    "base": "IDirect3DResource9",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD",
+            "name": "SizeOfData"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pSizeOfData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "FreePrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetPriority",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "PriorityNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetPriority",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "PreLoad",
+        "args": []
+      },
+      {
+        "ret": "D3DRESOURCETYPE",
+        "name": "GetType",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Lock",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "OffsetToLock"
+          },
+          {
+            "type": "UINT",
+            "name": "SizeToLock"
+          },
+          {
+            "type": "void**",
+            "name": "ppbData"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Unlock",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDesc",
+        "args": [
+          {
+            "type": "D3DVERTEXBUFFER_DESC *",
+            "name": "pDesc"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DIndexBuffer9",
+    "base": "IDirect3DResource9",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD",
+            "name": "SizeOfData"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pSizeOfData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "FreePrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetPriority",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "PriorityNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetPriority",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "PreLoad",
+        "args": []
+      },
+      {
+        "ret": "D3DRESOURCETYPE",
+        "name": "GetType",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Lock",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "OffsetToLock"
+          },
+          {
+            "type": "UINT",
+            "name": "SizeToLock"
+          },
+          {
+            "type": "void**",
+            "name": "ppbData"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Unlock",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDesc",
+        "args": [
+          {
+            "type": "D3DINDEXBUFFER_DESC *",
+            "name": "pDesc"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DSurface9",
+    "base": "IDirect3DResource9",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD",
+            "name": "SizeOfData"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pSizeOfData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "FreePrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "SetPriority",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "PriorityNew"
+          }
+        ]
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetPriority",
+        "args": []
+      },
+      {
+        "ret": "void",
+        "name": "PreLoad",
+        "args": []
+      },
+      {
+        "ret": "D3DRESOURCETYPE",
+        "name": "GetType",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetContainer",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppContainer"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDesc",
+        "args": [
+          {
+            "type": "D3DSURFACE_DESC *",
+            "name": "pDesc"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "LockRect",
+        "args": [
+          {
+            "type": "D3DLOCKED_RECT*",
+            "name": "pLockedRect"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pRect"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "UnlockRect",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDC",
+        "args": [
+          {
+            "type": "HDC *",
+            "name": "phdc"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "ReleaseDC",
+        "args": [
+          {
+            "type": "HDC",
+            "name": "hdc"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DVolume9",
+    "base": "IUnknown",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD",
+            "name": "SizeOfData"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          },
+          {
+            "type": "void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pSizeOfData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "FreePrivateData",
+        "args": [
+          {
+            "type": "REFGUID",
+            "name": "refguid"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetContainer",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppContainer"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDesc",
+        "args": [
+          {
+            "type": "D3DVOLUME_DESC *",
+            "name": "pDesc"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "LockBox",
+        "args": [
+          {
+            "type": "D3DLOCKED_BOX *",
+            "name": "pLockedVolume"
+          },
+          {
+            "type": "CONST D3DBOX*",
+            "name": "pBox"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "UnlockBox",
+        "args": []
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DQuery9",
+    "base": "IUnknown",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "D3DQUERYTYPE",
+        "name": "GetType",
+        "args": []
+      },
+      {
+        "ret": "DWORD",
+        "name": "GetDataSize",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Issue",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "dwIssueFlags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetData",
+        "args": [
+          {
+            "type": "void*",
+            "name": "pData"
+          },
+          {
+            "type": "DWORD",
+            "name": "dwSize"
+          },
+          {
+            "type": "DWORD",
+            "name": "dwGetDataFlags"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3D9Ex",
+    "base": "IDirect3D9",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "RegisterSoftwareDevice",
+        "args": [
+          {
+            "type": "void*",
+            "name": "pInitializeFunction"
+          }
+        ]
+      },
+      {
+        "ret": "UINT",
+        "name": "GetAdapterCount",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetAdapterIdentifier",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          },
+          {
+            "type": "D3DADAPTER_IDENTIFIER9*",
+            "name": "pIdentifier"
+          }
+        ]
+      },
+      {
+        "ret": "UINT",
+        "name": "GetAdapterModeCount",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "EnumAdapterModes",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "UINT",
+            "name": "Mode"
+          },
+          {
+            "type": "D3DDISPLAYMODE*",
+            "name": "pMode"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetAdapterDisplayMode",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDISPLAYMODE*",
+            "name": "pMode"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckDeviceType",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DevType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "AdapterFormat"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "BackBufferFormat"
+          },
+          {
+            "type": "BOOL",
+            "name": "bWindowed"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckDeviceFormat",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "AdapterFormat"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "D3DRESOURCETYPE",
+            "name": "RType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "CheckFormat"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckDeviceMultiSampleType",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "SurfaceFormat"
+          },
+          {
+            "type": "BOOL",
+            "name": "Windowed"
+          },
+          {
+            "type": "D3DMULTISAMPLE_TYPE",
+            "name": "MultiSampleType"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pQualityLevels"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckDepthStencilMatch",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "AdapterFormat"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "RenderTargetFormat"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "DepthStencilFormat"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckDeviceFormatConversion",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "SourceFormat"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "TargetFormat"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDeviceCaps",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "D3DCAPS9*",
+            "name": "pCaps"
+          }
+        ]
+      },
+      {
+        "ret": "HMONITOR",
+        "name": "GetAdapterMonitor",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateDevice",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "HWND",
+            "name": "hFocusWindow"
+          },
+          {
+            "type": "DWORD",
+            "name": "BehaviorFlags"
+          },
+          {
+            "type": "D3DPRESENT_PARAMETERS*",
+            "name": "pPresentationParameters"
+          },
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppReturnedDeviceInterface"
+          }
+        ]
+      },
+      {
+        "ret": "UINT",
+        "name": "GetAdapterModeCountEx",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "CONST D3DDISPLAYMODEFILTER*",
+            "name": "pFilter"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "EnumAdapterModesEx",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "CONST D3DDISPLAYMODEFILTER*",
+            "name": "pFilter"
+          },
+          {
+            "type": "UINT",
+            "name": "Mode"
+          },
+          {
+            "type": "D3DDISPLAYMODEEX*",
+            "name": "pMode"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetAdapterDisplayModeEx",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDISPLAYMODEEX*",
+            "name": "pMode"
+          },
+          {
+            "type": "D3DDISPLAYROTATION*",
+            "name": "pRotation"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateDeviceEx",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "D3DDEVTYPE",
+            "name": "DeviceType"
+          },
+          {
+            "type": "HWND",
+            "name": "hFocusWindow"
+          },
+          {
+            "type": "DWORD",
+            "name": "BehaviorFlags"
+          },
+          {
+            "type": "D3DPRESENT_PARAMETERS*",
+            "name": "pPresentationParameters"
+          },
+          {
+            "type": "D3DDISPLAYMODEEX*",
+            "name": "pFullscreenDisplayMode"
+          },
+          {
+            "type": "IDirect3DDevice9Ex**",
+            "name": "ppReturnedDeviceInterface"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetAdapterLUID",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Adapter"
+          },
+          {
+            "type": "LUID *",
+            "name": "pLUID"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DDevice9Ex",
+    "base": "IDirect3DDevice9",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "TestCooperativeLevel",
+        "args": []
+      },
+      {
+        "ret": "UINT",
+        "name": "GetAvailableTextureMem",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "EvictManagedResources",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDirect3D",
+        "args": [
+          {
+            "type": "IDirect3D9**",
+            "name": "ppD3D9"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDeviceCaps",
+        "args": [
+          {
+            "type": "D3DCAPS9*",
+            "name": "pCaps"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDisplayMode",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "D3DDISPLAYMODE*",
+            "name": "pMode"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetCreationParameters",
+        "args": [
+          {
+            "type": "D3DDEVICE_CREATION_PARAMETERS *",
+            "name": "pParameters"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetCursorProperties",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "XHotSpot"
+          },
+          {
+            "type": "UINT",
+            "name": "YHotSpot"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pCursorBitmap"
+          }
+        ]
+      },
+      {
+        "ret": "void",
+        "name": "SetCursorPosition",
+        "args": [
+          {
+            "type": "int",
+            "name": "X"
+          },
+          {
+            "type": "int",
+            "name": "Y"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "BOOL",
+        "name": "ShowCursor",
+        "args": [
+          {
+            "type": "BOOL",
+            "name": "bShow"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateAdditionalSwapChain",
+        "args": [
+          {
+            "type": "D3DPRESENT_PARAMETERS*",
+            "name": "pPresentationParameters"
+          },
+          {
+            "type": "IDirect3DSwapChain9**",
+            "name": "pSwapChain"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetSwapChain",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "IDirect3DSwapChain9**",
+            "name": "pSwapChain"
+          }
+        ]
+      },
+      {
+        "ret": "UINT",
+        "name": "GetNumberOfSwapChains",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Reset",
+        "args": [
+          {
+            "type": "D3DPRESENT_PARAMETERS*",
+            "name": "pPresentationParameters"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Present",
+        "args": [
+          {
+            "type": "CONST RECT*",
+            "name": "pSourceRect"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pDestRect"
+          },
+          {
+            "type": "HWND",
+            "name": "hDestWindowOverride"
+          },
+          {
+            "type": "CONST RGNDATA*",
+            "name": "pDirtyRegion"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetBackBuffer",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "UINT",
+            "name": "iBackBuffer"
+          },
+          {
+            "type": "D3DBACKBUFFER_TYPE",
+            "name": "Type"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppBackBuffer"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetRasterStatus",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "D3DRASTER_STATUS*",
+            "name": "pRasterStatus"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetDialogBoxMode",
+        "args": [
+          {
+            "type": "BOOL",
+            "name": "bEnableDialogs"
+          }
+        ]
+      },
+      {
+        "ret": "void",
+        "name": "SetGammaRamp",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          },
+          {
+            "type": "CONST D3DGAMMARAMP*",
+            "name": "pRamp"
+          }
+        ]
+      },
+      {
+        "ret": "void",
+        "name": "GetGammaRamp",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "D3DGAMMARAMP*",
+            "name": "pRamp"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateTexture",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "UINT",
+            "name": "Levels"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DTexture9**",
+            "name": "ppTexture"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateVolumeTexture",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "UINT",
+            "name": "Depth"
+          },
+          {
+            "type": "UINT",
+            "name": "Levels"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DVolumeTexture9**",
+            "name": "ppVolumeTexture"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateCubeTexture",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "EdgeLength"
+          },
+          {
+            "type": "UINT",
+            "name": "Levels"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DCubeTexture9**",
+            "name": "ppCubeTexture"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateVertexBuffer",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Length"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "DWORD",
+            "name": "FVF"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DVertexBuffer9**",
+            "name": "ppVertexBuffer"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateIndexBuffer",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Length"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DIndexBuffer9**",
+            "name": "ppIndexBuffer"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateRenderTarget",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DMULTISAMPLE_TYPE",
+            "name": "MultiSample"
+          },
+          {
+            "type": "DWORD",
+            "name": "MultisampleQuality"
+          },
+          {
+            "type": "BOOL",
+            "name": "Lockable"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppSurface"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateDepthStencilSurface",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DMULTISAMPLE_TYPE",
+            "name": "MultiSample"
+          },
+          {
+            "type": "DWORD",
+            "name": "MultisampleQuality"
+          },
+          {
+            "type": "BOOL",
+            "name": "Discard"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppSurface"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "UpdateSurface",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pSourceSurface"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pSourceRect"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pDestinationSurface"
+          },
+          {
+            "type": "CONST POINT*",
+            "name": "pDestPoint"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "UpdateTexture",
+        "args": [
+          {
+            "type": "IDirect3DBaseTexture9*",
+            "name": "pSourceTexture"
+          },
+          {
+            "type": "IDirect3DBaseTexture9*",
+            "name": "pDestinationTexture"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetRenderTargetData",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pRenderTarget"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pDestSurface"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetFrontBufferData",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pDestSurface"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "StretchRect",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pSourceSurface"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pSourceRect"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pDestSurface"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pDestRect"
+          },
+          {
+            "type": "D3DTEXTUREFILTERTYPE",
+            "name": "Filter"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "ColorFill",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pSurface"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pRect"
+          },
+          {
+            "type": "D3DCOLOR",
+            "name": "color"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateOffscreenPlainSurface",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppSurface"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetRenderTarget",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "RenderTargetIndex"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pRenderTarget"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetRenderTarget",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "RenderTargetIndex"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppRenderTarget"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetDepthStencilSurface",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pNewZStencil"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDepthStencilSurface",
+        "args": [
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppZStencilSurface"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "BeginScene",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "EndScene",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Clear",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Count"
+          },
+          {
+            "type": "CONST D3DRECT*",
+            "name": "pRects"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          },
+          {
+            "type": "D3DCOLOR",
+            "name": "Color"
+          },
+          {
+            "type": "float",
+            "name": "Z"
+          },
+          {
+            "type": "DWORD",
+            "name": "Stencil"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetTransform",
+        "args": [
+          {
+            "type": "D3DTRANSFORMSTATETYPE",
+            "name": "State"
+          },
+          {
+            "type": "CONST D3DMATRIX*",
+            "name": "pMatrix"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetTransform",
+        "args": [
+          {
+            "type": "D3DTRANSFORMSTATETYPE",
+            "name": "State"
+          },
+          {
+            "type": "D3DMATRIX*",
+            "name": "pMatrix"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "MultiplyTransform",
+        "args": [
+          {
+            "type": "D3DTRANSFORMSTATETYPE",
+            "name": "arg0"
+          },
+          {
+            "type": "CONST D3DMATRIX*",
+            "name": "arg1"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetViewport",
+        "args": [
+          {
+            "type": "CONST D3DVIEWPORT9*",
+            "name": "pViewport"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetViewport",
+        "args": [
+          {
+            "type": "D3DVIEWPORT9*",
+            "name": "pViewport"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetMaterial",
+        "args": [
+          {
+            "type": "CONST D3DMATERIAL9*",
+            "name": "pMaterial"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetMaterial",
+        "args": [
+          {
+            "type": "D3DMATERIAL9*",
+            "name": "pMaterial"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetLight",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "CONST D3DLIGHT9*",
+            "name": "arg1"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetLight",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "D3DLIGHT9*",
+            "name": "arg1"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "LightEnable",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "BOOL",
+            "name": "Enable"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetLightEnable",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "BOOL*",
+            "name": "pEnable"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetClipPlane",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "CONST float*",
+            "name": "pPlane"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetClipPlane",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Index"
+          },
+          {
+            "type": "float*",
+            "name": "pPlane"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetRenderState",
+        "args": [
+          {
+            "type": "D3DRENDERSTATETYPE",
+            "name": "State"
+          },
+          {
+            "type": "DWORD",
+            "name": "Value"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetRenderState",
+        "args": [
+          {
+            "type": "D3DRENDERSTATETYPE",
+            "name": "State"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pValue"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateStateBlock",
+        "args": [
+          {
+            "type": "D3DSTATEBLOCKTYPE",
+            "name": "Type"
+          },
+          {
+            "type": "IDirect3DStateBlock9**",
+            "name": "ppSB"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "BeginStateBlock",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "EndStateBlock",
+        "args": [
+          {
+            "type": "IDirect3DStateBlock9**",
+            "name": "ppSB"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetClipStatus",
+        "args": [
+          {
+            "type": "CONST D3DCLIPSTATUS9*",
+            "name": "pClipStatus"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetClipStatus",
+        "args": [
+          {
+            "type": "D3DCLIPSTATUS9*",
+            "name": "pClipStatus"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetTexture",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Stage"
+          },
+          {
+            "type": "IDirect3DBaseTexture9**",
+            "name": "ppTexture"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetTexture",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Stage"
+          },
+          {
+            "type": "IDirect3DBaseTexture9*",
+            "name": "pTexture"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetTextureStageState",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Stage"
+          },
+          {
+            "type": "D3DTEXTURESTAGESTATETYPE",
+            "name": "Type"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pValue"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetTextureStageState",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Stage"
+          },
+          {
+            "type": "D3DTEXTURESTAGESTATETYPE",
+            "name": "Type"
+          },
+          {
+            "type": "DWORD",
+            "name": "Value"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetSamplerState",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Sampler"
+          },
+          {
+            "type": "D3DSAMPLERSTATETYPE",
+            "name": "Type"
+          },
+          {
+            "type": "DWORD*",
+            "name": "pValue"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetSamplerState",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "Sampler"
+          },
+          {
+            "type": "D3DSAMPLERSTATETYPE",
+            "name": "Type"
+          },
+          {
+            "type": "DWORD",
+            "name": "Value"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "ValidateDevice",
+        "args": [
+          {
+            "type": "DWORD*",
+            "name": "pNumPasses"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPaletteEntries",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "PaletteNumber"
+          },
+          {
+            "type": "CONST PALETTEENTRY*",
+            "name": "pEntries"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPaletteEntries",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "PaletteNumber"
+          },
+          {
+            "type": "PALETTEENTRY*",
+            "name": "pEntries"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetCurrentTexturePalette",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "PaletteNumber"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetCurrentTexturePalette",
+        "args": [
+          {
+            "type": "UINT *",
+            "name": "PaletteNumber"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetScissorRect",
+        "args": [
+          {
+            "type": "CONST RECT*",
+            "name": "pRect"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetScissorRect",
+        "args": [
+          {
+            "type": "RECT*",
+            "name": "pRect"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetSoftwareVertexProcessing",
+        "args": [
+          {
+            "type": "BOOL",
+            "name": "bSoftware"
+          }
+        ]
+      },
+      {
+        "ret": "BOOL",
+        "name": "GetSoftwareVertexProcessing",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetNPatchMode",
+        "args": [
+          {
+            "type": "float",
+            "name": "nSegments"
+          }
+        ]
+      },
+      {
+        "ret": "float",
+        "name": "GetNPatchMode",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawPrimitive",
+        "args": [
+          {
+            "type": "D3DPRIMITIVETYPE",
+            "name": "PrimitiveType"
+          },
+          {
+            "type": "UINT",
+            "name": "StartVertex"
+          },
+          {
+            "type": "UINT",
+            "name": "PrimitiveCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawIndexedPrimitive",
+        "args": [
+          {
+            "type": "D3DPRIMITIVETYPE",
+            "name": "arg0"
+          },
+          {
+            "type": "INT",
+            "name": "BaseVertexIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "MinVertexIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "NumVertices"
+          },
+          {
+            "type": "UINT",
+            "name": "startIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "primCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawPrimitiveUP",
+        "args": [
+          {
+            "type": "D3DPRIMITIVETYPE",
+            "name": "PrimitiveType"
+          },
+          {
+            "type": "UINT",
+            "name": "PrimitiveCount"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pVertexStreamZeroData"
+          },
+          {
+            "type": "UINT",
+            "name": "VertexStreamZeroStride"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawIndexedPrimitiveUP",
+        "args": [
+          {
+            "type": "D3DPRIMITIVETYPE",
+            "name": "PrimitiveType"
+          },
+          {
+            "type": "UINT",
+            "name": "MinVertexIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "NumVertices"
+          },
+          {
+            "type": "UINT",
+            "name": "PrimitiveCount"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pIndexData"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "IndexDataFormat"
+          },
+          {
+            "type": "CONST void*",
+            "name": "pVertexStreamZeroData"
+          },
+          {
+            "type": "UINT",
+            "name": "VertexStreamZeroStride"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "ProcessVertices",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "SrcStartIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "DestIndex"
+          },
+          {
+            "type": "UINT",
+            "name": "VertexCount"
+          },
+          {
+            "type": "IDirect3DVertexBuffer9*",
+            "name": "pDestBuffer"
+          },
+          {
+            "type": "IDirect3DVertexDeclaration9*",
+            "name": "pVertexDecl"
+          },
+          {
+            "type": "DWORD",
+            "name": "Flags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateVertexDeclaration",
+        "args": [
+          {
+            "type": "CONST D3DVERTEXELEMENT9*",
+            "name": "pVertexElements"
+          },
+          {
+            "type": "IDirect3DVertexDeclaration9**",
+            "name": "ppDecl"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetVertexDeclaration",
+        "args": [
+          {
+            "type": "IDirect3DVertexDeclaration9*",
+            "name": "pDecl"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetVertexDeclaration",
+        "args": [
+          {
+            "type": "IDirect3DVertexDeclaration9**",
+            "name": "ppDecl"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetFVF",
+        "args": [
+          {
+            "type": "DWORD",
+            "name": "FVF"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetFVF",
+        "args": [
+          {
+            "type": "DWORD*",
+            "name": "pFVF"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateVertexShader",
+        "args": [
+          {
+            "type": "CONST DWORD*",
+            "name": "pFunction"
+          },
+          {
+            "type": "IDirect3DVertexShader9**",
+            "name": "ppShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetVertexShader",
+        "args": [
+          {
+            "type": "IDirect3DVertexShader9*",
+            "name": "pShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetVertexShader",
+        "args": [
+          {
+            "type": "IDirect3DVertexShader9**",
+            "name": "ppShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetVertexShaderConstantF",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST float*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4fCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetVertexShaderConstantF",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "float*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4fCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetVertexShaderConstantI",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST int*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4iCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetVertexShaderConstantI",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "int*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4iCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetVertexShaderConstantB",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST BOOL*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "BoolCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetVertexShaderConstantB",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "BOOL*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "BoolCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetStreamSource",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StreamNumber"
+          },
+          {
+            "type": "IDirect3DVertexBuffer9*",
+            "name": "pStreamData"
+          },
+          {
+            "type": "UINT",
+            "name": "OffsetInBytes"
+          },
+          {
+            "type": "UINT",
+            "name": "Stride"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetStreamSource",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StreamNumber"
+          },
+          {
+            "type": "IDirect3DVertexBuffer9**",
+            "name": "ppStreamData"
+          },
+          {
+            "type": "UINT*",
+            "name": "pOffsetInBytes"
+          },
+          {
+            "type": "UINT*",
+            "name": "pStride"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetStreamSourceFreq",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StreamNumber"
+          },
+          {
+            "type": "UINT",
+            "name": "Setting"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetStreamSourceFreq",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StreamNumber"
+          },
+          {
+            "type": "UINT*",
+            "name": "pSetting"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetIndices",
+        "args": [
+          {
+            "type": "IDirect3DIndexBuffer9*",
+            "name": "pIndexData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetIndices",
+        "args": [
+          {
+            "type": "IDirect3DIndexBuffer9**",
+            "name": "ppIndexData"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreatePixelShader",
+        "args": [
+          {
+            "type": "CONST DWORD*",
+            "name": "pFunction"
+          },
+          {
+            "type": "IDirect3DPixelShader9**",
+            "name": "ppShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPixelShader",
+        "args": [
+          {
+            "type": "IDirect3DPixelShader9*",
+            "name": "pShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPixelShader",
+        "args": [
+          {
+            "type": "IDirect3DPixelShader9**",
+            "name": "ppShader"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPixelShaderConstantF",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST float*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4fCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPixelShaderConstantF",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "float*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4fCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPixelShaderConstantI",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST int*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4iCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPixelShaderConstantI",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "int*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "Vector4iCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetPixelShaderConstantB",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "CONST BOOL*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "BoolCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPixelShaderConstantB",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "StartRegister"
+          },
+          {
+            "type": "BOOL*",
+            "name": "pConstantData"
+          },
+          {
+            "type": "UINT",
+            "name": "BoolCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawRectPatch",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Handle"
+          },
+          {
+            "type": "CONST float*",
+            "name": "pNumSegs"
+          },
+          {
+            "type": "CONST D3DRECTPATCH_INFO*",
+            "name": "pRectPatchInfo"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DrawTriPatch",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Handle"
+          },
+          {
+            "type": "CONST float*",
+            "name": "pNumSegs"
+          },
+          {
+            "type": "CONST D3DTRIPATCH_INFO*",
+            "name": "pTriPatchInfo"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "DeletePatch",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Handle"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateQuery",
+        "args": [
+          {
+            "type": "D3DQUERYTYPE",
+            "name": "Type"
+          },
+          {
+            "type": "IDirect3DQuery9**",
+            "name": "ppQuery"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetConvolutionMonoKernel",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "width"
+          },
+          {
+            "type": "UINT",
+            "name": "height"
+          },
+          {
+            "type": "float*",
+            "name": "rows"
+          },
+          {
+            "type": "float*",
+            "name": "columns"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "ComposeRects",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pSrc"
+          },
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pDst"
+          },
+          {
+            "type": "IDirect3DVertexBuffer9*",
+            "name": "pSrcRectDescs"
+          },
+          {
+            "type": "UINT",
+            "name": "NumRects"
+          },
+          {
+            "type": "IDirect3DVertexBuffer9*",
+            "name": "pDstRectDescs"
+          },
+          {
+            "type": "D3DCOMPOSERECTSOP",
+            "name": "Operation"
+          },
+          {
+            "type": "int",
+            "name": "Xoffset"
+          },
+          {
+            "type": "int",
+            "name": "Yoffset"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "PresentEx",
+        "args": [
+          {
+            "type": "CONST RECT*",
+            "name": "pSourceRect"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pDestRect"
+          },
+          {
+            "type": "HWND",
+            "name": "hDestWindowOverride"
+          },
+          {
+            "type": "CONST RGNDATA*",
+            "name": "pDirtyRegion"
+          },
+          {
+            "type": "DWORD",
+            "name": "dwFlags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetGPUThreadPriority",
+        "args": [
+          {
+            "type": "INT*",
+            "name": "pPriority"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetGPUThreadPriority",
+        "args": [
+          {
+            "type": "INT",
+            "name": "Priority"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "WaitForVBlank",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckResourceResidency",
+        "args": [
+          {
+            "type": "IDirect3DResource9**",
+            "name": "pResourceArray"
+          },
+          {
+            "type": "UINT32",
+            "name": "NumResources"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "SetMaximumFrameLatency",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "MaxLatency"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetMaximumFrameLatency",
+        "args": [
+          {
+            "type": "UINT*",
+            "name": "pMaxLatency"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CheckDeviceState",
+        "args": [
+          {
+            "type": "HWND",
+            "name": "hDestinationWindow"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateRenderTargetEx",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DMULTISAMPLE_TYPE",
+            "name": "MultiSample"
+          },
+          {
+            "type": "DWORD",
+            "name": "MultisampleQuality"
+          },
+          {
+            "type": "BOOL",
+            "name": "Lockable"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppSurface"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateOffscreenPlainSurfaceEx",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DPOOL",
+            "name": "Pool"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppSurface"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "CreateDepthStencilSurfaceEx",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "Width"
+          },
+          {
+            "type": "UINT",
+            "name": "Height"
+          },
+          {
+            "type": "D3DFORMAT",
+            "name": "Format"
+          },
+          {
+            "type": "D3DMULTISAMPLE_TYPE",
+            "name": "MultiSample"
+          },
+          {
+            "type": "DWORD",
+            "name": "MultisampleQuality"
+          },
+          {
+            "type": "BOOL",
+            "name": "Discard"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppSurface"
+          },
+          {
+            "type": "HANDLE*",
+            "name": "pSharedHandle"
+          },
+          {
+            "type": "DWORD",
+            "name": "Usage"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "ResetEx",
+        "args": [
+          {
+            "type": "D3DPRESENT_PARAMETERS*",
+            "name": "pPresentationParameters"
+          },
+          {
+            "type": "D3DDISPLAYMODEEX *",
+            "name": "pFullscreenDisplayMode"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDisplayModeEx",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iSwapChain"
+          },
+          {
+            "type": "D3DDISPLAYMODEEX*",
+            "name": "pMode"
+          },
+          {
+            "type": "D3DDISPLAYROTATION*",
+            "name": "pRotation"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "IDirect3DSwapChain9Ex",
+    "base": "IDirect3DSwapChain9",
+    "methods": [
+      {
+        "ret": "HRESULT",
+        "name": "QueryInterface",
+        "args": [
+          {
+            "type": "REFIID",
+            "name": "riid"
+          },
+          {
+            "type": "void**",
+            "name": "ppvObj"
+          }
+        ]
+      },
+      {
+        "ret": "ULONG",
+        "name": "AddRef",
+        "args": []
+      },
+      {
+        "ret": "ULONG",
+        "name": "Release",
+        "args": []
+      },
+      {
+        "ret": "HRESULT",
+        "name": "Present",
+        "args": [
+          {
+            "type": "CONST RECT*",
+            "name": "pSourceRect"
+          },
+          {
+            "type": "CONST RECT*",
+            "name": "pDestRect"
+          },
+          {
+            "type": "HWND",
+            "name": "hDestWindowOverride"
+          },
+          {
+            "type": "CONST RGNDATA*",
+            "name": "pDirtyRegion"
+          },
+          {
+            "type": "DWORD",
+            "name": "dwFlags"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetFrontBufferData",
+        "args": [
+          {
+            "type": "IDirect3DSurface9*",
+            "name": "pDestSurface"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetBackBuffer",
+        "args": [
+          {
+            "type": "UINT",
+            "name": "iBackBuffer"
+          },
+          {
+            "type": "D3DBACKBUFFER_TYPE",
+            "name": "Type"
+          },
+          {
+            "type": "IDirect3DSurface9**",
+            "name": "ppBackBuffer"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetRasterStatus",
+        "args": [
+          {
+            "type": "D3DRASTER_STATUS*",
+            "name": "pRasterStatus"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDisplayMode",
+        "args": [
+          {
+            "type": "D3DDISPLAYMODE*",
+            "name": "pMode"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDevice",
+        "args": [
+          {
+            "type": "IDirect3DDevice9**",
+            "name": "ppDevice"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPresentParameters",
+        "args": [
+          {
+            "type": "D3DPRESENT_PARAMETERS*",
+            "name": "pPresentationParameters"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetLastPresentCount",
+        "args": [
+          {
+            "type": "UINT*",
+            "name": "pLastPresentCount"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetPresentStats",
+        "args": [
+          {
+            "type": "D3DPRESENTSTATS*",
+            "name": "pPresentationStatistics"
+          }
+        ]
+      },
+      {
+        "ret": "HRESULT",
+        "name": "GetDisplayModeEx",
+        "args": [
+          {
+            "type": "D3DDISPLAYMODEEX*",
+            "name": "pMode"
+          },
+          {
+            "type": "D3DDISPLAYROTATION*",
+            "name": "pRotation"
+          }
+        ]
+      }
+    ]
+  }
+]

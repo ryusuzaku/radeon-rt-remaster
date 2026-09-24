@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RRT offline mod manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "id", "priority", "replacements"],
+  "properties": {
+    "schema": {"const": "rrt-mod"},
+    "version": {"const": 1},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"},
+    "priority": {"type": "integer", "minimum": -1000000, "maximum": 1000000},
+    "replacements": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "target", "asset", "sha256"],
+        "properties": {
+          "kind": {"enum": ["texture", "mesh", "material"]},
+          "target": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "asset": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    }
+  }
+}
