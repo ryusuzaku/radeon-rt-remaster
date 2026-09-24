@@ -10,15 +10,22 @@ Only the in-repo harness has passed proxy comparisons. External native baselines
 | Offline fixture mods, x86 Debug/Release | Captured D3D9/9Ex scenes | Texture/mesh/material isolation; untouched draw data and image regions remain identical | Six GPU cases per mode; deterministic combined output; static mesh ID survives Reset | Phase 4 offline baseline |
 | Ground/occluder and perspective fixtures, x86/x64 Debug/Release | D3D12 / hardware DXR 1.1 | Repeatable GPU readback; standard debug-layer validation; albedo oracle and localized shadow checks | Modded scene import; camera/texture/scissor tolerances; GPU timestamps | Phase 5 static-renderer baseline |
 | BioShock 2 original | Default / requested -dx9 | No proxy deployed | Default native baseline exit 0 and user visual acceptance; -dx9 native baseline access violation 0xC0000005 after 73.516 s | DX9 baseline blocked |
-| Half-Life 2, hl2_complete | D3D9Ex observed | Native/bin-proxy/disabled controls exit 0; user accepts visuals; owned DLLs removed, executable unchanged | Triggered gameplay: 82 presents, 28,633 shader draws, 0 fixed draws/failures; 64 MiB byte limit reached before requested 120 frames | Gameplay observation demonstrated; shader-only sample outside current fixed-function extraction; final triggered-run exit/cleanup pending |
+| Half-Life 2, hl2_complete | D3D9Ex observed | Native/bin-proxy/disabled controls exit 0; user accepts visuals; owned DLLs removed, executable unchanged | Triggered gameplay: 82 presents, 28,633 shader draws, 0 fixed draws/failures; 64 MiB byte limit reached before requested 120 frames | Gameplay observation demonstrated; final triggered-run exit/cleanup pending |
+| Half-Life 2, material capture | D3D9Ex observed, v19 ledger | Bundle under `build/game-passes/`, not version controlled; proxy removed and executable unchanged after the pass | **16 material draws captured** at target `[1920,1080,21,0]`, 32 texture inputs, 19 external assets / 5,327,872 bytes; 668 attempts over 4 presents | Material capture demonstrated on a real title; 20 texture inputs blocked by the shared shadow budget; game-sized material comparison not yet run |
 | Commercial reference title | To select | Untested | Unassessed | Pending |
 
 HL2 follow-up: default gameplay run subsequently exited 0 and removed its proxy.
 Requested `-dxlevel 70` persisted as level 80 in this build. Its native baseline
 passed; triggered gameplay produced 60 presents and 11,424 shader-only draws,
-with zero failed calls. This did not expose the existing fixed-function subset.
-Lower-feature run shutdown/cleanup and backed-up graphics-settings restoration
-remain pending. HL2 is retained for shader-aware extraction research.
+with zero failed calls. Lower-feature run shutdown/cleanup and backed-up
+graphics-settings restoration remain pending.
+
+HL2 material follow-up: the fixed-function subset was never the path that worked.
+Shader-aware extraction on primitive count did. See
+[HL2 dynamic material capture](HL2_DYNAMIC_MATERIAL_CAPTURE.md) for the result and
+for the two structural gaps — render-target extent assumed in advance, and a
+trigger firing outside a presenting interval — that kept every earlier pass at
+zero captured material draws.
 
 Verified GPU: AMD Radeon RX 9070 XT, driver 32.0.31041.1004. These results do not establish performance or compatibility on other GPUs.
 

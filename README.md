@@ -1,6 +1,6 @@
 # Radeon RT Remaster
 
-An experimental AMD-focused legacy-game remastering runtime. The current build provides D3D9/9Ex observation, bounded fixed-function scene capture, independent raster replay, offline stable-ID asset replacement, glTF export and a standalone D3D12/DXR renderer. FidelityFX RR and radiance-cache experiments execute on the GPU; full path tracing, live game integration and quality/performance acceptance remain open. See the [whole-project status](docs/PROJECT_STATUS.md) for completed foundations and remaining product gates.
+An experimental AMD-focused legacy-game remastering runtime. The current build provides D3D9/9Ex observation, bounded scene capture over both fixed-function and pinned shader paths, independent raster replay, offline stable-ID asset replacement, glTF export and a standalone D3D12/DXR renderer. The first real game material capture landed on 2026-09-16 (16 draws from HL2). FidelityFX RR and radiance-cache experiments execute on the GPU; full path tracing, live game integration and quality/performance acceptance remain open. See the [whole-project status](docs/PROJECT_STATUS.md) for completed foundations and remaining product gates.
 
 ## Build and verify
 

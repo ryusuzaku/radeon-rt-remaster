@@ -1,6 +1,6 @@
 # Phase Plan — Radeon RT Remaster (working title)
 
-Current checkpoint (2026-09-06): working standalone Phase 5 renderer, partial Phase 6 infrastructure and experimental Phase 7 research. Harness completion is not commercial-game acceptance. See the [whole-project status](docs/PROJECT_STATUS.md) for the current overview; the follow-ups below retain development history.
+[`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) is the **canonical status file** and is updated in place — read it for the current state rather than this page. Harness completion is not commercial-game acceptance. The phase follow-ups below retain development history and their original dates, so they describe the state at the time of writing rather than today.
 
 ## Product statement
 

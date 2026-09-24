@@ -426,7 +426,7 @@ binary. Adding a feature to one harness risks the other two.
 **Cost to fix:** large — worth doing incrementally alongside M4, not as a
 standalone refactor.
 
-### D7 — Contradictory and duplicated planning logs
+### D7 — Contradictory and duplicated planning logs — **partly mitigated 2026-09-24**
 **Evidence:** `HANDOFF.md` contains **two** `## material2 v19 result` sections
 with opposite status — line 33 says "Fix (unbuilt, unqualified)", line 63 says
 "Fix (built, qualified and committed 2026-09-16 on Windows)". `findings.md`
@@ -434,10 +434,17 @@ with opposite status — line 33 says "Fix (unbuilt, unqualified)", line 63 says
 (53 KB) overlap heavily; e.g. "Compact-mask capture complete; exit pending
 (2026-09-08)" appears verbatim in both `findings.md` and `HANDOFF.md`.
 **Impact:** a new session reading `HANDOFF.md` top-down gets a stale first
-impression and may redo completed work. The reliably current summary is
-`docs/PROJECT_STATUS.md`, which is dated 2026-09-06 — 18 days stale and
-predating v19, the surface-lock fix, and the material3 capture entirely.
-**Cost to fix:** small, high value per minute.
+impression and may redo completed work.
+**Fixed 2026-09-24:** `docs/PROJECT_STATUS.md` was refreshed from 2026-09-06 to
+2026-09-24 and now covers v19, the surface-lock qualification and the material3
+capture. `PHASE_PLAN.md` no longer asserts its own checkpoint; it declares
+`docs/PROJECT_STATUS.md` as the canonical status file, so there is one place to
+read and it is named. The four session logs are now **excluded from the published
+tree** (`.gitignore`), which removes the contradictory content from the public
+repository entirely.
+**Remaining:** the duplicate `material2` section still exists in the local
+`HANDOFF.md`. It is a local-only file now, so it can only mislead a future session
+on this machine, not a reader of the repository. Low value; fix when convenient.
 
 ### D8 — Test-time budget is at its limit
 **Evidence:** `HANDOFF.md` records Debug `position_capture` at 156 s against a
@@ -511,7 +518,7 @@ Calendar time is longer (see R2).
 | M0.2b | **New.** Remove the remaining hand-maintained per-level plumb-through in `tools/game_pass.py` (argparse flag + `run_pass` parameter + pass-through), which is now the most tedious part of adding a level | M0.1 | 0.5–1 d |
 | M0.3 | ~~Add a codegen freshness test~~ **done 2026-09-24** — `tests/verify_codegen_freshness.py`, CTest `codegen_freshness`, passes in 1.9 s | — | ~~0.5 d~~ 0 |
 | M0.4 | Decide evidence retention (see §12 Q6), then make the 13 evidence-gated tests either tracked or loudly skipped | §12 Q6 | 1–3 d |
-| M0.5 | Reconcile the planning logs: remove the duplicate `material2` section, refresh `PROJECT_STATUS.md`, declare one canonical status file | — | 0.5 d |
+| M0.5 | ~~Reconcile the planning logs~~ **mostly done 2026-09-24** — `docs/PROJECT_STATUS.md` refreshed from 2026-09-06 to 2026-09-24 and now covers v19, surface locks and the material3 capture; the missing milestone record was published as `docs/HL2_DYNAMIC_MATERIAL_CAPTURE.md` (it had existed only in the local session logs); `PHASE_PLAN.md` declares `PROJECT_STATUS.md` canonical instead of asserting its own stale checkpoint; the four logs are now gitignored. Remaining: the duplicate `material2` section in the local-only `HANDOFF.md` | — | ~~0.5 d~~ 0.1 d |
 | M0.6 | Add CI for the evidence-free subset (x86 Release build + 32 tests), document the SDK/evidence-gated subset as a separate manual job | M0.3, M0.4 | 1–2 d |
 | M0.7 | Split or re-time the Debug `position_capture` matrix to restore headroom | — | 0.5 d |
 
