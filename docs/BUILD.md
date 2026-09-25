@@ -89,6 +89,19 @@ on a ledger read. Re-run before treating a red suite as evidence of a regression
 Wall time varies too: the same suite has been observed at 430 s and 638 s on
 consecutive runs, both green.
 
+**`error MSB6001: Invalid command line switch for "cmd.exe"` with
+`Item has already been added. Key in dictionary: 'HTTPS_PROXY' Key being added:
+'https_proxy'`.** The build is fine; the environment is not. MSBuild's C++ tasks
+build a case-insensitive dictionary from the process environment, and it throws if
+both spellings of a proxy variable are present. Unset one of them for the build:
+
+```bash
+env -u https_proxy -u http_proxy cmake --build build/x86-vs --config Release
+```
+
+This affects any MSBuild C++ project, not just this one, and the message points at
+`cmd.exe` rather than at the real cause.
+
 **`texture_*` or `position_capture` did not run at all.** They are gated on
 `build/game-passes/hl2-inventory-20260907`. Without a captured pass those tests are
 not registered, which is expected on a clean checkout.

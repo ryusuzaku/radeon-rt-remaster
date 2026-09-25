@@ -1,0 +1,74 @@
+# Build verification for a public repository.
+#
+# Scope, stated plainly so nobody mistakes this for full qualification:
+#
+#   * It builds x86 Debug and Release and the x64 renderer-only preset from a
+#     clean checkout. That catches the failures a clean checkout actually has:
+#     a file referenced but never committed, a broken CMake edit, codegen drift.
+#   * It runs the four contract checks, which are the tests that catch the class
+#     of defect this project keeps finding -- a ladder described in four places
+#     that have drifted apart. They need no GPU, no display and no captured game
+#     pass, so they are exactly the tests that can run here honestly.
+#   * It does NOT run the D3D9, D3D12 or DXR suites. Those need a display and a
+#     GPU: the shader fixture creates a window and requests D3DDEVTYPE_HAL with
+#     no reference-rasterizer fallback, and the DXR tests skip on adapters
+#     without hardware ray tracing, which a hosted runner does not have. Running
+#     them here would mean either a red build for an environment reason or a
+#     `continue-on-error` that hides a real regression, and both are worse than
+#     saying so. Making them runnable headless is separate work.
+#
+# `shell: bash` is set explicitly. Git Bash is present on the Windows runners,
+# and it keeps these steps checkable as shell scripts rather than as PowerShell
+# that no linter here reads.
+
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  x86:
+    name: x86 build and contract checks
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure x86
+        shell: bash
+        run: cmake --preset windows-x86
+
+      - name: Build x86 Release
+        shell: bash
+        run: cmake --build build/x86-vs --config Release
+
+      - name: Build x86 Debug
+        shell: bash
+        run: cmake --build build/x86-vs --config Debug
+
+      - name: List the tests this checkout registers
+        shell: bash
+        run: ctest --test-dir build/x86-vs -C Release -N
+
+      - name: Contract checks
+        shell: bash
+        run: ctest --test-dir build/x86-vs -C Release -R "^(codegen_freshness|capture_version_contract|published_references|shadow_budget_tool)$" --output-on-failure
+
+  x64-renderer:
+    name: x64 renderer-only build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure x64 renderer-only
+        shell: bash
+        run: cmake --preset windows-x64-renderer
+
+      - name: Build x64 Release
+        shell: bash
+        run: cmake --build build/x64-renderer --config Release

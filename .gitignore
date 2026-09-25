@@ -50,6 +50,9 @@ progress.md
 findings.md
 task_plan.md
 
+# Local workflow shell-check scratch (see the gha-embedded-shell-check skill).
+.gha-shell-check/
+
 # Editor and OS.
 .vscode/
 .idea/
