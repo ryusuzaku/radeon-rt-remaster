@@ -446,29 +446,35 @@ repository entirely.
 `HANDOFF.md`. It is a local-only file now, so it can only mislead a future session
 on this machine, not a reader of the repository. Low value; fix when convenient.
 
-### D8 — Texture suites fail transiently for environmental reasons — **recharacterised 2026-09-24**
+### D8 — Texture suites failed transiently on an occluded window — **fixed 2026-09-25**
 **Evidence as found:** `HANDOFF.md` records Debug `position_capture` at 156 s
 against a 180 s CTest timeout, and the texture group measures 164–229 s in Release.
-**Measured 2026-09-24 — the timeout pressure is overstated.** `position_capture`
+**Measured 2026-09-24 — the timeout pressure was overstated.** `position_capture`
 runs **59.89 s against 180 s (33%)** and the slowest texture test,
 `texture_surface`, **45.08 s against 120 s (38%)**. There is no timeout squeeze.
-**The real risk is different and worse.** Running the texture group as a subset
-failed two tests: `texture_locks` with `PermissionError: [Errno 13]` on a ledger
-read, and `texture_surface` with the fixture stalling into its 60 s subprocess
-timeout. Both passed on immediate retry (14.42 s, 45.08 s) and had passed in the
-full suite twenty minutes earlier. The stall matches the S_PRESENT_OCCLUDED class
-the last session recorded: the fixture's D3D9 window can be occluded by whatever
-is in the foreground, and frame sampling then never advances past interval 0.
-**Impact:** a flaky test is worse than a slow one. These failures surface as a
-Python traceback, which reads as a code defect, so the instinct is to debug the
-wrong thing. It also means a red suite is not by itself evidence of a regression —
-retry before investigating.
-**Evidence of the variance:** the same 45-test Debug suite took **430.71 s** and
-then **638.70 s** on two runs forty minutes apart, with both green. A 48% swing in
-wall time on identical inputs is the environment, not the code.
-**Cost to fix:** medium. The fixture could report an occluded Present as a distinct
-skip rather than stalling to a timeout, turning a confusing failure into a clear
-one.
+**The real defect was elsewhere and is now fixed.** Running the texture group as a
+subset failed `texture_locks` (`PermissionError` on a ledger read — a file lock,
+unrelated) and `texture_surface`, which stalled into its 60 s subprocess timeout.
+Both passed on immediate retry. The stall was an **occluded fixture window**:
+`S_PRESENT_OCCLUDED` is a *success-severity* status, so the fixture's
+`Check(HRESULT)` — which only tests `FAILED()` — waved it through, while the proxy
+counts a Present only on `S_OK`. `presents` therefore stayed 0, frame sampling
+never advanced past interval 0, and the capture stalled with no footer.
+**Fix:** `PresentResult` in `src/shader/fixture.cpp` now requires `S_OK` from every
+present — 11 call sites in `position_fixture.inc` and `material_fixture.inc` route
+through it — and throws a message that names the condition instead of letting the
+caller time out.
+**Verified by forcing the condition:** with `S_PRESENT_OCCLUDED` injected
+temporarily, `texture_surface` fails in **0.99 s** with `fixture present did not
+happen hr=142213122; ... the fixture window is covered, so bring it to the
+foreground and re-run`, against ~60 s of subprocess timeout before. The tamper was
+reverted and the tree rebuilt.
+**Why it mattered:** a flaky test is worse than a slow one. The old failure
+surfaced as a Python traceback, which reads as a code defect and sends you
+debugging the wrong thing. The same 45-test suite took 430.71 s and 638.70 s on two
+runs forty minutes apart, both green — a 48% wall-time swing on identical inputs.
+A red suite here is still not by itself evidence of a regression, but an occluded
+window now says so in a second rather than in a minute.
 
 ### D9 — Validation claims in the logs are not reproducible in-repo
 **Evidence:** `progress.md` repeatedly cites "all 110 project-local Markdown
@@ -535,7 +541,7 @@ Calendar time is longer (see R2).
 | M0.4 | Decide evidence retention (see §12 Q6), then make the 13 evidence-gated tests either tracked or loudly skipped | §12 Q6 | 1–3 d |
 | M0.5 | ~~Reconcile the planning logs~~ **mostly done 2026-09-24** — `docs/PROJECT_STATUS.md` refreshed from 2026-09-06 to 2026-09-24 and now covers v19, surface locks and the material3 capture; the missing milestone record was published as `docs/HL2_DYNAMIC_MATERIAL_CAPTURE.md` (it had existed only in the local session logs); `PHASE_PLAN.md` declares `PROJECT_STATUS.md` canonical instead of asserting its own stale checkpoint; the four logs are now gitignored. Remaining: the duplicate `material2` section in the local-only `HANDOFF.md` | — | ~~0.5 d~~ 0.1 d |
 | M0.6 | Add CI for the evidence-free subset (x86 Release build + 32 tests), document the SDK/evidence-gated subset as a separate manual job | M0.3, M0.4 | 1–2 d |
-| M0.7 | ~~Split or re-time the Debug `position_capture` matrix to restore headroom~~ **recharacterised 2026-09-24** — measured margins are 33% and 38%, not 15%, so there is no timeout squeeze to restore. Replaced by the real issue in D8: the texture suites fail transiently on file locks and window occlusion and surface as tracebacks. Make an occluded Present a distinct skip instead of a 60 s stall | — | 0.5–1 d |
+| M0.7 | ~~Split or re-time the Debug `position_capture` matrix~~ **replaced, then done 2026-09-25** — measured margins are 33% and 38%, so there was no timeout squeeze to restore. The real issue (D8) was an occluded fixture window stalling for 60 s and surfacing as a traceback; `PresentResult` now requires `S_OK` from every present and names the condition, turning it into a 0.99 s actionable failure | — | ~~0.5–1 d~~ 0 |
 
 **M0 total: ~3–7 days.** M0.1, M0.2 and M0.3 are done. M0.4 and M0.6 remain the
 long poles; M0.2b and M0.5 are cheap and independent.
@@ -835,7 +841,10 @@ Every claim above is checkable:
 - Budget at any resolution without writing pixels: run `rrt_dxr SCENE` with no `--pixels` and read `requested_buffer_bytes` from the report
 - Old 512 MiB cap is gone: `grep -rn '512ull\*1024\*1024' src/dxr/ ; echo none`
 
-Verified in this session: the published-references check passes in 0.63 s and
+Verified in this session: the fixture now requires S_OK from every present, and
+forcing S_PRESENT_OCCLUDED shows it failing in 0.99 s with an actionable message
+where it previously stalled for 60 s into a traceback; the published-references
+check passes in 0.63 s and
 fails on a link to a gitignored file, a link to a nonexistent file and a
 backticked path that does not exist, with the control tree passing; the
 capture-version contract test passes in 0.38 s and
@@ -849,8 +858,8 @@ recorded `requested_buffer_bytes` exactly; `--probe` reports 8,589,934,592 B on
 x86 and x64 alike and `--budget-test` refuses an over-limit request while charging
 nothing; `verify_dxr_resolution.py` passes end to end on all four binaries with
 1080p/1440p/4K pixel checks and 4096×4096 rendering; and the full CTest suite
-passes **45/45 in x86 Debug** (430.71 s and 638.70 s on two runs) and **45/45 in x86
-Release (446 s)**, re-run after the
+passes **45/45 in x86 Debug** (430.71 s, 638.70 s and 510.97 s on three runs) and
+**45/45 in x86 Release (446 s)**, re-run after the
 ladder refactor and again after the published-reference work, so the enum/fold
 change is confirmed behaviour-preserving by the version-sensitive `texture_*`
 and `position_capture` matrices.

@@ -147,13 +147,13 @@ void PositionFixture(bool recorded=false) {
             for(unsigned j=0;j<4;++j){Need(std::isfinite(actual[i+j])&&std::isfinite(expected[i+j]),"nonfinite GPU output");double error=std::abs(double(actual[i+j])-expected[i+j])/(1+std::abs(double(expected[i+j])));worst=std::max(worst,error);Need(error<=2e-4,"position interpolation mismatch");}}
         if(!recorded)Need(count>100,"empty position oracle");covered+=count;
         wchar_t intervalCase[64]{};GetEnvironmentVariableW(L"RRT_POSITION_FIXTURE_CASE",intervalCase,64);std::wstring intervalMode=intervalCase;
-        if(intervalMode==L"frames"||intervalMode==L"selectedframes")Check(d->Present(nullptr,nullptr,nullptr,nullptr));
-        if(intervalMode==L"multiframes"||intervalMode==L"composition"||intervalMode==L"depthstate")Check(d->Present(nullptr,nullptr,nullptr,nullptr));
-        if(intervalMode==L"clearpartial"||intervalMode==L"clearoversized"||intervalMode==L"clearfailed"||intervalMode==L"cleardepth")Check(d->Present(nullptr,nullptr,nullptr,nullptr));
-        if(intervalMode.rfind(L"write",0)==0)Check(d->Present(nullptr,nullptr,nullptr,nullptr));
-        if(intervalMode.rfind(L"scope",0)==0)Check(d->Present(nullptr,nullptr,nullptr,nullptr));
-        if(intervalMode.rfind(L"color",0)==0)Check(d->Present(nullptr,nullptr,nullptr,nullptr));
-        if(intervalMode==L"multipresentlimit"&&variant==0)for(unsigned i=0;i<120;++i)Check(d->Present(nullptr,nullptr,nullptr,nullptr));
+        if(intervalMode==L"frames"||intervalMode==L"selectedframes")Present(d);
+        if(intervalMode==L"multiframes"||intervalMode==L"composition"||intervalMode==L"depthstate")Present(d);
+        if(intervalMode==L"clearpartial"||intervalMode==L"clearoversized"||intervalMode==L"clearfailed"||intervalMode==L"cleardepth")Present(d);
+        if(intervalMode.rfind(L"write",0)==0)Present(d);
+        if(intervalMode.rfind(L"scope",0)==0)Present(d);
+        if(intervalMode.rfind(L"color",0)==0)Present(d);
+        if(intervalMode==L"multipresentlimit"&&variant==0)for(unsigned i=0;i<120;++i)Present(d);
         if(intervalMode==L"resetframes"){
             if(variant==1){
                 Check(d->SetStreamSource(0,nullptr,0,0));Check(d->SetIndices(nullptr));
@@ -163,10 +163,10 @@ void PositionFixture(bool recorded=false) {
                 Check(d->CreateRenderTarget(128,96,D3DFMT_A32B32G32R32F,D3DMULTISAMPLE_NONE,0,FALSE,&target,nullptr));
                 Check(d->CreateOffscreenPlainSurface(128,96,D3DFMT_A32B32G32R32F,D3DPOOL_SYSTEMMEM,&read,nullptr));
                 Check(d->SetRenderTarget(0,target.Get()));Check(d->SetDepthStencilSurface(nullptr));Configure(d);Check(d->SetPixelShader(pixel.Get()));
-            }else Check(d->Present(nullptr,nullptr,nullptr,nullptr));
+            }else Present(d);
         }
-        if(intervalMode==L"swapframes"){ComPtr<IDirect3DSwapChain9> chain;Check(d->GetSwapChain(0,&chain));Check(chain->Present(nullptr,nullptr,nullptr,nullptr,0));}
-        if(intervalMode==L"presentlimit"&&variant==0)for(unsigned i=0;i<120;++i)Check(d->Present(nullptr,nullptr,nullptr,nullptr));
+        if(intervalMode==L"swapframes"){ComPtr<IDirect3DSwapChain9> chain;Check(d->GetSwapChain(0,&chain));Present(chain.Get());}
+        if(intervalMode==L"presentlimit"&&variant==0)for(unsigned i=0;i<120;++i)Present(d);
     }
     if(recorded)std::cout<<"{\"status\":\""<<(covered?"matched":"empty")<<"\",\"covered\":"<<covered<<",\"max_normalized_error\":"<<worst<<",\"tolerance\":0.0002,\"width\":128,\"height\":96}\n";
     else std::cout<<"PASS exact HL2 VS hardware raster oracle: variants=24 covered="<<covered<<" max_normalized_error="<<worst<<" tolerance=0.0002; unknown/nonfinite/overflow/program negatives passed\n";

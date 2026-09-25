@@ -160,7 +160,7 @@ void MaterialFixture(bool paired=false){
                 Check(d->BeginScene());if(evaluated)Check(d->DrawPrimitiveUP(D3DPT_TRIANGLELIST,1,cpu.data(),sizeof(Cpu)));else {wchar_t stress[2]{};UINT repeats=GetEnvironmentVariableW(L"RRT_MATERIAL_SELECTION_STRESS",stress,2)==1&&stress[0]==L'1'?200:1;for(UINT repeat=0;repeat<repeats;++repeat)Check(d->DrawIndexedPrimitive(D3DPT_TRIANGLELIST,0,0,3,0,1));}Check(d->EndScene());
                 Check(d->GetRenderTargetData(target.Get(),read.Get()));D3DLOCKED_RECT locked{};Check(read->LockRect(&locked,nullptr,D3DLOCK_READONLY));std::vector<float> pixels(128*96*4);for(unsigned y=0;y<96;++y)memcpy(pixels.data()+y*128*4,static_cast<const char*>(locked.pBits)+y*locked.Pitch,128*16);Check(read->UnlockRect());return pixels;};
             auto actual=render(false),expected=render(true);nativeEvidence.insert(nativeEvidence.end(),actual.begin(),actual.end());for(unsigned i=0;i<actual.size();++i){Need(std::isfinite(actual[i])&&std::isfinite(expected[i]),"material GPU nonfinite");double error=std::abs(double(actual[i])-expected[i])/(1+std::abs(double(expected[i])));worst=std::max(worst,error);Need(error<=2e-4,"material interpolation mismatch");if(actual[i]!=0)++covered;}}
-        Check(d->Present(nullptr,nullptr,nullptr,nullptr));
+        Present(d);
     }
     auto digest=rrt::scene::Digest(nativeEvidence.data(),nativeEvidence.size()*sizeof(float));std::string hash;const char* alphabet="0123456789abcdef";for(auto b:digest){hash+=alphabet[b>>4];hash+=alphabet[b&15];}
     Need(covered>100,"empty material probes");std::cout<<"{\"status\":\"matched\",\"probes\":24,\"nonzero_lanes\":"<<covered<<",\"max_normalized_error\":"<<worst<<",\"native_sha256\":\""<<hash<<"\"}\n";

@@ -19,6 +19,19 @@ using namespace rrt::shader;
 namespace {
 void Need(bool x,const char* why) { if(!x) throw std::runtime_error(why); }
 void Check(HRESULT hr) { if(FAILED(hr)) throw std::runtime_error("fixture D3D failure hr="+std::to_string(static_cast<std::int32_t>(hr))); }
+// A Present whose window is not visible returns a *success-severity* status such
+// as S_PRESENT_OCCLUDED instead of S_OK, so FAILED() is false and Check() waves it
+// through. That is not harmless: the proxy only counts a Present on S_OK, so
+// `presents` stays 0, frame sampling never advances past interval 0, and the
+// capture stalls with no footer. The operator then sees a 60 s subprocess timeout
+// and a Python traceback rather than "the window is covered", which is the actual
+// problem and the easiest thing in the world to fix. Name the condition instead.
+void PresentResult(HRESULT hr) {
+    if(hr!=S_OK) throw std::runtime_error("fixture present did not happen hr="+std::to_string(static_cast<std::int32_t>(hr))
+        +"; if that is a success-severity code such as S_PRESENT_OCCLUDED the fixture window is covered, so bring it to the foreground and re-run");
+}
+void Present(IDirect3DDevice9* d) { PresentResult(d->Present(nullptr,nullptr,nullptr,nullptr)); }
+void Present(IDirect3DSwapChain9* chain) { PresentResult(chain->Present(nullptr,nullptr,nullptr,nullptr,0)); }
 template<class F> void Reject(F f) { bool rejected=false;try{f();}catch(const std::exception&){rejected=true;}Need(rejected,"invalid snapshot accepted"); }
 struct Device {
     HWND window{}; HMODULE runtime{};ComPtr<IDirect3D9> factory;ComPtr<IDirect3DDevice9> device;

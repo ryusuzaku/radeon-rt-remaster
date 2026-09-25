@@ -42,15 +42,28 @@ For a runtime-only build, configure a separate binary directory with `-DBUILD_TE
 
 ## Tests
 
-CTest runs ten entries: trace-reader and mod-validation suites, classic/Ex mod replay, classic/Ex proxy equivalence, classic/Ex scene replay, and smoke/help entry points. Integration tests load the system DLL explicitly for baseline renders, confirm the proxy marker when requested, and compare raw image bytes with proxy-on, trace-off, and proxy-disabled runs.
+The suite is defined in `CMakeLists.txt`, and its size depends on which optional
+inputs are present, so no fixed count is quoted here — run
+`ctest --test-dir build/x86-vs -C Debug -N` to list what your checkout has.
 
-When DXC is available, `dxr_probe`, `dxr_render`, `dxr_temporal`, `dxr_resolution`,
-`dxr_presentation`, `dxr_async`, `dxr_pacing`, `dxr_materials` and CPU-only
-`material_inputs` make nineteen x86 entries. The renderer-only x64 presets run
-these nine entries (eight GPU tests and one CPU authoring test) with their own raster oracle.
-The DXR GPU test skips explicitly on unsupported adapters; it does not silently
-use a software renderer. Standard D3D12 debug-layer validation is enabled when
-the Windows Graphics Tools component is installed.
+Always present: trace-reader and mod-validation suites, classic/Ex mod replay,
+classic/Ex proxy equivalence, classic/Ex scene replay, the contract checks
+(`codegen_freshness`, `capture_version_contract`, `published_references`) and
+smoke/help entry points. Integration tests load the system DLL explicitly for
+baseline renders, confirm the proxy marker when requested, and compare raw image
+bytes with proxy-on, trace-off, and proxy-disabled runs.
+
+Added when DXC is available: `dxr_probe`, `dxr_render`, `dxr_temporal`,
+`dxr_resolution`, `dxr_presentation`, `dxr_async`, `dxr_pacing`, `dxr_materials`
+and the CPU-only `material_inputs`. The renderer-only x64 presets run these with
+their own raster oracle. The DXR GPU tests skip explicitly on unsupported
+adapters; they do not silently use a software renderer. Standard D3D12
+debug-layer validation is enabled when the Windows Graphics Tools component is
+installed.
+
+Added when `build/game-passes/` holds a captured pass: the `texture_*` and
+`position_capture` matrices. Those need the pinned inventory, so they are skipped
+on a clean checkout rather than failing.
 
 The fixture draws textured indexed geometry through fixed-function and shader paths and includes UP draws, resource/stateblock identities, device/swap-chain Present, invalid-reset recovery, resize, readback, and resource-held device lifetime recovery. Trace checks cover record validation, deterministic IDs/counts, selected frame ranges, byte budgets, and unavailable/existing output paths.
 
@@ -59,6 +72,26 @@ Artifacts are retained under `build/x86-vs/<configuration>/verify-*`. Each direc
 Scene replay artifacts are under `scene-*`, including PNG previews, raw pixels, captures, image-diff JSON and glTF exports. See [SCENE_CAPTURE.md](SCENE_CAPTURE.md) for the supported subset, format, controls and replay commands.
 
 Mod artifacts are under `mods-*`, including editable assets/manifests, modified scenes, PNGs and isolation reports. The [offline creator workflow](MOD_WORKFLOW.md) uses Python's standard library only; there is no extra SDK/image-library installation step.
+
+## Troubleshooting a failing run
+
+**`fixture present did not happen ... the fixture window is covered`.** The fixture
+draws into its own D3D9 window, and Windows returns a *success-severity* status
+such as `S_PRESENT_OCCLUDED` when that window is not visible. The frame is then
+never presented, so a capture that samples frames stalls and produces no footer.
+Bring the fixture window to the foreground and re-run; the message names the
+condition so it does not look like a code defect. This is why a test that fails
+with a present-related message should be retried before it is investigated.
+
+**A test fails once and passes on retry.** The GPU suites are sensitive to the
+desktop state — window occlusion above all, and occasionally a transient file lock
+on a ledger read. Re-run before treating a red suite as evidence of a regression.
+Wall time varies too: the same suite has been observed at 430 s and 638 s on
+consecutive runs, both green.
+
+**`texture_*` or `position_capture` did not run at all.** They are gated on
+`build/game-passes/hl2-inventory-20260907`. Without a captured pass those tests are
+not registered, which is expected on a clean checkout.
 
 ## Direct use
 
