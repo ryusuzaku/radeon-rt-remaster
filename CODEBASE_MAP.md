@@ -480,6 +480,28 @@ runs forty minutes apart, both green — a 48% wall-time swing on identical inpu
 A red suite here is still not by itself evidence of a regression, but an occluded
 window now says so in a second rather than in a minute.
 
+### D10 — Generated artifacts were platform-dependent — **found by CI, fixed 2026-09-25**
+**Evidence:** CI's second run failed `codegen_freshness` on a clean checkout with
+`stale generated file: generated_observers.inc`, while the fresh and checked lines
+it printed were character-identical.
+**Cause:** `tools/generate_observers.py` wrote with `write_text()` and no `newline`
+argument, so Python translated line endings to the host default — CRLF on Windows,
+LF elsewhere. The test compares **bytes** (`filecmp.cmp(shallow=False)`), so the
+checked-in artifact was reproducible only on the platform that generated it.
+**Why it was invisible:** it passed locally by coincidence. A Windows checkout with
+`core.autocrlf` gave CRLF in the working tree, matching the CRLF the generator
+wrote. Adding `.gitattributes` with `eol=lf` made every checkout LF and exposed it.
+**Impact:** it would have hit the first person to clone the repository on a machine
+with different line-ending settings, as a confusing "stale generated file" whose two
+printed lines look identical.
+**Fixed:** both writes pass `newline='\n'`. Regeneration is byte-identical to what
+was already committed, so nothing downstream changed. Verified in a fresh clone —
+the unfixed generator fails there and the fixed one passes — rather than only
+locally, because local success is exactly what hid the bug.
+**Worth generalising:** a byte-comparing freshness test is only meaningful if the
+generator's output does not depend on the host. Any future generator that writes a
+checked-in artifact must pin its line endings.
+
 ### D9 — Validation claims in the logs are not reproducible in-repo
 **Evidence:** `progress.md` repeatedly cites "all 110 project-local Markdown
 links across 36 files resolve" and a "planning helper retains its known `0/0`
@@ -544,7 +566,7 @@ Calendar time is longer (see R2).
 | M0.3 | ~~Add a codegen freshness test~~ **done 2026-09-24** — `tests/verify_codegen_freshness.py`, CTest `codegen_freshness`, passes in 1.9 s | — | ~~0.5 d~~ 0 |
 | M0.4 | Decide evidence retention (see §12 Q6), then make the 13 evidence-gated tests either tracked or loudly skipped | §12 Q6 | 1–3 d |
 | M0.5 | ~~Reconcile the planning logs~~ **mostly done 2026-09-24** — `docs/PROJECT_STATUS.md` refreshed from 2026-09-06 to 2026-09-24 and now covers v19, surface locks and the material3 capture; the missing milestone record was published as `docs/HL2_DYNAMIC_MATERIAL_CAPTURE.md` (it had existed only in the local session logs); `PHASE_PLAN.md` declares `PROJECT_STATUS.md` canonical instead of asserting its own stale checkpoint; the four logs are now gitignored. Remaining: the duplicate `material2` section in the local-only `HANDOFF.md` | — | ~~0.5 d~~ 0.1 d |
-| M0.6 | **Partly done 2026-09-25.** `.github/workflows/build.yml` builds x86 Debug and Release and the x64 renderer-only preset from a clean checkout and runs the four contract checks. It deliberately does **not** run the D3D9/D3D12/DXR suites: the shader fixture creates a window and requests `D3DDEVTYPE_HAL` with no reference fallback, and the DXR tests skip on adapters without hardware ray tracing, which a hosted runner has not got. A red build for an environment reason and a `continue-on-error` that hides a regression are both worse than saying so. Remaining: make those suites runnable headless, then add them; the SDK/evidence-gated subset stays a documented manual job | M0.3 | ~~1–2 d~~ 0.5 d left |
+| M0.6 | **Done 2026-09-25, green.** `.github/workflows/build.yml` builds x86 Debug and Release and the x64 renderer-only preset from a clean checkout and runs the four contract checks. It deliberately does **not** run the D3D9/D3D12/DXR suites: the shader fixture creates a window and requests `D3DDEVTYPE_HAL` with no reference fallback, and the DXR tests skip on adapters without hardware ray tracing, which a hosted runner has not got. A red build for an environment reason and a `continue-on-error` that hides a regression are both worse than saying so. It runs **green** on `main`. Remaining: make those suites runnable headless, then add them; the SDK/evidence-gated subset stays a documented manual job. **It paid for itself on the second run** — see D10 | M0.3 | ~~1–2 d~~ 0.5 d left |
 | M0.7 | ~~Split or re-time the Debug `position_capture` matrix~~ **replaced, then done 2026-09-25** — measured margins are 33% and 38%, so there was no timeout squeeze to restore. The real issue (D8) was an occluded fixture window stalling for 60 s and surfacing as a traceback; `PresentResult` now requires `S_OK` from every present and names the condition, turning it into a 0.99 s actionable failure | — | ~~0.5–1 d~~ 0 |
 
 **M0 total: ~3–7 days.** M0.1, M0.2 and M0.3 are done. M0.4 and M0.6 remain the
@@ -831,6 +853,8 @@ Every claim above is checkable:
 - Reader version set: `grep -n 'version in (' tools/inspect_position_capture.py`
 - Conditional tests: `grep -n 'if(EXISTS' CMakeLists.txt`
 - SDK absence: `grep RRT_FSR build/x86-vs/CMakeCache.txt`
+- CI: `.github/workflows/build.yml`, green on `main`. `gh run list --repo
+  ryusuzaku/radeon-rt-remaster`
 - Codegen is now guarded: `ctest --test-dir build/x86-vs -C Debug -R '^codegen_freshness$'`
 - Version ladder is now guarded: `ctest --test-dir build/x86-vs -C Debug -R '^capture_version_contract$'`
 - The ladder itself: `grep -n "enum class CaptureLevel" -A 20 src/shader/intercept.cpp`
@@ -862,8 +886,8 @@ recorded `requested_buffer_bytes` exactly; `--probe` reports 8,589,934,592 B on
 x86 and x64 alike and `--budget-test` refuses an over-limit request while charging
 nothing; `verify_dxr_resolution.py` passes end to end on all four binaries with
 1080p/1440p/4K pixel checks and 4096×4096 rendering; and the full CTest suite
-passes **46/46 in x86 Debug** (430.71 s, 638.70 s, 510.97 s and 495.74 s on four
-runs) and **45/45 in x86 Release (446 s)** — the Release figure predates
+passes **46/46 in x86 Debug** (430.71 s, 638.70 s, 510.97 s, 495.74 s and 553.28 s
+on five runs) and **45/45 in x86 Release (446 s)** — the Release figure predates
 `shadow_budget_tool` — re-run after the
 ladder refactor and again after the published-reference work, so the enum/fold
 change is confirmed behaviour-preserving by the version-sensitive `texture_*`
