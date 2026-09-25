@@ -31,8 +31,8 @@
     {
       "version": 5,
       "name": "Bounded",
-      "flag": null,
-      "evidence": "multi-draw baseline: bounded per-present-interval draw and state evidence"
+      "flag": "RRT_POSITION_MULTI_DRAW",
+      "evidence": "multi-draw baseline: bounded per-present-interval draw and state evidence, with no evidence level above it enabled"
     },
     {
       "version": 6,

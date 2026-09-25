@@ -104,11 +104,9 @@ for entry in levels:
          f"{entry['name']}: enum says {enum[entry['name']]}, schema says {entry['version']}")
     need(entry['evidence'], f"{entry['name']} has no evidence description")
     flag = entry['flag']
-    if flag is None:
-        continue
+    need(flag, f"{entry['name']} has no flag; every level is selected by one")
     # A documented flag that the proxy never reads would be a silent lie.
     need(flag in source, f"schema names {flag}, which does not appear in src/shader/intercept.cpp")
-need(levels[0]['flag'] is None, 'the baseline level must not claim an opt-in flag')
 
 # --- the reader -------------------------------------------------------------------
 accepted_match = re.search(r'version\s+in\s+\(([\d,\s]+)\)', reader_source)
@@ -127,8 +125,33 @@ for entry in schema.get('other_headers', []):
     need(f'"version":{entry["version"]}' in source or f'version\\":{entry["version"]}' in source,
          f'schema documents header version {entry["version"]}, which intercept.cpp never emits')
 
+# --- the CLI ladder, a fourth description of the same thing -----------------------
+# tools/game_pass.py declares the ladder once in CAPTURE_LEVELS and derives the
+# argparse flags, the prerequisite checks, the environment it exports and the
+# report it writes from that one table. So it is now a fourth description that has
+# to agree with the other three, and the order matters for the same reason it does
+# in the fold: the ladder is cumulative.
+sys.path.insert(0, str(root / 'tools'))
+import game_pass  # noqa: E402  (path has to be set up first)
+
+cli = [(level['name'], game_pass.capture_environment_name(level['name']))
+       for level in game_pass.CAPTURE_LEVELS]
+need(len(cli) == len(levels),
+     f'the CLI ladder has {len(cli)} levels against {len(levels)} in the schema')
+for (name, env), entry in zip(cli, levels):
+    need(env == entry['flag'],
+         f'CLI level {name} exports {env}, but the schema has {entry["flag"]} at '
+         f'v{entry["version"]}; the two ladders are out of step')
+    need(f'L"{env}"' in source,
+         f'the CLI exports {env}, which the proxy never reads')
+# The CLI's prerequisites must mirror the proxy's, which refuses a level whose
+# predecessor is not enabled.
+need(cli[0][1] == 'RRT_POSITION_MULTI_DRAW',
+     'the CLI ladder must start at the multi-draw baseline')
+
 print(f'PASS capture version contract: {len(enum)} ladder levels '
       f'({min(enum.values())}..{max(enum.values())}), '
       f'{len(schema.get("other_headers", []))} other headers, '
       f'{len(schema.get("legacy", []))} legacy, '
-      f'reader accepts {len(accepted)} versions')
+      f'reader accepts {len(accepted)} versions, '
+      f'CLI ladder agrees on all {len(cli)}')

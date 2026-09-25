@@ -116,6 +116,77 @@ def remove_owned_proxy(plan):
     destination.unlink()
 
 
+# The capture-evidence ladder, declared once.
+#
+# It is ordered and cumulative: each level requires the one before it. That is
+# what the proxy's environment parser enforces, what the version numbers in
+# docs/schemas/capture-version.json describe, and what makes the ledger header a
+# fold over the flags rather than an independent set.
+#
+# This table is consumed by four places that used to repeat the ladder by hand:
+# the argument definitions, the prerequisite checks, the environment/report
+# construction, and the call into run_pass. Adding a level is now one edit here
+# plus the run_pass signature, instead of five edits spread over four places with
+# the order silently load-bearing in two of them.
+#
+# `requires` is compared against the predecessor's *unset* value rather than its
+# truthiness, because position_selection is a string: an empty one must fall
+# through to the selection-format error rather than being reported as a missing
+# multi-draw prerequisite, which is the message the original code produced.
+CAPTURE_LEVELS = (
+    dict(name='position_multi_draw', requires='position_selection', unset=None,
+         message='multi-draw capture requires explicit selection',
+         help='up to4 selected draws per interval,16 total (v5)'),
+    dict(name='position_render_state', requires='position_multi_draw',
+         message='render-state capture requires multi-draw capture',
+         help='surface identity and selected composition-state evidence (v6; requires multi-draw)'),
+    dict(name='position_clear_evidence', requires='position_render_state',
+         message='clear evidence requires render-state capture',
+         help='bounded latest successful clear payload (v7; requires render-state)'),
+    dict(name='position_write_evidence', requires='position_clear_evidence',
+         message='write evidence requires clear evidence',
+         help='bounded ordered observed write calls and gaps (v8; requires clear evidence)'),
+    dict(name='position_surface_scope', requires='position_write_evidence',
+         message='surface scope requires write evidence',
+         help='closed standalone color-target scope evidence (v9; requires write evidence)'),
+    dict(name='position_color_replay', requires='position_surface_scope',
+         message='color replay requires surface scope',
+         help='pixel program, RGBA constant and color replay state (v10; requires surface scope)'),
+    dict(name='position_material_inputs', requires='position_color_replay',
+         message='material inputs require color replay evidence',
+         help='initialized pinned VS UV/color/fog inputs (v11; requires color replay evidence)'),
+    dict(name='position_pixel_material', requires='position_material_inputs',
+         message='pixel material requires material inputs',
+         help='paired PS constants and sampler/texture descriptors (v12; requires material inputs)'),
+    dict(name='position_texture_inputs', requires='position_pixel_material',
+         message='texture inputs require pixel material',
+         help='initialized bounded managed 2D mip bytes (v13; requires pixel material)'),
+    dict(name='position_texture_assets', requires='position_texture_inputs',
+         message='texture assets require texture inputs',
+         help='external hashed mip assets (v14; requires texture inputs)'),
+    dict(name='position_compressed_textures', requires='position_texture_assets',
+         message='compressed textures require texture assets',
+         help='DXT1/DXT3/DXT5 block capture (v15; requires texture assets)'),
+    dict(name='position_texture_uploads', requires='position_compressed_textures',
+         message='texture uploads require compressed texture capture',
+         help='proven whole-chain SYSTEMMEM to DEFAULT uploads (v16; requires compressed textures)'),
+    dict(name='position_dirty_textures', requires='position_texture_uploads',
+         message='dirty texture evidence requires texture uploads',
+         help='explicit full-dirty proof and SYSTEMMEM NO_DIRTY_UPDATE writes (v17; requires texture uploads)'),
+    dict(name='position_surface_uploads', requires='position_dirty_textures',
+         message='surface uploads require dirty texture evidence',
+         help='bounded UpdateSurface mip rectangles (v18; requires dirty texture evidence)'),
+    dict(name='position_surface_locks', requires='position_surface_uploads',
+         message='surface locks require surface uploads',
+         help='observed managed/SYSTEMMEM texture-mip surface locks (v19; requires surface uploads)'),
+)
+
+
+def capture_environment_name(level):
+    """position_render_state -> RRT_POSITION_RENDER_STATE."""
+    return 'RRT_POSITION_' + level[len('position_'):].upper()
+
+
 def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64*1024*1024, scene_frame=None, note='', wait_trigger=False, shader_inventory=False, position_capture=False, position_frames=False, position_selection=None, position_multi_draw=False, position_render_state=False, position_clear_evidence=False, position_write_evidence=False, position_surface_scope=False, position_color_replay=False, position_material_inputs=False, position_pixel_material=False, position_texture_inputs=False, position_texture_assets=False, position_compressed_textures=False, position_texture_uploads=False, position_dirty_textures=False, position_surface_uploads=False, position_surface_locks=False):
     need(mode in ('baseline','proxy','disabled'), 'unknown pass mode')
     directory = Path(directory).resolve()
@@ -128,21 +199,14 @@ def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64
     need(not shader_inventory or (mode=='proxy' and wait_trigger), 'shader inventory requires triggered proxy mode')
     need(not position_capture or (mode=='proxy' and wait_trigger and shader_inventory), 'position capture requires triggered shader inventory')
     need(not position_frames or position_capture, 'position frame sampling requires position capture')
-    need(not position_multi_draw or position_selection is not None,'multi-draw capture requires explicit selection')
-    need(not position_render_state or position_multi_draw,'render-state capture requires multi-draw capture')
-    need(not position_clear_evidence or position_render_state,'clear evidence requires render-state capture')
-    need(not position_write_evidence or position_clear_evidence,'write evidence requires clear evidence')
-    need(not position_surface_scope or position_write_evidence,'surface scope requires write evidence')
-    need(not position_color_replay or position_surface_scope,'color replay requires surface scope')
-    need(not position_material_inputs or position_color_replay,'material inputs require color replay evidence')
-    need(not position_pixel_material or position_material_inputs,'pixel material requires material inputs')
-    need(not position_texture_inputs or position_pixel_material,'texture inputs require pixel material')
-    need(not position_texture_assets or position_texture_inputs,'texture assets require texture inputs')
-    need(not position_compressed_textures or position_texture_assets,'compressed textures require texture assets')
-    need(not position_texture_uploads or position_compressed_textures,'texture uploads require compressed texture capture')
-    need(not position_dirty_textures or position_texture_uploads,'dirty texture evidence requires texture uploads')
-    need(not position_surface_uploads or position_dirty_textures,'surface uploads require dirty texture evidence')
-    need(not position_surface_locks or position_surface_uploads,'surface locks require surface uploads')
+    # The parameters are the flag set, so read them from the scope rather than
+    # listing them again -- a second hand-maintained list is what CAPTURE_LEVELS
+    # exists to remove. This snapshot is taken before `flags` is bound, so it
+    # holds the parameters and nothing else.
+    flags = locals()
+    for level in CAPTURE_LEVELS:
+        need(not flags[level['name']] or flags[level['requires']] is not level.get('unset', False),
+             level['message'])
     if position_selection is not None:
         need(position_frames and isinstance(position_selection,str) and len(position_selection)<=32 and re.fullmatch(r'(any|[1-9][0-9]*x[1-9][0-9]*):[1-9][0-9]*',position_selection), 'selection requires frame sampling and WIDTHxHEIGHT:MIN_TRIANGLES or any:MIN_TRIANGLES')
         dimensions,minimum=position_selection.split(':')
@@ -184,52 +248,14 @@ def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64
             if position_selection is not None:
                 environment['RRT_POSITION_SELECTION']=position_selection
                 report['position_selection']=position_selection
-            if position_multi_draw:
-                environment['RRT_POSITION_MULTI_DRAW']='1'
-                report['position_multi_draw']=True
-            if position_render_state:
-                environment['RRT_POSITION_RENDER_STATE']='1'
-                report['position_render_state']=True
-            if position_clear_evidence:
-                environment['RRT_POSITION_CLEAR_EVIDENCE']='1'
-                report['position_clear_evidence']=True
-            if position_write_evidence:
-                environment['RRT_POSITION_WRITE_EVIDENCE']='1'
-                report['position_write_evidence']=True
-            if position_surface_scope:
-                environment['RRT_POSITION_SURFACE_SCOPE']='1'
-                report['position_surface_scope']=True
-            if position_color_replay:
-                environment['RRT_POSITION_COLOR_REPLAY']='1'
-                report['position_color_replay']=True
-            if position_material_inputs:
-                environment['RRT_POSITION_MATERIAL_INPUTS']='1'
-                report['position_material_inputs']=True
-            if position_pixel_material:
-                environment['RRT_POSITION_PIXEL_MATERIAL']='1'
-                report['position_pixel_material']=True
-            if position_texture_inputs:
-                environment['RRT_POSITION_TEXTURE_INPUTS']='1'
-                report['position_texture_inputs']=True
+            for level in CAPTURE_LEVELS:
+                if flags[level['name']]:
+                    environment[capture_environment_name(level['name'])]='1'
+                    report[level['name']]=True
+            # The one level with a side effect beyond its own flag: the asset directory
+            # sits beside the capture file, so it is recorded alongside it.
             if position_texture_assets:
-                environment['RRT_POSITION_TEXTURE_ASSETS']='1'
-                report['position_texture_assets']=True
                 report['texture_asset_directory']=environment['RRT_POSITION_CAPTURE_FILE']+'.assets'
-            if position_compressed_textures:
-                environment['RRT_POSITION_COMPRESSED_TEXTURES']='1'
-                report['position_compressed_textures']=True
-            if position_texture_uploads:
-                environment['RRT_POSITION_TEXTURE_UPLOADS']='1'
-                report['position_texture_uploads']=True
-            if position_dirty_textures:
-                environment['RRT_POSITION_DIRTY_TEXTURES']='1'
-                report['position_dirty_textures']=True
-            if position_surface_uploads:
-                environment['RRT_POSITION_SURFACE_UPLOADS']='1'
-                report['position_surface_uploads']=True
-            if position_surface_locks:
-                environment['RRT_POSITION_SURFACE_LOCKS']='1'
-                report['position_surface_locks']=True
         environment.update(RRT_TRACE_FILE=str(run_directory / 'trace.jsonl'), RRT_TRACE_START_FRAME=str(start_frame),
                            RRT_TRACE_FRAME_COUNT=str(frames), RRT_TRACE_MAX_BYTES=str(max_bytes))
         if scene_frame is not None:
@@ -358,21 +384,8 @@ def main():
     launch.add_argument('--position-capture', action='store_true')
     launch.add_argument('--position-frames', action='store_true', help='one accepted position draw per successful-Present interval (v3)')
     launch.add_argument('--position-selection', metavar='WIDTHxHEIGHT:MIN_TRIANGLES|any:MIN_TRIANGLES', help='explicit target-size filter, or any:MIN to accept any render-target extent (v4; requires --position-frames, and --position-multi-draw for any:MIN)')
-    launch.add_argument('--position-multi-draw', action='store_true', help='up to4 selected draws per interval,16 total (v5)')
-    launch.add_argument('--position-render-state', action='store_true', help='surface identity and selected composition-state evidence (v6; requires multi-draw)')
-    launch.add_argument('--position-clear-evidence', action='store_true', help='bounded latest successful clear payload (v7; requires render-state)')
-    launch.add_argument('--position-write-evidence', action='store_true', help='bounded ordered observed write calls and gaps (v8; requires clear evidence)')
-    launch.add_argument('--position-surface-scope', action='store_true', help='closed standalone color-target scope evidence (v9; requires write evidence)')
-    launch.add_argument('--position-color-replay', action='store_true', help='pixel program, RGBA constant and color replay state (v10; requires surface scope)')
-    launch.add_argument('--position-material-inputs', action='store_true', help='initialized pinned VS UV/color/fog inputs (v11; requires color replay evidence)')
-    launch.add_argument('--position-pixel-material', action='store_true', help='paired PS constants and sampler/texture descriptors (v12; requires material inputs)')
-    launch.add_argument('--position-texture-inputs', action='store_true', help='initialized bounded managed 2D mip bytes (v13; requires pixel material)')
-    launch.add_argument('--position-texture-assets', action='store_true', help='external hashed mip assets (v14; requires texture inputs)')
-    launch.add_argument('--position-compressed-textures', action='store_true', help='DXT1/DXT3/DXT5 block capture (v15; requires texture assets)')
-    launch.add_argument('--position-texture-uploads', action='store_true', help='proven whole-chain SYSTEMMEM to DEFAULT uploads (v16; requires compressed textures)')
-    launch.add_argument('--position-dirty-textures', action='store_true', help='explicit full-dirty proof and SYSTEMMEM NO_DIRTY_UPDATE writes (v17; requires texture uploads)')
-    launch.add_argument('--position-surface-uploads', action='store_true', help='bounded UpdateSurface mip rectangles (v18; requires dirty texture evidence)')
-    launch.add_argument('--position-surface-locks', action='store_true', help='observed managed/SYSTEMMEM texture-mip surface locks (v19; requires surface uploads)')
+    for level in CAPTURE_LEVELS:
+        launch.add_argument('--'+level['name'].replace('_','-'), action='store_true', help=level['help'])
     recover = commands.add_parser('cleanup'); recover.add_argument('directory', type=Path); recover.add_argument('--name', required=True)
     recover.add_argument('--game-closed', action='store_true')
     trigger=commands.add_parser('trigger'); trigger.add_argument('directory',type=Path); trigger.add_argument('--name',required=True)
@@ -382,7 +395,15 @@ def main():
         if args.command == 'prepare':
             report = prepare(args.exe,args.proxy,args.out,args.title,argument_list(args.args_json),None if args.baseline_args_json is None else argument_list(args.baseline_args_json),args.proxy_subdir)
         elif args.command == 'run':
-            report = run_pass(args.directory,args.mode,args.name,args.start_frame,args.frames,args.max_bytes,args.scene_frame,args.note,args.wait_trigger,args.shader_inventory,args.position_capture,args.position_frames,args.position_selection,args.position_multi_draw,args.position_render_state,args.position_clear_evidence,args.position_write_evidence,args.position_surface_scope,args.position_color_replay,args.position_material_inputs,args.position_pixel_material,args.position_texture_inputs,args.position_texture_assets,args.position_compressed_textures,args.position_texture_uploads,args.position_dirty_textures,args.position_surface_uploads,args.position_surface_locks)
+            # Ladder levels come from the table so this call does not need editing when a
+            # level is added; argparse has already turned each --a-b flag into args.a_b.
+            report = run_pass(args.directory, args.mode,
+                              name=args.name, start_frame=args.start_frame, frames=args.frames,
+                              max_bytes=args.max_bytes, scene_frame=args.scene_frame, note=args.note,
+                              wait_trigger=args.wait_trigger, shader_inventory=args.shader_inventory,
+                              position_capture=args.position_capture, position_frames=args.position_frames,
+                              position_selection=args.position_selection,
+                              **{level['name']: getattr(args, level['name']) for level in CAPTURE_LEVELS})
         elif args.command == 'trigger':
             report=trigger_capture(args.directory,args.name)
         elif args.command == 'reuse-baseline':

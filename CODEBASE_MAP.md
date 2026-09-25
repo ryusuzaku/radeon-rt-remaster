@@ -154,6 +154,7 @@ Three descriptions, all required to agree:
 | `src/shader/intercept.cpp` | `enum class CaptureLevel` + `Context::Level()` |
 | `docs/schemas/capture-version.json` | the ladder, each level's flag and the evidence it adds |
 | `tools/inspect_position_capture.py` | the reader's accepted version set and per-version shape rules |
+| `tools/game_pass.py` | `CAPTURE_LEVELS`: the CLI ladder, from which the argparse flags, prerequisite checks, environment and report all derive |
 
 `tests/verify_capture_version_contract.py` (CTest `capture_version_contract`)
 requires all three to describe the same ladder, that the fold covers every level
@@ -176,9 +177,9 @@ candidate for the same treatment.
 
 ## 7. Test topology — what is actually registered
 
-45 distinct tests in the current `build/x86-vs` configuration — 42 at the first
+46 distinct tests in the current `build/x86-vs` configuration — 42 at the first
 revision, plus `codegen_freshness`, `capture_version_contract` and
-`published_references` added 2026-09-24. That number is not portable,
+`published_references` added 2026-09-24 and `shadow_budget_tool` added 2026-09-25. That number is not portable,
 because registration is conditional:
 
 | Gate | Tests | Effect when the gate is false |
@@ -189,7 +190,7 @@ because registration is conditional:
 | `if(RRT_FSR_SDK)` / `if(RRT_FSR_RC_SDK)` | 25 `rr_*` / `rc_*` tests | Entire FidelityFX track compiled out |
 
 Those `EXISTS` paths point into `build/game-passes/`, which `.gitignore` excludes.
-So on a clean checkout the suite drops from 45 to **32**, and the 13 that vanish
+So on a clean checkout the suite drops from 46 to **33**, and the 13 that vanish
 are precisely the ones that prove the project's headline result (the 16-draw HL2
 material capture). Nothing prints a warning. I verified the SDK variables are
 empty in `build/x86-vs/CMakeCache.txt`, so the 25 FidelityFX tests are already
@@ -369,9 +370,12 @@ schema names appears in the proxy. Verified to fail on five distinct divergences
 (a level added to the enum but not the fold; added to the enum and fold but not
 the schema; a reordered fold; a mismatched version number; a reader missing a
 version) with the control tree passing.
-**Remaining:** the `game_pass.py` flag plumb-through (argparse + `run_pass`
-signature + pass-through) is still hand-maintained per level and is the obvious
-next candidate.
+**Remaining: none.** The `game_pass.py` plumb-through was the last hand-maintained
+per-level code, and as of 2026-09-25 it derives from `CAPTURE_LEVELS` too, so the
+contract test now covers all four descriptions. Adding a level is: the enum,
+`Level()`, the schema, the reader's set and shape rules, the `CAPTURE_LEVELS`
+entry, the `run_pass` signature, a doc, and the CTest matrices — mechanical, and
+the contract test names any place that was missed.
 
 ### D2 — Codegen drift is unguarded — **mitigated 2026-09-24**
 **Evidence:** `src/proxy/generated_observers.inc` (4,352 lines) and
@@ -536,7 +540,7 @@ Calendar time is longer (see R2).
 |---|---|---|---|
 | M0.1 | ~~Extract the version ternary into a named enum + a machine-readable schema~~ **done 2026-09-24** — `enum class CaptureLevel` + `Context::Level()` in `src/shader/intercept.cpp`, `docs/schemas/capture-version.json` documents each level's flag and evidence | — | ~~1–2 d~~ 0 |
 | M0.2 | ~~Add a test that the C++ reported version set and the Python accepted set are identical~~ **done 2026-09-24** — `tests/verify_capture_version_contract.py`, CTest `capture_version_contract`, passes in 0.38 s; verified to fail on five distinct divergences | M0.1 | ~~0.5 d~~ 0 |
-| M0.2b | **New.** Remove the remaining hand-maintained per-level plumb-through in `tools/game_pass.py` (argparse flag + `run_pass` parameter + pass-through), which is now the most tedious part of adding a level | M0.1 | 0.5–1 d |
+| M0.2b | ~~Remove the hand-maintained per-level plumb-through in `tools/game_pass.py`~~ **done 2026-09-25** — the ladder is now declared once in `CAPTURE_LEVELS` and the argparse flags, prerequisite checks, environment/report construction and call site all derive from it. Adding a level is the table plus the `run_pass` signature. Verified: CLI surface byte-identical (23 flags, no help-text change), `game_pass_workflow` green, and `verify_capture_version_contract.py` now treats the CLI as a fourth description that must agree with the enum, schema and reader | M0.1 | ~~0.5–1 d~~ 0 |
 | M0.3 | ~~Add a codegen freshness test~~ **done 2026-09-24** — `tests/verify_codegen_freshness.py`, CTest `codegen_freshness`, passes in 1.9 s | — | ~~0.5 d~~ 0 |
 | M0.4 | Decide evidence retention (see §12 Q6), then make the 13 evidence-gated tests either tracked or loudly skipped | §12 Q6 | 1–3 d |
 | M0.5 | ~~Reconcile the planning logs~~ **mostly done 2026-09-24** — `docs/PROJECT_STATUS.md` refreshed from 2026-09-06 to 2026-09-24 and now covers v19, surface locks and the material3 capture; the missing milestone record was published as `docs/HL2_DYNAMIC_MATERIAL_CAPTURE.md` (it had existed only in the local session logs); `PHASE_PLAN.md` declares `PROJECT_STATUS.md` canonical instead of asserting its own stale checkpoint; the four logs are now gitignored. Remaining: the duplicate `material2` section in the local-only `HANDOFF.md` | — | ~~0.5 d~~ 0.1 d |
@@ -858,8 +862,9 @@ recorded `requested_buffer_bytes` exactly; `--probe` reports 8,589,934,592 B on
 x86 and x64 alike and `--budget-test` refuses an over-limit request while charging
 nothing; `verify_dxr_resolution.py` passes end to end on all four binaries with
 1080p/1440p/4K pixel checks and 4096×4096 rendering; and the full CTest suite
-passes **45/45 in x86 Debug** (430.71 s, 638.70 s and 510.97 s on three runs) and
-**45/45 in x86 Release (446 s)**, re-run after the
+passes **46/46 in x86 Debug** (430.71 s, 638.70 s, 510.97 s and 495.74 s on four
+runs) and **45/45 in x86 Release (446 s)** — the Release figure predates
+`shadow_budget_tool` — re-run after the
 ladder refactor and again after the published-reference work, so the enum/fold
 change is confirmed behaviour-preserving by the version-sensitive `texture_*`
 and `position_capture` matrices.
