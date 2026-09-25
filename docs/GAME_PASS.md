@@ -92,6 +92,30 @@ and still selects one target precisely. In `any` mode every rejected draw carrie
 rendered and which of them reach the scene passes; `any` requires
 `--position-multi-draw` and fails closed without it.
 
+### Reading the shadow-budget result
+
+A pass built after the peak instrument landed writes `retained_peak`,
+`peak_buffers` and `peak_textures` into the ledger footer alongside the stop
+values. **The peak is the one that decides policy**: a reservation that was
+*refused* proves the total was higher at that moment than at the stop, so a
+capture that stops below the cap tells you nothing about what filled it.
+
+```powershell
+python tools/analyse_shadow_budget.py build/game-passes/PASS --refused-bytes 94371840
+```
+
+Pass a ledger directly, or a pass directory and it finds the newest
+`position-capture.jsonl` under `runs/`. It reads the 128 MiB cap from the proxy
+source rather than repeating it, reports the stop and peak splits side by side,
+names whether the peak is buffer- or texture-dominated, and — given the refused
+demand in bytes — says what cap would have admitted it.
+
+It **exits 3 and refuses to answer** if the ledger has no peak fields. That is
+deliberate: the stop split cannot answer the question, and a tool that quietly
+analysed it anyway would produce a confident wrong recommendation. `20 * 4718592`
+is the 90 MiB that `material3`'s twenty refused 1024x512 `A16B16G16R16` inputs
+represent.
+
 A triggered capture arms on the first successful Present after the trigger and
 starts its interval numbering there. If the game is not presenting when the
 trigger lands — the usual case when the window is in the background — nothing is

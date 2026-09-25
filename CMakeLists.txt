@@ -259,6 +259,10 @@ set_tests_properties(capture_version_contract PROPERTIES TIMEOUT 60)
 # readers looking for something that was never shipped.
 add_test(NAME published_references COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_published_references.py)
 set_tests_properties(published_references PROPERTIES TIMEOUT 60)
+# The shadow-budget analysis turns one game pass into a policy decision, so it must
+# read the cap from source and refuse to answer from a ledger that cannot answer.
+add_test(NAME shadow_budget_tool COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_shadow_budget_tool.py)
+set_tests_properties(shadow_budget_tool PROPERTIES TIMEOUT 60)
 add_test(NAME shader_snapshot COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_shader_snapshot.py --fixture $<TARGET_FILE:rrt_shader_fixture>)
 set_tests_properties(shader_snapshot PROPERTIES TIMEOUT 120)
 add_test(NAME shader_proxy COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_shader_proxy.py --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy>)

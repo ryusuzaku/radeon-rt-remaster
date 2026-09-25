@@ -558,7 +558,7 @@ not the 1.3% a 60-present trace window suggested.*
 
 | # | Task | Depends on | Effort |
 |---|---|---|---|
-| M1.1 | **Decide the budget policy** — see §12 Q1. Blocked on one HL2 pass with the peak instrument, not on analysis | — | decision after 1 game session |
+| M1.1 | **Decide the budget policy** — see §12 Q1. Blocked on one HL2 pass with the peak instrument, not on analysis. `tools/analyse_shadow_budget.py` (CTest `shadow_budget_tool`) now turns that pass into the decision: it reads the cap from source, reports the stop and peak splits, names the dominant kind, and **exits 3 rather than answering from a ledger without peak fields** | — | 1 game session, then a decision |
 | M1.2 | Implement the chosen policy; qualify against the existing `defbudget`/`defexhaust`/`defrelease` fixture bracket | M1.1 | 3–5 d |
 | M1.3 | Re-run an HL2 material pass at 2560×1440 — the extent that actually matches (`HL2_MATERIAL_V18_RESULT.md`) — and confirm the 20× `1024x512 A16B16G16R16` failures clear | M1.2, user gameplay | 0.5 d + game time |
 | M1.4 | **Partly done 2026-09-16.** The v19 evidence capture itself works: `material3` recorded 16 draws carrying full v19 evidence (UV/colour/pixel constants, 32 texture inputs, texture bytes) at `[1920,1080,21,0]`. That supersedes `hl2-multidraw-20260907`'s v5 records, which lack all of it. What remains is reaching a **game-sized extent (≥2560×1440)** with that same evidence — and no tool change is needed for that: `replay_pixel_material.py --normalized-material` already preserves the captured target width/height and viewport including XY offsets, bounds 1..8192 and ≤8,000,000 px, and `texture_scope` already qualifies 5120×1440 plus an offset 320×240 viewport. M1.3 covers the pass | M1.3 | 1 d + game time |
