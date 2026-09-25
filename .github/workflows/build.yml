@@ -18,8 +18,16 @@
 #     saying so. Making them runnable headless is separate work.
 #
 # `shell: bash` is set explicitly. Git Bash is present on the Windows runners,
-# and it keeps these steps checkable as shell scripts rather than as PowerShell
-# that no linter here reads.
+# and it keeps these steps checkable as shell scripts rather than as an unlinted
+# Windows shell dialect.
+#
+# The runner is pinned to windows-2022 rather than windows-latest on purpose.
+# windows-latest is now the windows-2025-vs2026 image, which ships Visual Studio
+# 2026 and therefore does not provide the "Visual Studio 17 2022" generator that
+# CMakePresets.json asks for -- configure fails with "could not find any instance
+# of Visual Studio". That is not a fault in the workflow, it is the project
+# targeting VS 2022, so the pin states that rather than papering over it. Moving
+# the project to a newer generator is its own decision.
 
 name: build
 
@@ -35,7 +43,7 @@ permissions:
 jobs:
   x86:
     name: x86 build and contract checks
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
@@ -61,7 +69,7 @@ jobs:
 
   x64-renderer:
     name: x64 renderer-only build
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 

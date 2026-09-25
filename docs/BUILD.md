@@ -3,9 +3,15 @@
 ## Prerequisites
 
 - Windows with a D3D9-capable graphics driver for the GPU tests.
-- Visual Studio 2022 C++ Build Tools, x86 toolset, and Windows SDK.
+- **Visual Studio 2022** C++ Build Tools, x86 toolset, and Windows SDK.
 - CMake 3.25+.
 - Python 3.10+ for tests and inspection. Code generation uses only Python's standard library; generated C++ is checked in.
+
+`CMakePresets.json` names the `Visual Studio 17 2022` generator explicitly, so a
+machine with only a newer Visual Studio does not satisfy it: configure fails with
+`could not find any instance of Visual Studio`. Install the 2022 toolset, or add a
+preset for the generator you have. This is why CI pins `windows-2022` — the
+`windows-latest` image is now `windows-2025-vs2026`, which ships Visual Studio 2026.
 
 ## Reproducible x86 commands
 
