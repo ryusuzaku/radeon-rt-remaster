@@ -5,10 +5,10 @@ charged in two places, released in two places, and has no leak. What it does not
 have is a policy for which resources deserve the space, and that choice is blocked
 on one number.
 
-The footer written when a capture stops reports the split at the stop. That is the
-wrong moment. A reservation that was *refused* proves the total was higher when the
-refusal was decided than it was at the stop, so the split that decides policy is
-the one at the **peak**. The proxy now samples `retained_peak`, `peak_buffers` and
+The footer written when a capture stops reports the split at the stop. Resources
+may have been released since a refusal, so retain the split at the **peak** too.
+Refusal only proves a reservation exceeded remaining headroom at that moment;
+the peak cannot identify the precise refused demand. The proxy samples `retained_peak`, `peak_buffers` and
 `peak_textures` for exactly this reason.
 
 This tool prefers the peak fields, reports both moments side by side, and says
@@ -53,18 +53,10 @@ def shadow_cap():
     """Read the cap from the proxy source so it cannot drift from this report."""
     source = (REPO / 'src' / 'shader' / 'intercept.cpp').read_text(encoding='utf-8')
     tracking = (REPO / 'src' / 'shader' / 'texture_tracking.inc').read_text(encoding='utf-8')
-    # Buffer charges: (c.positionMode?128:16)*1024*1024 -- a capture is always in
-    # position mode, so the 128 arm is the one that applies here.
-    buffers = re.search(r'\(c\.positionMode\?(\d+):\d+\)\*1024\*1024', source)
-    # Texture charges: a flat 128*1024*1024, against the same Retained() counter.
-    textures = re.search(r'reservation>(\d+)\*1024\*1024', tracking)
-    if not buffers or not textures:
+    default = re.search(r'DefaultShadowMiB=(\d+)', source)
+    if not default or 'before+reserved>c.ShadowCap()' not in source or 'before+reservation>c.ShadowCap()' not in tracking:
         raise SystemExit('could not read the shadow-budget cap from the proxy source')
-    if buffers.group(1) != textures.group(1):
-        raise SystemExit(f'the buffer and texture caps disagree '
-                         f'({buffers.group(1)} vs {textures.group(1)} MiB) and the counter is '
-                         f'shared, so this needs a look before the tool can reason about it')
-    return int(buffers.group(1)) * 1024 * 1024
+    return int(default.group(1)) * 1024 * 1024
 
 
 cap = shadow_cap()
@@ -84,6 +76,13 @@ with path.open(encoding='utf-8', errors='ignore') as stream:
 if footer is None:
     raise SystemExit(f'no footer (kind "end") in {path} -- the capture did not stop '
                      f'cleanly, so there is nothing to attribute')
+
+if 'shadow_cap_bytes' in footer:
+    cap = footer['shadow_cap_bytes']
+    if type(cap) is not int or cap not in (128*1024*1024,256*1024*1024):
+        raise SystemExit('invalid recorded shadow cap')
+if args.refused_bytes < 0:
+    raise SystemExit('refused bytes must be nonnegative')
 
 mib = 1024 * 1024
 
@@ -111,6 +110,8 @@ if has_peak:
     if peak['total'] < stop['total']:
         raise SystemExit(f'peak {peak["total"]} is below the stop value {stop["total"]}')
     report['at_peak'] = peak
+    if peak['total'] > cap:
+        raise SystemExit('retained peak exceeds recorded shadow cap')
 
 if not args.json:
     print(f'ledger      : {path}')
@@ -131,29 +132,29 @@ if not args.json:
 
 if not has_peak:
     print('This ledger has no peak fields, so it cannot answer the policy question.')
-    print('The stop split is not a substitute: a refused reservation proves the total was')
-    print('higher at the moment of refusal than it was at the stop, and this capture did')
-    print(f'stop at {stop["total"] / mib:.2f} MiB against a {cap // mib} MiB cap, which cannot')
-    print('refuse anything. Re-run with a proxy built after the peak instrument landed.')
+    print('The stop split is not a substitute: resources may have been released before')
+    print(f'the stop at {stop["total"] / mib:.2f} MiB against the {cap // mib} MiB cap.')
+    print('A reservation can also exceed remaining headroom below the cap.')
+    print('Re-run with a proxy built after the peak instrument landed.')
     sys.exit(3)
 
 peak = report['at_peak']
 dominant = 'textures' if peak['textures'] > peak['buffers'] else 'buffers'
 report['dominant_at_peak'] = dominant
+if args.refused_bytes:
+    report['refused_bytes'] = args.refused_bytes
+    report['cap_to_admit'] = peak['total'] + args.refused_bytes
 
 if not args.json:
     print(f'The peak is {dominant}-dominated '
           f'({100.0 * peak[dominant] / peak["total"]:.0f}% of the peak total).')
     if args.refused_bytes:
         needed = peak['total'] + args.refused_bytes
-        report['refused_bytes'] = args.refused_bytes
-        report['cap_to_admit'] = needed
         print(f'Admitting the refused {args.refused_bytes / mib:.1f} MiB on top of the peak')
         print(f'needs a cap of at least {needed / mib:.2f} MiB, i.e. {needed / mib / (cap // mib):.2f}x the current one.')
         print()
     print('Candidates this supports:')
-    print(f'  raise the cap            {"plausible" if dominant == "textures" else "plausible"}: '
-          f'smallest change; state the VRAM rationale')
+    print('  raise the cap            bounded experiment: account for CPU memory and x86 address space')
     print(f'  partition buffers/textures  '
           f'{"worth it" if peak["buffers"] > 0.15 * cap else "buys little at this peak"}: '
           f'buffers are {100.0 * peak["buffers"] / cap:.1f}% of the cap at the peak')

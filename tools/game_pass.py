@@ -187,7 +187,7 @@ def capture_environment_name(level):
     return 'RRT_POSITION_' + level[len('position_'):].upper()
 
 
-def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64*1024*1024, scene_frame=None, note='', wait_trigger=False, shader_inventory=False, position_capture=False, position_frames=False, position_selection=None, position_multi_draw=False, position_render_state=False, position_clear_evidence=False, position_write_evidence=False, position_surface_scope=False, position_color_replay=False, position_material_inputs=False, position_pixel_material=False, position_texture_inputs=False, position_texture_assets=False, position_compressed_textures=False, position_texture_uploads=False, position_dirty_textures=False, position_surface_uploads=False, position_surface_locks=False):
+def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64*1024*1024, scene_frame=None, note='', wait_trigger=False, shader_inventory=False, position_capture=False, position_frames=False, position_selection=None, position_multi_draw=False, position_render_state=False, position_clear_evidence=False, position_write_evidence=False, position_surface_scope=False, position_color_replay=False, position_material_inputs=False, position_pixel_material=False, position_texture_inputs=False, position_texture_assets=False, position_compressed_textures=False, position_texture_uploads=False, position_dirty_textures=False, position_surface_uploads=False, position_surface_locks=False, shadow_mib=128):
     need(mode in ('baseline','proxy','disabled'), 'unknown pass mode')
     directory = Path(directory).resolve()
     plan = load_plan(directory)
@@ -199,6 +199,8 @@ def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64
     need(not shader_inventory or (mode=='proxy' and wait_trigger), 'shader inventory requires triggered proxy mode')
     need(not position_capture or (mode=='proxy' and wait_trigger and shader_inventory), 'position capture requires triggered shader inventory')
     need(not position_frames or position_capture, 'position frame sampling requires position capture')
+    need(type(shadow_mib) is int and shadow_mib in (128,256), 'shadow cap must be 128 or 256 MiB')
+    need(shadow_mib==128 or position_capture, 'experimental shadow cap requires position capture')
     # The parameters are the flag set, so read them from the scope rather than
     # listing them again -- a second hand-maintained list is what CAPTURE_LEVELS
     # exists to remove. This snapshot is taken before `flags` is bound, so it
@@ -241,6 +243,8 @@ def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64
                                RRT_SHADER_INVENTORY_TRIGGER_FILE=report['trigger_file'],
                                RRT_SHADER_INVENTORY_DRAWS='4096')
         if position_capture:
+            report['shadow_mib']=shadow_mib
+            environment['RRT_POSITION_SHADOW_MIB']=str(shadow_mib)
             report['position_capture_file']=str(run_directory/'position-capture.jsonl')
             environment.update(RRT_POSITION_CAPTURE_FILE=report['position_capture_file'],RRT_POSITION_TRIGGER_FILE=report['trigger_file'])
             report['position_frame_sampling']=bool(position_frames)
@@ -382,6 +386,7 @@ def main():
     launch.add_argument('--wait-trigger', action='store_true')
     launch.add_argument('--shader-inventory', action='store_true')
     launch.add_argument('--position-capture', action='store_true')
+    launch.add_argument('--shadow-mib', type=int, choices=(128,256), default=128, help='CPU shadow cap; 256 is an opt-in position-capture experiment')
     launch.add_argument('--position-frames', action='store_true', help='one accepted position draw per successful-Present interval (v3)')
     launch.add_argument('--position-selection', metavar='WIDTHxHEIGHT:MIN_TRIANGLES|any:MIN_TRIANGLES', help='explicit target-size filter, or any:MIN to accept any render-target extent (v4; requires --position-frames, and --position-multi-draw for any:MIN)')
     for level in CAPTURE_LEVELS:
@@ -401,7 +406,7 @@ def main():
                               name=args.name, start_frame=args.start_frame, frames=args.frames,
                               max_bytes=args.max_bytes, scene_frame=args.scene_frame, note=args.note,
                               wait_trigger=args.wait_trigger, shader_inventory=args.shader_inventory,
-                              position_capture=args.position_capture, position_frames=args.position_frames,
+                              position_capture=args.position_capture, position_frames=args.position_frames, shadow_mib=args.shadow_mib,
                               position_selection=args.position_selection,
                               **{level['name']: getattr(args, level['name']) for level in CAPTURE_LEVELS})
         elif args.command == 'trigger':

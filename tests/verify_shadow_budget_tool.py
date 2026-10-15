@@ -45,9 +45,9 @@ def need(condition, message):
 # The cap must come from the source, not from a literal in the tool.
 source = (ROOT / 'src' / 'shader' / 'intercept.cpp').read_text(encoding='utf-8')
 tracking = (ROOT / 'src' / 'shader' / 'texture_tracking.inc').read_text(encoding='utf-8')
-need('c.positionMode?128:16)*1024*1024' in source,
+need('DefaultShadowMiB=128' in source and 'before+reserved>c.ShadowCap()' in source,
      'the buffer-cap expression changed; analyse_shadow_budget.shadow_cap() needs updating')
-need('reservation>128*1024*1024' in tracking,
+need('before+reservation>c.ShadowCap()' in tracking,
      'the texture-cap expression changed; analyse_shadow_budget.shadow_cap() needs updating')
 
 with tempfile.TemporaryDirectory(prefix='shadow-budget-') as raw:
@@ -126,6 +126,23 @@ with tempfile.TemporaryDirectory(prefix='shadow-budget-') as raw:
     result = run(directory / 'pass')
     need(result.returncode == 0, f'pass-directory mode should find the ledger: {result.stderr}')
     need('material5' in result.stdout, result.stdout)
+
+    # A recorded experiment keeps its own cap even if source defaults differ.
+    expanded = ledger(directory, 'expanded', dict(
+        reason='capture_limit', captured=16, attempts=924,
+        retained=150000000, retained_buffers=30000000, retained_textures=120000000,
+        live_textures=400,retained_peak=160000000,peak_buffers=30000000,
+        peak_textures=130000000,shadow_cap_bytes=256*1024*1024))
+    result=run(expanded,'--json','--refused-bytes','1024')
+    need(result.returncode==0,result.stderr)
+    report=json.loads(result.stdout)
+    need(report['cap_bytes']==256*1024*1024 and report['cap_to_admit']==160001024,report)
+    for cap in (True,0,512*1024*1024,128*1024*1024):
+        invalid=ledger(directory,'invalid-cap',dict(reason='capture_limit',captured=16,
+            attempts=924,retained=150000000,retained_buffers=30000000,
+            retained_textures=120000000,live_textures=400,retained_peak=160000000,
+            peak_buffers=30000000,peak_textures=130000000,shadow_cap_bytes=cap))
+        need(run(invalid).returncode!=0,'invalid recorded cap accepted')
 
 print('PASS shadow-budget analysis: cap read from source, stop-only ledgers refused, '
       'peak split drives the recommendation, malformed ledgers rejected')

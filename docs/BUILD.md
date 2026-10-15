@@ -54,7 +54,8 @@ inputs are present, so no fixed count is quoted here — run
 
 Always present: trace-reader and mod-validation suites, classic/Ex mod replay,
 classic/Ex proxy equivalence, classic/Ex scene replay, the contract checks
-(`codegen_freshness`, `capture_version_contract`, `published_references`) and
+(`codegen_freshness`, `capture_version_contract`, `published_references`,
+`shadow_budget_tool`, `evidence_registration`) and
 smoke/help entry points. Integration tests load the system DLL explicitly for
 baseline renders, confirm the proxy marker when requested, and compare raw image
 bytes with proxy-on, trace-off, and proxy-disabled runs.
@@ -67,9 +68,28 @@ adapters; they do not silently use a software renderer. Standard D3D12
 debug-layer validation is enabled when the Windows Graphics Tools component is
 installed.
 
-Added when `build/game-passes/` holds a captured pass: the `texture_*` and
-`position_capture` matrices. Those need the pinned inventory, so they are skipped
-on a clean checkout rather than failing.
+All 13 local-evidence tests stay registered in the x86 build, including
+`texture_*`, `position_capture` and the recorded-position suites. They carry the
+`local_evidence` label. When a required file is unavailable, CTest lists the test
+as **Skipped**, and verbose output names the path and the CMake variable to set.
+Existing malformed evidence still fails the original validator. Evidence is
+checked at execution time, so restoring or removing a file takes effect without
+reconfiguring; changing the configured path requires another CMake configure.
+
+```powershell
+ctest --test-dir build/x86-vs -C Release -L local_evidence -V
+cmake --preset windows-x86 "-DRRT_HL2_POSITION_INVENTORY=P:/owned-pass/shader-inventory.jsonl" "-DRRT_HL2_POSITION_CAPTURE=P:/owned-pass/position-capture.jsonl" "-DRRT_HL2_GROUP_CAPTURE=P:/owned-multidraw/position-capture.jsonl"
+```
+
+The inventory enables nine tests, the position capture three, and the grouped
+capture one. These need the pinned HL2 programs/recording shapes described in
+[the position contract](HL2_POSITION_CONTRACT.md) and
+[grouped replay](HL2_GROUPED_POSITION_REPLAY.md); arbitrary JSONL is not a substitute.
+Obtain the files from your owned local pass or a private backup. Game artifacts
+remain excluded from the public repository; retention storage is still undecided.
+The GPU-free `evidence_registration` contract checks registration of all 13 tests
+and real CTest missing/restored/invalid evidence transitions, including paths with
+spaces and preservation of child exit codes. CI runs this contract.
 
 The fixture draws textured indexed geometry through fixed-function and shader paths and includes UP draws, resource/stateblock identities, device/swap-chain Present, invalid-reset recovery, resize, readback, and resource-held device lifetime recovery. Trace checks cover record validation, deterministic IDs/counts, selected frame ranges, byte budgets, and unavailable/existing output paths.
 

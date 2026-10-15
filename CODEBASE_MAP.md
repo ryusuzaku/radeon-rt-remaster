@@ -177,22 +177,24 @@ candidate for the same treatment.
 
 ## 7. Test topology — what is actually registered
 
-46 distinct tests in the current `build/x86-vs` configuration — 42 at the first
+47 distinct tests in the current `build/x86-vs` configuration — 42 at the first
 revision, plus `codegen_freshness`, `capture_version_contract` and
-`published_references` added 2026-09-24 and `shadow_budget_tool` added 2026-09-25. That number is not portable,
-because registration is conditional:
+`published_references` added 2026-09-24, `shadow_budget_tool` added 2026-09-25,
+and `evidence_registration` added 2026-10-13. SDK/DXC availability still changes
+registration; local game evidence now changes execution only:
 
 | Gate | Tests | Effect when the gate is false |
 |---|---|---|
-| `if(EXISTS RRT_HL2_POSITION_INVENTORY)` (`CMakeLists.txt:259`) | `hl2_position`, `position_capture`, `texture_{compressed,upload,dirty,surface,locks,scope,selection}` | 9 tests silently unregistered |
-| `if(EXISTS RRT_HL2_POSITION_CAPTURE)` (`:271`) | `recorded_position_oracle`, `position_reconstruction`, `capture_position_scene` | 3 more |
-| `if(EXISTS RRT_HL2_GROUP_CAPTURE)` (`:279`) | `position_groups` | 1 more |
+| File at `RRT_HL2_POSITION_INVENTORY` | `hl2_position`, `position_capture`, `texture_{compressed,upload,dirty,surface,locks,scope,selection}` | 9 explicit runtime skips |
+| File at `RRT_HL2_POSITION_CAPTURE` | `recorded_position_oracle`, `position_reconstruction`, `capture_position_scene` | 3 explicit runtime skips |
+| File at `RRT_HL2_GROUP_CAPTURE` | `position_groups` | 1 explicit runtime skip |
 | `if(RRT_FSR_SDK)` / `if(RRT_FSR_RC_SDK)` | 25 `rr_*` / `rc_*` tests | Entire FidelityFX track compiled out |
 
-Those `EXISTS` paths point into `build/game-passes/`, which `.gitignore` excludes.
-So on a clean checkout the suite drops from 46 to **33**, and the 13 that vanish
-are precisely the ones that prove the project's headline result (the 16-draw HL2
-material capture). Nothing prints a warning. I verified the SDK variables are
+The default evidence paths point into `build/game-passes/`, which `.gitignore`
+excludes. Before 2026-10-13, all 13 tests vanished on a clean checkout. They now
+remain listed, with missing-file diagnostics and the `local_evidence` label.
+This makes unavailable qualification visible without redistributing game content.
+At the original inspection, the SDK variables were
 empty in `build/x86-vs/CMakeCache.txt`, so the 25 FidelityFX tests are already
 absent here — their evidence in `docs/RR_*.md` and `docs/RADIANCE_CACHE_*.md`
 is not reproducible from this working tree without the SDK path and NumPy.
@@ -396,7 +398,7 @@ both files. It also derives the expected override count from the schema
 truncated output. Verified to fail on a hand-edited `.inc` and on a schema change
 without regeneration, and to pass in 1.93 s.
 
-### D3 — Tests that depend on untracked evidence silently disappear
+### D3 — Tests that depend on untracked evidence silently disappear — mitigated 2026-10-13
 **Evidence:** `.gitignore` line 1 excludes `/build/`; the three `if(EXISTS ...)`
 guards above; `build/game-passes/` holds 20 pass directories and 583 files.
 **Impact:** the qualification suite is not reproducible from the repository. A
@@ -404,6 +406,14 @@ guards above; `build/game-passes/` holds 20 pass directories and 583 files.
 diagnostic. This is the most dangerous item because it fails silently and it
 targets the project's strongest evidence.
 **Cost to fix:** medium — needs a policy decision first (see §12).
+
+**Visibility fixed 2026-10-13:** all 13 tests now register unconditionally in
+the x86 build with label `local_evidence`. A runtime wrapper reports missing
+files as explicit CTest skips, with the configured path and setup variable;
+existing files still go through the original validator. `evidence_registration`
+checks all 13 entries and real CTest missing/restored/invalid transitions without
+a GPU. This closes silent omission independently of the retention decision;
+private backup/storage policy remains open. See [build guidance](docs/BUILD.md).
 
 ### D4 — The whole FidelityFX track is unregistered in this checkout
 **Evidence:** `RRT_FSR_SDK:PATH=` and `RRT_FSR_RC_SDK:PATH=` are empty in
@@ -564,29 +574,29 @@ Calendar time is longer (see R2).
 | M0.2 | ~~Add a test that the C++ reported version set and the Python accepted set are identical~~ **done 2026-09-24** — `tests/verify_capture_version_contract.py`, CTest `capture_version_contract`, passes in 0.38 s; verified to fail on five distinct divergences | M0.1 | ~~0.5 d~~ 0 |
 | M0.2b | ~~Remove the hand-maintained per-level plumb-through in `tools/game_pass.py`~~ **done 2026-09-25** — the ladder is now declared once in `CAPTURE_LEVELS` and the argparse flags, prerequisite checks, environment/report construction and call site all derive from it. Adding a level is the table plus the `run_pass` signature. Verified: CLI surface byte-identical (23 flags, no help-text change), `game_pass_workflow` green, and `verify_capture_version_contract.py` now treats the CLI as a fourth description that must agree with the enum, schema and reader | M0.1 | ~~0.5–1 d~~ 0 |
 | M0.3 | ~~Add a codegen freshness test~~ **done 2026-09-24** — `tests/verify_codegen_freshness.py`, CTest `codegen_freshness`, passes in 1.9 s | — | ~~0.5 d~~ 0 |
-| M0.4 | Decide evidence retention (see §12 Q6), then make the 13 evidence-gated tests either tracked or loudly skipped | §12 Q6 | 1–3 d |
+| M0.4 | **Visibility done 2026-10-13.** All 13 tests remain registered and explicitly skip missing local files; a GPU-free CTest contract checks registration and skip/pass/fail transitions and is included in CI. Evidence remains private; retention/storage policy (§12 Q6) is still open | §12 Q6 for storage only | Storage decision remains |
 | M0.5 | ~~Reconcile the planning logs~~ **mostly done 2026-09-24** — `docs/PROJECT_STATUS.md` refreshed from 2026-09-06 to 2026-09-24 and now covers v19, surface locks and the material3 capture; the missing milestone record was published as `docs/HL2_DYNAMIC_MATERIAL_CAPTURE.md` (it had existed only in the local session logs); `PHASE_PLAN.md` declares `PROJECT_STATUS.md` canonical instead of asserting its own stale checkpoint; the four logs are now gitignored. Remaining: the duplicate `material2` section in the local-only `HANDOFF.md` | — | ~~0.5 d~~ 0.1 d |
 | M0.6 | **Done 2026-09-25, green.** `.github/workflows/build.yml` builds x86 Debug and Release and the x64 renderer-only preset from a clean checkout and runs the four contract checks. It deliberately does **not** run the D3D9/D3D12/DXR suites: the shader fixture creates a window and requests `D3DDEVTYPE_HAL` with no reference fallback, and the DXR tests skip on adapters without hardware ray tracing, which a hosted runner has not got. A red build for an environment reason and a `continue-on-error` that hides a regression are both worse than saying so. It runs **green** on `main`. Remaining: make those suites runnable headless, then add them; the SDK/evidence-gated subset stays a documented manual job. **It paid for itself on the second run** — see D10 | M0.3 | ~~1–2 d~~ 0.5 d left |
 | M0.7 | ~~Split or re-time the Debug `position_capture` matrix~~ **replaced, then done 2026-09-25** — measured margins are 33% and 38%, so there was no timeout squeeze to restore. The real issue (D8) was an occluded fixture window stalling for 60 s and surfacing as a traceback; `PresentResult` now requires `S_OK` from every present and names the condition, turning it into a 0.99 s actionable failure | — | ~~0.5–1 d~~ 0 |
 
-**M0 total: ~3–7 days.** M0.1, M0.2 and M0.3 are done. M0.4 and M0.6 remain the
-long poles; M0.2b and M0.5 are cheap and independent.
+**M0 remaining:** evidence retention/storage policy, hosted GPU-suite coverage,
+and the local handoff reconciliation. M0.1, M0.2, M0.2b, M0.3, M0.4 visibility
+and M0.6 build/contract CI are complete.
 **Exit gate:** a fresh clone reports the same test count as a developer machine,
 or explicitly reports which tests are unavailable and why; and CI is green on
 the evidence-free subset.
 
 ### M1 — Close the capture budget decision and get real material evidence
-*The immediate product blocker. The remaining texture failure is purely the shared
-128 MiB shadow cap. **Corrected 2026-09-24:** the decision is blocked on measuring
-the **peak**, not on analysis, and the earlier claim that a buffers/textures split
-buys nothing was retracted — over a whole session buffers measure 16.9% of the cap,
-not the 1.3% a 60-present trace window suggested.*
+*The immediate product blocker. The 2026-10-14 peak measurement closes the missing
+attribution step: textures consume 79.8% at the 128 MiB peak. This run fails earlier,
+at buffer-range checks, so the next bounded experiment must cover shared-quota
+buffer starvation as well as texture admission. Default promotion stays open.*
 
 | # | Task | Depends on | Effort |
 |---|---|---|---|
-| M1.1 | **Decide the budget policy** — see §12 Q1. Blocked on one HL2 pass with the peak instrument, not on analysis. `tools/analyse_shadow_budget.py` (CTest `shadow_budget_tool`) now turns that pass into the decision: it reads the cap from source, reports the stop and peak splits, names the dominant kind, and **exits 3 rather than answering from a ledger without peak fields** | — | 1 game session, then a decision |
-| M1.2 | Implement the chosen policy; qualify against the existing `defbudget`/`defexhaust`/`defrelease` fixture bracket | M1.1 | 3–5 d |
-| M1.3 | Re-run an HL2 material pass at 2560×1440 — the extent that actually matches (`HL2_MATERIAL_V18_RESULT.md`) — and confirm the 20× `1024x512 A16B16G16R16` failures clear | M1.2, user gameplay | 0.5 d + game time |
+| M1.1 | **Measured 2026-10-14:** peak 128 MiB, textures 79.8%; zero captures with 208 recorded buffer-range failures before sampler admission. Choose a bounded opt-in 256 MiB comparison; default remains 128 MiB. See [experiment](docs/HL2_SHADOW_CAP_EXPERIMENT.md) | — | Measurement complete; default promotion open |
+| M1.2 | Explicit `--shadow-mib 256` uses one shared CPU shadow limit, recorded in footer/report. Qualify DEFAULT texture admission/refusal/release and texture-induced buffer starvation | M1.1 | Implementation complete; qualification recorded in experiment doc |
+| M1.3 | Run the full v19 chain with `any:3` and the opt-in 256 MiB cap; compare rejection stages/capture count/peak, then verify cleanup | M1.2, user gameplay | 0.5 d + game time |
 | M1.4 | **Partly done 2026-09-16.** The v19 evidence capture itself works: `material3` recorded 16 draws carrying full v19 evidence (UV/colour/pixel constants, 32 texture inputs, texture bytes) at `[1920,1080,21,0]`. That supersedes `hl2-multidraw-20260907`'s v5 records, which lack all of it. What remains is reaching a **game-sized extent (≥2560×1440)** with that same evidence — and no tool change is needed for that: `replay_pixel_material.py --normalized-material` already preserves the captured target width/height and viewport including XY offsets, bounds 1..8192 and ≤8,000,000 px, and `texture_scope` already qualifies 5120×1440 plus an offset 320×240 viewport. M1.3 covers the pass | M1.3 | 1 d + game time |
 | M1.5 | First real game-sized material comparison (native vs proxy vs replay) on an admitted draw | M1.4 | 1 d + game time |
 
@@ -753,21 +763,16 @@ same resolution-decoupling machinery.
 
 These are the ones I would not want to guess at.
 
-**Q1 — The 128 MiB shadow-budget policy.** The whole-session attribution
-**retracted** the earlier trace-window claim that buffers are negligible: measured
-over a full session, buffers are 16.9% of the cap and textures 61.0% across 636
-live textures. The 1024×512 `A16B16G16R16` dynamic sampler inputs at ~4.5 MiB each
-are what tips it over. **The decision is now blocked on a measurement rather than
-on analysis.** The footer reports 99.66 MiB retained while a 4.5 MiB reservation
-was being refused, so the decisive split is the one at the *peak*; the
-`retained_peak` / `peak_buffers` / `peak_textures` instrument landed in the last
-session and **no game pass has run since**, so those numbers do not exist yet. One
-HL2 pass chooses between the candidates: (a) raise the cap — smallest change, needs
-a VRAM rationale; (b) partition buffers from textures — back on the table after the
-retraction; (c) reclaim instead of holding shadows for life — needs a quality
-argument, since nothing is reclaimed while a resource is alive. Full analysis in
-`docs/COMPACT_TEXTURE_COVERAGE.md`, "Where the budget decision stands".
-**This blocks M1.**
+**Q1 — CPU shadow-budget policy, updated 2026-10-14.** The peak measurement now
+exists: 25.89 MiB buffers / 102.11 MiB textures, with 477 tracked textures at stop.
+This run captures zero draws and predominantly fails buffer-range checks before
+sampler admission. An explicit 256 MiB experiment is implemented, with default 128
+MiB retained. Both resource kinds use the same bounded limit, and fixtures cover
+texture-induced buffer starvation, larger-cap exhaustion and release recovery.
+The remaining gate is the larger-cap gameplay result, then deciding whether any
+default change is justified. Peak data does not identify exact refused demand.
+These are CPU allocations in an x86 process; VRAM capacity is not the allocator's
+budget. See [experiment](docs/HL2_SHADOW_CAP_EXPERIMENT.md).
 
 **Q2 — Is the next milestone capture fidelity or live presentation?** The repo's
 gates say ship one title's capture first, but the renderer track has momentum and
@@ -798,7 +803,8 @@ call, but it needs a disposition.
 Git LFS, or an object store), or is the intent to re-capture on demand? This
 determines M0.4 completely: tracking even a small golden subset (the pinned
 inventory alone is 16.7 MB, and one trace is 26 MB) requires a storage decision,
-and re-capturing requires the user to replay the game. **This blocks M0.4.**
+and re-capturing requires the user to replay the game. **This blocks the storage
+part of M0.4; explicit skip reporting was completed independently on 2026-10-13.**
 
 **Q7 — Is a second engineer available?** The plan above has two genuinely
 parallel tracks (capture: M0–M3; renderer: M4–M5). With one engineer plus AWS

@@ -111,12 +111,19 @@ void MaterialFixture(bool paired=false){
         }
         // DEFAULT-pool destinations additionally pay a fixed 128-entry surface-history charge and
         // cannot be filled directly, so the proof comes from a SYSTEMMEM source upload.
-        if(modeName==L"defbudget"||modeName==L"defexhaust"||modeName==L"defrelease"){
+        if(modeName==L"defbudget"||modeName==L"defexhaust"||modeName==L"defrelease"||modeName==L"defhigh"||modeName==L"defhighrelease"){
             auto allocate=[&](){ComPtr<IDirect3DTexture9> t;Check(d->CreateTexture(512,512,0,0,D3DFMT_DXT5,D3DPOOL_DEFAULT,&t,nullptr));budgetTextures.push_back(std::move(t));};
-            for(unsigned i=0;i<(modeName==L"defbudget"?300u:370u);++i)allocate();
-            if(modeName==L"defrelease"){budgetTextures.clear();allocate();}
+            for(unsigned i=0;i<(modeName==L"defbudget"?300u:modeName==L"defhigh"||modeName==L"defhighrelease"?750u:370u);++i)allocate();
+            if(modeName==L"defrelease"||modeName==L"defhighrelease"){budgetTextures.clear();allocate();}
             ComPtr<IDirect3DTexture9> source;Check(d->CreateTexture(512,512,0,0,D3DFMT_DXT5,D3DPOOL_SYSTEMMEM,&source,nullptr));FillCompressed(source.Get(),0,false);
             Check(d->UpdateTexture(source.Get(),budgetTextures.back().Get()));textures[0]=budgetTextures.back();
+        }
+        // Retained texture payload can starve a later buffer lock under the shared
+        // ceiling. Keep native bytes identical while exercising that second charge site.
+        if(modeName==L"bufferpressure"){
+            for(unsigned i=0;i<90;++i){ComPtr<IDirect3DTexture9> t;Check(d->CreateTexture(1024,1024,0,0,D3DFMT_DXT5,D3DPOOL_MANAGED,&t,nullptr));budgetTextures.push_back(std::move(t));}
+            vb.Reset();Check(d->CreateVertexBuffer(4*1024*1024,0,0,D3DPOOL_MANAGED,&vb,nullptr));
+            Check(vb->Lock(0,0,&pointer,0));memset(pointer,0,4*1024*1024);memcpy(pointer,points.data(),sizeof(points));Check(vb->Unlock());
         }
         if(std::wstring(mode)==L"texalias"||std::wstring(mode)==L"texrefresh"){ComPtr<IDirect3DSurface9> surface;Check(textures[0]->GetSurfaceLevel(0,&surface));D3DLOCKED_RECT lock{};Check(surface->LockRect(&lock,nullptr,0));DWORD value=0xff557799;memcpy(lock.pBits,&value,4);Check(surface->UnlockRect());if(std::wstring(mode)==L"texrefresh")fillTexture(0,true);}
         if(std::wstring(mode)==L"texfailedlock"){D3DLOCKED_RECT lock{};Need(FAILED(textures[0]->LockRect(99,&lock,nullptr,0)),"invalid mip lock succeeded");}

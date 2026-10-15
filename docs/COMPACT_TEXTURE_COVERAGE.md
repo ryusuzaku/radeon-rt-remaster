@@ -142,7 +142,7 @@ Validation: Release6/6 passed184.67s plus final selection/pressure6.54s;
 Debug2/2 passed13.62s.64-texture capture,96-texture rejection and release
 recovery checks passed; builds and Python compile passed.
 
-## Where the budget decision stands — 2026-09-24
+## Where the budget decision stands — updated 2026-10-14
 
 The pass this document called for has run. `material3` (2026-09-16) captured 16
 material draws with the v19 surface-lock chain enabled — the `top_lock` dirty and
@@ -155,7 +155,7 @@ What that pass did **not** resolve is the budget. Its 20 remaining
 input of ~4.5 MiB each, refused at `shadow_budget`. The dynamic-admission and
 16-bit-float gates both pass, so capacity is the only obstacle.
 
-**The decision cannot be made from the numbers we have.** The `material4` footer
+The historical `material4` footer
 reports 99.66 MiB retained against a 128 MiB cap while a 4.5 MiB reservation was
 being refused, which is only consistent if the total was higher at the moment of
 refusal. The split that decides policy is the one at the **peak**, not at the stop.
@@ -163,18 +163,22 @@ refusal. The split that decides policy is the one at the **peak**, not at the st
 That instrument now exists. Charges sample `retained_peak`, `peak_buffers` and
 `peak_textures` from the authoritative split counters; the reader validates that
 the peak split sums and never sits below the stop value; `texture_selection`
-asserts the same on fixtures. **No game pass has run since it landed**, so the peak
-numbers do not exist yet.
+asserts the same on fixtures. The instrumented `peak-20261014` game run now
+reports 128 MiB minus four bytes, with textures holding 79.8% of the peak.
+However, this run failed earlier than sampler admission: 208 recorded
+position-material `buffer_range` failures, no material captures and no sampler
+diagnostics. The shared allowance can starve buffer shadows as well as textures.
 
-The next step is therefore a measurement, not a policy change. One HL2 pass with
-the instrument reports whether the peak is buffer-dominated or texture-dominated,
-and that single number chooses between the candidates below.
+The next policy step is a bounded, explicit 256 MiB comparison while retaining
+the 128 MiB default. Peak attribution does not establish exact refused demand
+or a sufficient cap for every scene. See [the experiment and qualification
+contract](HL2_SHADOW_CAP_EXPERIMENT.md). Shadow vectors consume CPU memory.
 
 ### Candidates, and what each needs
 
 | Option | What it would take | Blocked on |
 | --- | --- | --- |
-| Raise the cap | One constant plus a stated VRAM rationale | Knowing the peak, so the new cap is not another guess |
+| Raise the cap | Bounded opt-in plus CPU memory/x86 address-space rationale | Game comparison before default promotion |
 | Partition buffers vs textures | Separate counters and limits per kind | Knowing the peak split — the retraction above shows a 60-present window cannot supply it |
 | Reclaim instead of holding for life | Eviction or re-creation of texture shadows | A quality and correctness argument; nothing is reclaimed while a resource stays alive today |
 

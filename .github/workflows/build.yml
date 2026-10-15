@@ -5,7 +5,7 @@
 #   * It builds x86 Debug and Release and the x64 renderer-only preset from a
 #     clean checkout. That catches the failures a clean checkout actually has:
 #     a file referenced but never committed, a broken CMake edit, codegen drift.
-#   * It runs the four contract checks, which are the tests that catch the class
+#   * It runs the five contract checks, which are the tests that catch the class
 #     of defect this project keeps finding -- a ladder described in four places
 #     that have drifted apart. They need no GPU, no display and no captured game
 #     pass, so they are exactly the tests that can run here honestly.
@@ -65,7 +65,7 @@ jobs:
 
       - name: Contract checks
         shell: bash
-        run: ctest --test-dir build/x86-vs -C Release -R "^(codegen_freshness|capture_version_contract|published_references|shadow_budget_tool)$" --output-on-failure
+        run: ctest --test-dir build/x86-vs -C Release -R "^(codegen_freshness|capture_version_contract|published_references|shadow_budget_tool|evidence_registration)$" --output-on-failure
 
   x64-renderer:
     name: x64 renderer-only build

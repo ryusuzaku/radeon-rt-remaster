@@ -90,6 +90,9 @@ def inspect_bytes(data,include_records=False,assets=None):
                     need(type(row.get('peak_buffers')) is int and type(row.get('peak_textures')) is int,'footer peak split')
                     need(row['retained_peak']==row['peak_buffers']+row['peak_textures'],'footer peak total')
                     need(row['retained_peak']>=row.get('retained',0),'footer peak below stop value')
+                if 'shadow_cap_bytes' in row:
+                    need(type(row['shadow_cap_bytes']) is int and row['shadow_cap_bytes'] in (128*1024*1024,256*1024*1024),'footer shadow cap')
+                    need(row.get('retained_peak',0)<=row['shadow_cap_bytes'] and row.get('retained',0)<=row['shadow_cap_bytes'],'footer shadow cap exceeded')
                 footer=row;continue
             ordinal=row.get('ordinal');hr=row.get('hr')
             need(row.get('kind')=='draw' and type(ordinal) is int and 0<=ordinal<4096 and ordinal not in seen,'draw ordinal');seen.add(ordinal)
@@ -219,6 +222,8 @@ def inspect_bytes(data,include_records=False,assets=None):
         result['retained']={name:footer[name] for name in ('retained','retained_buffers','retained_textures','live_textures')}
         if 'retained_peak' in footer:
             result['retained'].update({name:footer[name] for name in ('retained_peak','peak_buffers','peak_textures')})
+        if 'shadow_cap_bytes' in footer:
+            result['retained']['shadow_cap_bytes']=footer['shadow_cap_bytes']
     need(policy is None or version in (18,19),'selection sampling version')
     result['texture_diagnostics']=[dict(json.loads(t),recorded_rejections=n) for t,n in sorted(texture_diagnostics.items())]
     result['shader_rejection_sampling']=shader_policy

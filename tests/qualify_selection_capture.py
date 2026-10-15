@@ -6,11 +6,12 @@ from inspect_position_capture import inspect,inspect_bytes
 
 def qualify(fixture,proxy,root,clean,flags,code,pixel):
     base=dict(flags,RRT_POSITION_COMPRESSED_TEXTURES='1',RRT_POSITION_TEXTURE_UPLOADS='1',RRT_POSITION_DIRTY_TEXTURES='1')
-    def run(name,selection,sampled,stress=False,case='valid'):
+    def run(name,selection,sampled,stress=False,case='valid',shadow_mib=None):
         path=root/(name+'.jsonl');env=dict(clean,**base,RRT_FIXTURE_PROXY=str(proxy),RRT_POSITION_CAPTURE_FILE=str(path),RRT_MATERIAL_FIXTURE_CASE=case)
         env['RRT_POSITION_SELECTION']=selection
         if stress:env['RRT_MATERIAL_SELECTION_STRESS']='1'
         if sampled:env['RRT_POSITION_SURFACE_UPLOADS']='1'
+        if shadow_mib is not None:env['RRT_POSITION_SHADOW_MIB']=str(shadow_mib)
         r=subprocess.run([str(fixture),'--pixel-material'],input=code+'\n'+pixel+'\n',env=env,text=True,capture_output=True,timeout=60)
         assert r.returncode==0,(r.stdout,r.stderr)
         return path,inspect(path),json.loads(r.stdout)
@@ -163,3 +164,37 @@ def qualify(fixture,proxy,root,clean,flags,code,pixel):
 
     _,report,_=run('defrelease','128x96:1',True,case='defrelease')
     assert len(report['captures'])==16 and report['completion']=='capture_limit',report
+
+    # Exactly the same 370-texture workload refused at the default cap must fit at
+    # 256 MiB. Larger demand must still fail, and destroying it must restore space.
+    for case,accepted in [('defexhaust',True),('defhigh',False),('defhighrelease',True)]:
+        _,report,_=run(case+'-256','128x96:1',True,stress=not accepted,case=case,shadow_mib=256)
+        assert bool(report['captures'])==accepted,report
+        retained=report['retained']
+        assert retained['shadow_cap_bytes']==256*1024*1024 and retained['retained_peak']<=retained['shadow_cap_bytes'],retained
+        if accepted:assert len(report['captures'])==16 and report['completion']=='capture_limit',report
+        else:assert any(t['admission']=='shadow_budget' for t in report['texture_diagnostics']),report
+
+    # Runtime parsing fails closed before writing a ledger, independently of the
+    # runner's CLI validation. No whitespace, signs or arbitrary larger values.
+    for value in ('0','129','512','0256','+256',' 256','256 '):
+        path=root/('invalid-shadow-'+str(len(value))+'-'+str(sum(map(ord,value)))+'.jsonl')
+        env=dict(clean,**base,RRT_FIXTURE_PROXY=str(proxy),RRT_POSITION_CAPTURE_FILE=str(path),
+                 RRT_POSITION_SURFACE_UPLOADS='1',RRT_POSITION_SHADOW_MIB=value)
+        r=subprocess.run([str(fixture),'--pixel-material'],input=code+'\n'+pixel+'\n',env=env,text=True,capture_output=True,timeout=60)
+        assert r.returncode==0 and not path.exists(),(value,r.stdout,r.stderr)
+
+    _,small,native_small=run('bufferpressure-128','128x96:1',True,case='bufferpressure')
+    _,large,native_large=run('bufferpressure-256','128x96:1',True,case='bufferpressure',shadow_mib=256)
+    assert not small['captures'] and len(large['captures'])==16,(small,large)
+    assert any(f['stage']=='position_material' and f['detail']=='buffer_range' for f in small['evidence_failures']),small
+    assert native_small==native_large,'capture budget changed native rendering'
+    assert large['retained']['retained_buffers']>=8*1024*1024,large
+    assert large['retained']['retained_peak']>128*1024*1024,large
+
+    rows=[json.loads(l) for l in (root/'defexhaust-256.jsonl').read_text().splitlines()]
+    for cap in (True,0,512*1024*1024,128*1024*1024):
+        bad=copy.deepcopy(rows);bad[-1]['shadow_cap_bytes']=cap
+        try:inspect_bytes(('\n'.join(map(json.dumps,bad))+'\n').encode())
+        except ValueError:pass
+        else:raise AssertionError(('invalid footer cap',cap))

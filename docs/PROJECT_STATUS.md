@@ -1,4 +1,4 @@
-# Project status — 2026-09-24
+# Project status — 2026-10-14
 
 The project is a working capture/replay and standalone AMD ray-tracing prototype.
 It is **not yet a playable Remix-style runtime for a commercial game**, and no
@@ -29,13 +29,19 @@ captured nothing:
   of exhausting the 4,096-attempt budget inside a non-presenting interval. The
   material3 pass stopped after 4 presents / 668 attempts.
 
-**The remaining texture failure is now only the shared budget, not shader
+**The remaining texture failure in material3 is the shared budget, not shader
 support.** 20 x `texture_tracking_missing` at slot 1 for a 1024x512
 `D3DFMT_A16B16G16R16` DYNAMIC DEFAULT sampler input (~4.5 MiB each) are refused at
 `shadow_budget`. The dynamic-admission and 16-bit-float format gates both pass.
 Separately, 15 x `unsupported_shader` remain outside the pinned-program allowlist
 and 6 x `selection_primitive_minimum`. This is a budget-policy decision, tracked
 as the first open question in [the codebase map](../CODEBASE_MAP.md).
+
+The peak-instrumented run on 2026-10-14 reached 128 MiB minus four bytes,
+79.8% textures, but captured no materials and failed primarily at buffer-range
+checks before sampler admission. A bounded 256 MiB CPU shadow-cap experiment
+is implemented via `--shadow-mib 256`; the default remains 128 MiB. See
+[the measured result and experiment](HL2_SHADOW_CAP_EXPERIMENT.md).
 
 Also landed since the last revision: v19 texture-mip surface lock tracking
 qualified ([surface locks](SURFACE_LOCK_QUALIFICATION.md)), a local capture
@@ -60,11 +66,10 @@ allocates inside an 8 GiB ceiling, where 1440p and 4K were previously refused
 
 ## Current engineering focus
 
-The immediate priority is **closing the material-capture budget decision** and then
-running the first game-sized material comparison. The v18 failure is instructive:
-the capture machinery was working and the selection was wrong, so the next pass
-should re-run at 2560x1440 rather than at the 5120x1440 the earlier attempt
-assumed. See [game-sized material comparison](GAME_SIZED_MATERIAL_COMPARISON.md)
+The immediate priority is **qualifying the material-capture budget experiment**
+and then running the first game-sized material comparison. Selection uses `any:3`
+to observe actual targets rather than assuming a configured resolution. See
+[game-sized material comparison](GAME_SIZED_MATERIAL_COMPARISON.md)
 for what the comparator already supports.
 
 The capture-version ladder is now a named enum with a
@@ -72,6 +77,13 @@ The capture-version ladder is now a named enum with a
 keeps the C++ and Python descriptions in agreement, so adding v20 no longer means
 editing an unreadable ternary. See [the codebase map](../CODEBASE_MAP.md) for the
 architecture, the debt register and the delivery plan.
+
+Build/contract CI is in place. All 13 qualification tests that depend on private
+game evidence now stay visible on clean checkouts as explicit CTest skips, with
+missing paths and configuration guidance. A GPU-free contract verifies their
+registration and missing/restored/invalid evidence behavior. See
+[build and local-evidence instructions](BUILD.md). Private evidence retention and
+the larger-cap gameplay comparison remain open.
 
 Future compatibility tracks: [SM3/UE3, DX10 and legacy wrapper qualification](API_ENGINE_ROADMAP.md).
 The [position-only scene-state prototype](POSITION_SCENE_STATE.md) separates

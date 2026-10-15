@@ -14,6 +14,7 @@ namespace rrt::shader::hook {
 using Microsoft::WRL::ComPtr;
 namespace {
 const GUID Guid={0xeb57f441,0x62a7,0x44c8,{0x99,0x12,0x14,0x2e,0x58,0x9a,0x77,0x1a}};
+constexpr std::size_t DefaultShadowMiB=128,ExperimentalShadowMiB=256;
 std::atomic<std::size_t>& Retained(){static auto* n=new std::atomic<std::size_t>{0};return *n;}
 // The shared ceiling is one counter, but attribution is what a budget decision needs: buffer
 // shadows and texture shadows are charged and released alongside it so the footer can report both.
@@ -86,6 +87,8 @@ struct Context {
     bool frameSampling{};std::string session;std::uint64_t presents{};
     UINT targetWidth{},targetHeight{},minPrimitives{};
     bool anyTarget{};
+    std::size_t shadowCap=DefaultShadowMiB*1024*1024;
+    std::size_t ShadowCap() const{return positionMode?shadowCap:16*1024*1024;}
     bool multiDraw{};
     bool renderState{};
     bool clearEvidence{};
@@ -153,12 +156,18 @@ struct Context {
         n=GetEnvironmentVariableW(L"RRT_POSITION_DIRTY_TEXTURES",p,32768);if(n){if(n!=1||p[0]!=L'1'||!textureUploads){done=true;return;}dirtyTextures=true;}
         n=GetEnvironmentVariableW(L"RRT_POSITION_SURFACE_UPLOADS",p,32768);if(n){if(n!=1||p[0]!=L'1'||!dirtyTextures){done=true;return;}surfaceUploads=true;}
         n=GetEnvironmentVariableW(L"RRT_POSITION_SURFACE_LOCKS",p,32768);if(n){if(n!=1||p[0]!=L'1'||!surfaceUploads){done=true;return;}surfaceLocks=true;}
+        n=GetEnvironmentVariableW(L"RRT_POSITION_SHADOW_MIB",p,32768);if(n){
+            if(!positionMode||n>=32768){done=true;return;}
+            const std::wstring value(p);
+            if(value==std::to_wstring(ExperimentalShadowMiB))shadowCap=ExperimentalShadowMiB*1024*1024;
+            else if(value!=std::to_wstring(DefaultShadowMiB)){done=true;return;}
+        }
         if(positionMode&&frameSampling){unsigned char random[16]{};if(BCryptGenRandom(nullptr,random,sizeof(random),BCRYPT_USE_SYSTEM_PREFERRED_RNG)<0){done=true;return;}
             constexpr char digits[]="0123456789abcdef";for(auto b:random){session+=digits[b>>4];session+=digits[b&15];}}
     }
     bool Active() const{return !path.empty()&&!done;}
     bool Line(const std::string& text){DWORD n{};bool ok=WriteFile(file,text.data(),static_cast<DWORD>(text.size()),&n,nullptr)&&n==text.size();written+=n;return ok;}
-    void Stop(const char* reason){if(file!=INVALID_HANDLE_VALUE){Line(std::string("{\"kind\":\"end\",\"reason\":\"")+reason+"\",\"attempts\":"+std::to_string(attempts)+",\"captured\":"+std::to_string(captured)+(frameSampling?",\"presents\":"+std::to_string(presents):"")+",\"retained\":"+std::to_string(Retained().load())+",\"retained_buffers\":"+std::to_string(RetainedBuffers().load())+",\"retained_textures\":"+std::to_string(RetainedTextures().load())+",\"live_textures\":"+std::to_string(LiveTextures().load())+",\"retained_peak\":"+std::to_string(RetainedPeak().load())+",\"peak_buffers\":"+std::to_string(PeakBuffers().load())+",\"peak_textures\":"+std::to_string(PeakTextures().load())+"}\n");CloseHandle(file);file=INVALID_HANDLE_VALUE;}done=true;devices.clear();}
+    void Stop(const char* reason){if(file!=INVALID_HANDLE_VALUE){Line(std::string("{\"kind\":\"end\",\"reason\":\"")+reason+"\",\"attempts\":"+std::to_string(attempts)+",\"captured\":"+std::to_string(captured)+(frameSampling?",\"presents\":"+std::to_string(presents):"")+",\"retained\":"+std::to_string(Retained().load())+",\"retained_buffers\":"+std::to_string(RetainedBuffers().load())+",\"retained_textures\":"+std::to_string(RetainedTextures().load())+",\"live_textures\":"+std::to_string(LiveTextures().load())+",\"retained_peak\":"+std::to_string(RetainedPeak().load())+",\"peak_buffers\":"+std::to_string(PeakBuffers().load())+",\"peak_textures\":"+std::to_string(PeakTextures().load())+",\"shadow_cap_bytes\":"+std::to_string(ShadowCap())+"}\n");CloseHandle(file);file=INVALID_HANDLE_VALUE;}done=true;devices.clear();}
     bool Ready(){if(triggered)return attempts<4096&&captured<CaptureLimit()&&(!frameSampling||trigger.empty()||presents>0);if(!trigger.empty()){auto now=GetTickCount64();if(now<nextProbe)return false;nextProbe=now+100;auto a=GetFileAttributesW(trigger.c_str());if(a==INVALID_FILE_ATTRIBUTES||(a&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT)))return false;}
         file=CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);if(file==INVALID_HANDLE_VALUE){done=true;return false;}
         triggered=true;auto header=frameSampling?"{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":3,\"session\":\""+session+"\",\"sampling\":\"one-per-present-interval\"}\n":std::string("{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":2}\n");
@@ -295,7 +304,7 @@ void Lock(IDirect3DResource9* r,UINT offset,UINT length,void* pointer,DWORD flag
         Need(total && total<=(c.positionMode?16*1024*1024:MaxBuffer) && offset<=total && pointer);if(!length)length=total-offset;Need(length<=total-offset);
         auto s=Get(r,true);Need(bool(s));
         if(s->bytes.empty()){const auto reserved=std::size_t(total)*2;auto before=Retained().fetch_add(reserved);
-            if(before+reserved>(c.positionMode?128:16)*1024*1024){Retained().fetch_sub(reserved);throw std::runtime_error("shadow budget");}
+            if(before+reserved>c.ShadowCap()){Retained().fetch_sub(reserved);throw std::runtime_error("shadow budget");}
             RetainedBuffers().fetch_add(reserved);UpdateRetainedPeak();
             try{std::vector<std::uint8_t> bytes(total),mask(total);s->bytes.swap(bytes);s->known.swap(mask);}catch(...){Retained().fetch_sub(reserved);RetainedBuffers().fetch_sub(reserved);throw;}}
         Need(s->bytes.size()==total);if(flags&D3DLOCK_DISCARD){++s->revision;std::fill(s->known.begin(),s->known.end(),0);}
