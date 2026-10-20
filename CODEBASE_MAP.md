@@ -218,8 +218,8 @@ does not, and what closing the gap costs.
 | Capture selection | **Independent** | `--position-selection any:MIN_TRIANGLES` removes the hardcoded render-target extent and records `any_target` in the header (`docs/GAME_PASS.md`) |
 | Capture → ledger | **Independent** | Ledger bounds are per-draw (`MaxBuffer=65536`, `MaxFile=160000`, `src/shader/snapshot.h`), not per-resolution |
 | Material comparison | **Independent** | `replay_pixel_material.py --normalized-material` preserves captured target width/height and viewport including XY offsets; bounds 1..8192 and ≤8,000,000 px; `texture_scope` qualifies 5120×1440 and an offset 320×240 viewport (`docs/GAME_SIZED_MATERIAL_COMPARISON.md`) |
-| **DXR renderer** | **Hard ceiling at ~1080p** | measured below |
-| **Window resize** | **Capped by the same budget** | `src/dxr/presentation.h:90,98-99` |
+| **DXR renderer** | **Independent of the captured extent** | `--render-scale 1..100` renders on a smaller internal grid and upscales at presentation; per-pixel buffers follow the grid (`docs/DXR_VIEWER.md`) |
+| **Window resize** | **Independent** | Display resources are sized from the window; the render grid no longer follows either the window or the capture |
 | RR research | Pinned to 128×96 / 256×192 | `src/dxr/main.cpp:869` |
 
 ### The renderer ceiling, measured
@@ -333,12 +333,15 @@ and it is now generous rather than proportionate. The L1 reductions below are
 therefore no longer needed for resolution headroom — they are only worth doing if
 a future feature adds per-pixel buffers that push 4096×4096 past 100%.
 
-**L3 is still the durable answer.** `presentation.h` `Resize` releases only
-display resources and presents with `DXGI_SCALING_STRETCH`; the renderer keeps
-rendering at its scene resolution. Arbitrary window sizes therefore already work,
-but the render resolution does not follow the window. Rendering at a bounded
-internal resolution and upscaling would make the budget independent of display
-size entirely, and it is the same machinery FSR upscaling will need in Phase 7.
+**L3 is now done (2026-10-19).** `presentation.h` `Resize` releases only display
+resources and presents with `DXGI_SCALING_STRETCH`; `--render-scale PERCENT`
+sizes every per-pixel buffer, dispatch and readback from an internal grid that is
+independent of both the captured extent and the window, and the display shader
+upscales it. Captured scissors are mapped back into target space so clip
+boundaries do not move, and the RR/RC evidence paths refuse a reduced grid
+because their recorded payloads assume the captured extent. The upscale is
+nearest-pixel; a filtered upscaler is Phase 7 work, and this is the buffer
+decoupling it needs.
 
 **A second ceiling worth knowing about.** The scene format caps each dimension at
 4096, in both C++ (`src/scene/scene.cpp:59`) and Python (`tools/scene_io.py:51`).
@@ -414,6 +417,29 @@ existing files still go through the original validator. `evidence_registration`
 checks all 13 entries and real CTest missing/restored/invalid transitions without
 a GPU. This closes silent omission independently of the retention decision;
 private backup/storage policy remains open. See [build guidance](docs/BUILD.md).
+
+**And then it happened, 2026-10-15 — and it turned out to be recoverable.**
+A workspace move deleted `build/` from the working tree. This section originally
+recorded the pass bundles as lost; that was wrong, and the correction matters more
+than the original claim. The consolidation had preserved the pre-move tree in full,
+gitignored content included, as a WIM image with a 40,401-entry SHA-256 manifest.
+On 2026-10-19 `build/game-passes` was extracted from it and verified **738/738
+files against that manifest** — no missing, resized, mismatched or extra file —
+which restored 22 passes including the `material256-v2` chain with its 16.7 MB
+inventory and `original-pixel-shader.asm`. The 13 `local_evidence` tests run again
+rather than skipping.
+
+Two lessons, both cheap to state and expensive to learn:
+
+- "It is gitignored" does not mean "it is not preserved". The preservation step
+  captured ignored files, so the loss was of the *working copy*, not the content.
+  Checking the archive before writing off evidence would have saved a day.
+- The skip reporting did its job: it named all 13 tests as skipped, which is what
+  prompted this investigation. A silent absence would not have.
+
+The retention policy (Q6) still stands for *future* passes, and the mechanism is
+`tools/evidence_archive.py` with CTest `evidence_archive`, `game_pass.py archive`
+and the content-free `docs/EVIDENCE_LEDGER.jsonl`.
 
 ### D4 — The whole FidelityFX track is unregistered in this checkout
 **Evidence:** `RRT_FSR_SDK:PATH=` and `RRT_FSR_RC_SDK:PATH=` are empty in
@@ -574,7 +600,7 @@ Calendar time is longer (see R2).
 | M0.2 | ~~Add a test that the C++ reported version set and the Python accepted set are identical~~ **done 2026-09-24** — `tests/verify_capture_version_contract.py`, CTest `capture_version_contract`, passes in 0.38 s; verified to fail on five distinct divergences | M0.1 | ~~0.5 d~~ 0 |
 | M0.2b | ~~Remove the hand-maintained per-level plumb-through in `tools/game_pass.py`~~ **done 2026-09-25** — the ladder is now declared once in `CAPTURE_LEVELS` and the argparse flags, prerequisite checks, environment/report construction and call site all derive from it. Adding a level is the table plus the `run_pass` signature. Verified: CLI surface byte-identical (23 flags, no help-text change), `game_pass_workflow` green, and `verify_capture_version_contract.py` now treats the CLI as a fourth description that must agree with the enum, schema and reader | M0.1 | ~~0.5–1 d~~ 0 |
 | M0.3 | ~~Add a codegen freshness test~~ **done 2026-09-24** — `tests/verify_codegen_freshness.py`, CTest `codegen_freshness`, passes in 1.9 s | — | ~~0.5 d~~ 0 |
-| M0.4 | **Visibility done 2026-10-13.** All 13 tests remain registered and explicitly skip missing local files; a GPU-free CTest contract checks registration and skip/pass/fail transitions and is included in CI. Evidence remains private; retention/storage policy (§12 Q6) is still open | §12 Q6 for storage only | Storage decision remains |
+| M0.4 | **Done 2026-10-19.** All 13 tests remain registered and explicitly skip missing local files; a GPU-free CTest contract checks registration and skip/pass/fail transitions and is included in CI. The storage decision (§12 Q6) is closed: local archives outside the working tree with a per-file manifest, a tracked content-free digest ledger, `game_pass.py archive`, and `check` for verification against the ledger. CTest `evidence_archive` covers corruption, truncation, traversal, symlinks and ledger mismatch | — | 0 |
 | M0.5 | ~~Reconcile the planning logs~~ **mostly done 2026-09-24** — `docs/PROJECT_STATUS.md` refreshed from 2026-09-06 to 2026-09-24 and now covers v19, surface locks and the material3 capture; the missing milestone record was published as `docs/HL2_DYNAMIC_MATERIAL_CAPTURE.md` (it had existed only in the local session logs); `PHASE_PLAN.md` declares `PROJECT_STATUS.md` canonical instead of asserting its own stale checkpoint; the four logs are now gitignored. Remaining: the duplicate `material2` section in the local-only `HANDOFF.md` | — | ~~0.5 d~~ 0.1 d |
 | M0.6 | **Done 2026-09-25, green.** `.github/workflows/build.yml` builds x86 Debug and Release and the x64 renderer-only preset from a clean checkout and runs the four contract checks. It deliberately does **not** run the D3D9/D3D12/DXR suites: the shader fixture creates a window and requests `D3DDEVTYPE_HAL` with no reference fallback, and the DXR tests skip on adapters without hardware ray tracing, which a hosted runner has not got. A red build for an environment reason and a `continue-on-error` that hides a regression are both worse than saying so. It runs **green** on `main`. Remaining: make those suites runnable headless, then add them; the SDK/evidence-gated subset stays a documented manual job. **It paid for itself on the second run** — see D10 | M0.3 | ~~1–2 d~~ 0.5 d left |
 | M0.7 | ~~Split or re-time the Debug `position_capture` matrix~~ **replaced, then done 2026-09-25** — measured margins are 33% and 38%, so there was no timeout squeeze to restore. The real issue (D8) was an occluded fixture window stalling for 60 s and surfacing as a traceback; `PresentResult` now requires `S_OK` from every present and names the condition, turning it into a 0.99 s actionable failure | — | ~~0.5–1 d~~ 0 |
@@ -611,8 +637,8 @@ program allowlist.*
 
 | # | Task | Depends on | Effort |
 |---|---|---|---|
-| M2.1 | Inventory the sampled unsupported families from the existing 16.7 MB `shader-inventory.jsonl`; classify by opcode/feature | — | 2–3 d |
-| M2.2 | Extend admission: generic `ps_2_0` path for the material subset, explicit rejection for unsupported ops | M2.1 | 5–8 d |
+| M2.1 | ~~Inventory the sampled unsupported families from the existing 16.7 MB `shader-inventory.jsonl`; classify by opcode/feature~~ **done 2026-10-19** — the inventory stores full program bytes, not only digests, so the dominant rejected family was extracted rather than merely counted: `ps_2_x`, 1912 bytes, `dbca89cc…`, 189 draws, paired with the 612-byte VS the fixture already uses. Behavioural difference is the fog input only (`length(t4.xyz - c10.xyz)` instead of `t4.w`); the constant-register rename is cosmetic and the clamp order is provably equivalent. See [the recovered contract](docs/MATERIAL_PS2X_CONTRACT.md) | — | 0 |
+| M2.2 | Extend admission: generic `ps_2_0` path for the material subset, explicit rejection for unsupported ops. **Unblocked 2026-10-19** — the candidate program's bytes are available locally, so admission, payload and reconstruction are all testable. Five ordered steps in [the contract](docs/MATERIAL_PS2X_CONTRACT.md) | M2.1 | 5–8 d |
 | M2.3 | Fixture coverage for each newly admitted family + negative controls | M2.2 | 3–4 d |
 
 **M2 total: ~10–15 days.** Can run in parallel with M1 by a second person;
@@ -642,14 +668,15 @@ above ~1080p at all, and this is roughly half the cost of M5.*
 | M4.2 | ~~L2: replace the fixed 512 MiB constant with named limits derived from the buffer layout, and report the requested figure~~ **done 2026-09-24** — `MaxGpuAllocationBytes` / `MaxGpuRequestedBytes` in `src/dxr/main.cpp`, limit in `--probe` and the render report; 8 tests changed to assert against the reported limit instead of a hardcoded cap | M4.1 | ~~2–3 d~~ 0 |
 | M4.3 | L1: reclaim per-pixel memory. **Deprioritised** — 4K is now 23.5% and the format maximum 47.4% of the limit, so there is no resolution headroom to buy. Only worth doing if a future feature adds per-pixel buffers. Note the `nextSignals` ping-pong is a read/write hazard, not a pointer swap (§8) | M4.2 | 4–6 d |
 | M4.4 | ~~Invert `dxr_resolution`~~ **done 2026-09-24** — 1080p/1440p/4K must succeed with correct pixels; 4096×4096 accepts either outcome (fits, or refused with no output left behind); budgets asserted monotonic and under the limit; `--budget-test` added as the portable guard control | M4.2 | ~~2–3 d~~ 0 |
-| M4.5 | L3: bounded internal render resolution plus upscale, decoupling window size from render resolution | M4.4 | 4–6 d |
-| M4.6 | ~~Qualify the budget and the resolution path~~ **done 2026-09-24.** Budgets at 1080p/1440p/4K/4096 confirmed identical on x86 and x64, Debug and Release. `verify_dxr_resolution.py` now runs end to end on all four binaries: 1440p/4K pixel-correctness passes, 4096×4096 renders (4,031,268,464 with signal export), `--budget-test` refuses on every one. Full `ctest` suites pass **43/43 in x86 Debug (458 s) and 43/43 in x86 Release (436 s)**. Remaining: windowed-resize qualification, and recording the table in `docs/DXR_VIEWER.md` | M4.4 | 1 d |
-| M4.7 | Raise the scene-format 4096-per-axis limit if 5K/8K is wanted; it refuses before the GPU budget is consulted (`src/scene/scene.cpp:59`, `tools/scene_io.py:51`) | — | 0.5 d |
+| M4.5 | L3: bounded internal render resolution plus upscale, decoupling window size from render resolution. **Done 2026-10-19** — `--render-scale 1..100` sizes the per-pixel buffers/dispatches from a render grid, the display shader upscales it, scissors map back to target space, and `dxr_render_scale` covers allocation, colour, clipping, exports, presentation and fail-closed inputs. 100% output stays byte-identical | M4.4 | ~~4–6 d~~ 1 d |
+| M4.6 | ~~Qualify the budget and the resolution path~~ **done 2026-09-24.** Budgets at 1080p/1440p/4K/4096 confirmed identical on x86 and x64, Debug and Release. `verify_dxr_resolution.py` now runs end to end on all four binaries: 1440p/4K pixel-correctness passes, 4096×4096 renders (4,031,268,464 with signal export), `--budget-test` refuses on every one. Full `ctest` suites pass **43/43 in x86 Debug (458 s) and 43/43 in x86 Release (436 s)**. The measurement table is now in `docs/DXR_VIEWER.md` (§Working set) and re-verified 2026-10-19 at 1080p/1440p/4K/4096 on x86 and x64. Windowed-resize coverage is real but narrow: hidden-window resize at 128x96 (`dxr_presentation`), paced resize at 1920x1080 (`dxr_pacing`) and a reduced-scale native presentation (`dxr_render_scale`); no visible-window 1440p/4K resize has been qualified | M4.4 | 1 d |
+| M4.7 | ~~Raise the scene-format 4096-per-axis limit~~ **decided not to, 2026-10-19.** Not a limit worth moving: 5120x2880 fits (3.54 GiB, 1.21 GiB `signals`) but is not a target, and 7680x4320 fails on the **2 GiB per-allocation cap** (its `signals` buffer alone is 2.72 GiB) even though the 7.42 GiB total fits. Raising the format limit alone would convert a clear "invalid scene dimensions" refusal into "GPU allocation budget exceeded". 8K needs a smaller `WorkingSignal` or a split buffer first. Arithmetic and measurements in `docs/DXR_VIEWER.md` (§Working set) | — | ~~0.5 d~~ 0 |
 
-**M4 status: the resolution ceiling is gone and the budget is generous.** The
-whole expressible range (up to 4096×4096) allocates at 47.4% of the limit on a
-15.8 GiB card, and the guard is still provably armed. What remains is the pixel
-path re-run (M4.6), display decoupling (M4.5) and the format limit (M4.7).
+**M4 status: the resolution ceiling is gone, the budget is generous, and the
+render grid is decoupled.** The whole expressible range (up to 4096×4096)
+allocates at 47.4% of the limit on a 15.8 GiB card, the guard is still provably
+armed, and `--render-scale` lets a capture render below its captured extent.
+What remains is the scene-format per-axis limit (M4.7).
 
 ### M5 — Live runtime composition (Phase 6)
 *The largest risk. Blocked on the RC session work and the D3D9 Present/Reset
@@ -799,12 +826,24 @@ extraction target rather than a certified title. The DX9Ex presentation result
 is recorded as a blocker that was not silently accepted — that is the right
 call, but it needs a disposition.
 
-**Q6 — Evidence retention policy.** Are game-pass bundles archived (tracked,
-Git LFS, or an object store), or is the intent to re-capture on demand? This
-determines M0.4 completely: tracking even a small golden subset (the pinned
-inventory alone is 16.7 MB, and one trace is 26 MB) requires a storage decision,
-and re-capturing requires the user to replay the game. **This blocks the storage
-part of M0.4; explicit skip reporting was completed independently on 2026-10-13.**
+**Q6 — Evidence retention policy — decided 2026-10-19.** Game-pass bundles are
+archived locally, outside the working tree, one `.tar.gz` per pass with a per-file
+SHA-256 manifest. The root is `--evidence-root`, else `RRT_EVIDENCE_ROOT`, else
+`<repo parent>/radeon-rt-remaster-evidence`. `docs/EVIDENCE_LEDGER.jsonl` is the
+only tracked artifact and records names, sizes, file counts and archive digests —
+never content — so it can live in git without redistributing anything captured
+from a game. Tracked content, Git LFS and an object store were all rejected: the
+first two put game content in history, and the third adds a credential dependency
+for a project with one operator. Re-capture stays the fallback for content, but
+the ledger makes losing an archive a visible mismatch instead of a silent absence.
+
+`check ARCHIVE --ledger ...` is the verification command, not `verify`: the
+manifest travels inside the archive, so a rewrite that regenerates it is
+self-consistent, and only the out-of-band ledger record detects that. Wiring is
+`game_pass.py archive PASS`; `run` reports an `archive_hint` instead of archiving
+automatically, because a 64 MiB trace per observation run would fill the root with
+passes nobody asked to keep. This unblocks the storage half of M0.4. See
+[build guidance](docs/BUILD.md).
 
 **Q7 — Is a second engineer available?** The plan above has two genuinely
 parallel tracks (capture: M0–M3; renderer: M4–M5). With one engineer plus AWS

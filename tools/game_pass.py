@@ -14,6 +14,7 @@ import time
 import uuid
 
 from inspect_trace import inspect, TraceError
+from evidence_archive import MAX_FILES, create as archive_evidence, destination_for
 
 
 def need(value, message):
@@ -316,6 +317,11 @@ def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64
         report['status'] = 'proxy-load-unconfirmed'
     report['scene_capture_exists'] = (run_directory / 'scene.rrscene').is_file()
     report['executable_unchanged'] = digest(plan['executable']) == plan['executable_sha256']
+    # Retention policy: a finished pass is still only under build/, which a cleanup
+    # deletes. Say so in the report rather than archiving automatically, because a
+    # 64 MiB trace per observation run would fill the evidence root with passes
+    # nobody asked to keep. The 2026-10-15 loss happened because nobody remembered.
+    report['archive_hint'] = f'python tools/game_pass.py archive "{directory}"'
     write_json(report_path, report)
     return report
 
@@ -395,6 +401,11 @@ def main():
     recover.add_argument('--game-closed', action='store_true')
     trigger=commands.add_parser('trigger'); trigger.add_argument('directory',type=Path); trigger.add_argument('--name',required=True)
     reuse=commands.add_parser('reuse-baseline'); reuse.add_argument('directory',type=Path); reuse.add_argument('--from-pass',type=Path,required=True)
+    keep=commands.add_parser('archive', help='archive a finished pass outside the working tree and record its digest')
+    keep.add_argument('directory', type=Path); keep.add_argument('--note', default='')
+    keep.add_argument('--out', type=Path)
+    keep.add_argument('--evidence-root', type=Path)
+    keep.add_argument('--ledger', type=Path, default=Path(__file__).resolve().parents[1]/'docs'/'EVIDENCE_LEDGER.jsonl')
     args = parser.parse_args()
     try:
         if args.command == 'prepare':
@@ -413,6 +424,10 @@ def main():
             report=trigger_capture(args.directory,args.name)
         elif args.command == 'reuse-baseline':
             report=reuse_baseline(args.directory,args.from_pass)
+        elif args.command == 'archive':
+            # Evidence policy: local archive, tracked digest ledger, no content in git.
+            destination=destination_for(args.directory,args.out,args.evidence_root)
+            report=archive_evidence(args.directory,destination,args.note,MAX_FILES,args.ledger)
         else:
             report = cleanup(args.directory,args.name,args.game_closed)
         print(json.dumps(report,indent=2))

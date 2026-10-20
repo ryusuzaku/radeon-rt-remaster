@@ -164,7 +164,9 @@ struct NativeDisplay {
         Transition(buffers[index].Get(),D3D12_RESOURCE_STATE_PRESENT,D3D12_RESOURCE_STATE_RENDER_TARGET);
         gpu.list->SetGraphicsRootSignature(root.Get()); gpu.list->SetPipelineState(pipeline.Get());
         gpu.list->SetGraphicsRootShaderResourceView(0,renderer.output->GetGPUVirtualAddress());
-        const UINT dimensions[]={renderer.scene.width,renderer.scene.height,width,height};
+        // Source is the internal render grid, not the captured extent: the display
+        // shader performs the nearest-pixel upscale to the window.
+        const UINT dimensions[]={renderer.renderWidth,renderer.renderHeight,width,height};
         gpu.list->SetGraphicsRoot32BitConstants(1,4,dimensions,0);
         D3D12_VIEWPORT viewport{0,0,float(width),float(height),0,1}; D3D12_RECT scissor{0,0,LONG(width),LONG(height)};
         gpu.list->RSSetViewports(1,&viewport); gpu.list->RSSetScissorRects(1,&scissor);
@@ -184,10 +186,11 @@ struct NativeDisplay {
         if(occluded) ++renderer.displayOccluded; else ++renderer.displayPresented;
         if(check) {
             void* data{}; D3D12_RANGE range{0,SIZE_T(validationBytes)}; Check(validation->Map(0,&range,&data),"back buffer verification map");
-            bool equal=reference.size()==std::size_t(renderer.scene.width)*renderer.scene.height;
+            // Mirrors display.hlsl: target pixel x maps to source pixel x*source/target.
+            bool equal=reference.size()==std::size_t(renderer.renderWidth)*renderer.renderHeight;
             for(UINT y=0;y<height && equal;++y) {
                 const auto* row=reinterpret_cast<const UINT*>(static_cast<const char*>(data)+footprint.Offset+SIZE_T(y)*footprint.Footprint.RowPitch);
-                for(UINT x=0;x<width;++x) if(row[x]!=reference[std::size_t(y*renderer.scene.height/height)*renderer.scene.width+x*renderer.scene.width/width]) { equal=false; break; }
+                for(UINT x=0;x<width;++x) if(row[x]!=reference[std::size_t(y*renderer.renderHeight/height)*renderer.renderWidth+x*renderer.renderWidth/width]) { equal=false; break; }
             }
             D3D12_RANGE noWrite{0,0}; validation->Unmap(0,&noWrite);
             Require(equal,"native back buffer differs from headless pixels"); ++renderer.displayVerified;

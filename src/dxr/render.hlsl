@@ -30,7 +30,17 @@ cbuffer Frame : register(b0) {
     row_major float4x4 previousViewProjection;
     uint randomIndex; uint exportStart; uint exportCount; uint padding;
     float3 lightColor; uint colorPadding;
+    // Captured target extent. Scissors are recorded in this space, while size is
+    // the internal render grid, which may be smaller.
+    uint2 sceneSize;
 };
+// Captured scissors are target pixels, so map the render pixel centre back into
+// the captured extent before testing. At size==sceneSize the mapping is the
+// identity and the historical behaviour is unchanged exactly.
+bool insideScissor(uint2 pixel,uint4 scissor) {
+    uint2 target=uint2((float2(pixel)+.5)*float2(sceneSize)/float2(size));
+    return all(target>=scissor.xy) && all(target<scissor.zw);
+}
 float luminance(float3 color) { return dot(color,float3(.2126,.7152,.0722)); }
 Signal currentSignal(uint index) {
     Working w=signals[index]; Signal s=(Signal)0;
@@ -176,7 +186,7 @@ Signal guide(uint2 pixel) {
     while(query.Proceed()) {
         if(query.CandidateType()==CANDIDATE_NON_OPAQUE_TRIANGLE) {
             Draw d=draws[query.CandidateInstanceID()];
-            if(all(pixel>=d.scissor.xy) && all(pixel<d.scissor.zw)) query.CommitNonOpaqueTriangleHit();
+            if(insideScissor(pixel,d.scissor)) query.CommitNonOpaqueTriangleHit();
         }
     }
     if(query.CommittedStatus()!=COMMITTED_TRIANGLE_HIT) return result;
@@ -214,7 +224,7 @@ void main(uint3 thread : SV_DispatchThreadID) {
     while(query.Proceed()) {
         if(query.CandidateType()==CANDIDATE_NON_OPAQUE_TRIANGLE) {
             Draw d=draws[query.CandidateInstanceID()];
-            if(all(thread.xy>=d.scissor.xy) && all(thread.xy<d.scissor.zw)) query.CommitNonOpaqueTriangleHit();
+            if(insideScissor(thread.xy,d.scissor)) query.CommitNonOpaqueTriangleHit();
         }
     }
     float3 color=background;
