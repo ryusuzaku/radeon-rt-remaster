@@ -37,7 +37,9 @@ def main():
             assert any(arg.endswith('/tests/run_evidence_test.py') for arg in test['command']), test
             if test['name'] == 'position_capture' or test['name'].startswith('texture_'):
                 assert properties['RESOURCE_LOCK'] == ['native_texture_fixture'], test
-    with tempfile.TemporaryDirectory(prefix='rrt evidence ') as temporary:
+    with tempfile.TemporaryDirectory(prefix='rrt evidence ') as temporary_raw:
+        # Resolve 8.3 short names (RUNNER~1) so paths match what cmake/ctest print.
+        temporary = str(Path(temporary_raw).resolve())
         source = Path(temporary) / 'source with spaces'
         build = Path(temporary) / 'build with spaces'
         (source / 'tests').mkdir(parents=True)
