@@ -94,6 +94,21 @@ def main():
     code, _, error = run(manifest, restored, '--prefix', 'nothing\\here\\')
     assert code == 2 and 'no files under that prefix' in error, error
 
+    # A manifest path must stay inside the restored tree: an absolute, drive or
+    # parent-relative entry would be checked against some other file.
+    for bad in ('..\\outside.txt', 'C:\\Windows\\win.ini', '\\rooted.txt', 'a\\..\\..\\b.txt'):
+        hostile = folder / 'hostile.jsonl'
+        hostile.write_text(json.dumps({'path': bad, 'bytes': 0, 'sha256': hashlib.sha256(b'').hexdigest()}) + '\n',
+                           encoding='utf-8')
+        code, _, error = run(hostile, restored)
+        assert code == 2 and 'unsafe path' in error, (bad, code, error)
+
+    # A prefix that is not a directory boundary must not hide extra files.
+    (restored / 'build' / 'game-passes' / 'pass-a' / 'stale2.tmp').write_bytes(b'x')
+    code, report, _ = run(manifest, restored, '--prefix', 'build\\game')
+    assert code == 1 and 'extra: build\\game-passes\\pass-a\\stale2.tmp' in report['problems'], report
+    (restored / 'build' / 'game-passes' / 'pass-a' / 'stale2.tmp').unlink()
+
     print(f'PASS: {report and 3} declared files, hash/missing/extra/prefix/refusal covered')
     return 0
 

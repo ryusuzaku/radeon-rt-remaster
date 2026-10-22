@@ -45,6 +45,7 @@ import stat
 import subprocess
 import sys
 import tarfile
+import zlib
 from datetime import datetime, timezone
 
 SCHEMA = 'rrt-evidence-archive'
@@ -352,7 +353,7 @@ def verify(archive):
                 problems.append({'path': name, 'reason': f'size {size} != {entry["size"]}'})
             elif digest != entry['sha256']:
                 problems.append({'path': name, 'reason': 'sha256 mismatch'})
-    except Refused as error:
+    except (Refused, EOFError, zlib.error, tarfile.TarError) as error:
         return {'result': 'failed', 'file_count': 0, 'total_bytes': 0,
                 'problems': [{'path': '', 'reason': str(error)}]}
     return {'result': 'verified' if not problems else 'failed', 'file_count': count,
@@ -437,7 +438,7 @@ def main(argv=None):
     except Refused as error:
         print(f'refused: {error}', file=sys.stderr)
         return 2
-    except (OSError, tarfile.TarError) as error:
+    except (OSError, EOFError, zlib.error, tarfile.TarError) as error:
         print(f'failed: {error}', file=sys.stderr)
         return 2
     print(json.dumps(result))
