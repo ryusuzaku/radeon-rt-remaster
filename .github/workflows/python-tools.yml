@@ -82,3 +82,6 @@ jobs:
 
       - name: Mod validation
         run: python3.12 tests/test_mods.py
+
+      - name: Evidence archive unit tests
+        run: python3.12 tests/test_evidence_archive.py

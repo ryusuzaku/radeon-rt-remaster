@@ -270,6 +270,10 @@ add_test(NAME evidence_registration COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURREN
 set_tests_properties(evidence_registration PROPERTIES TIMEOUT 60)
 add_test(NAME evidence_archive COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_evidence_archive.py)
 set_tests_properties(evidence_archive PROPERTIES TIMEOUT 120)
+# Pure-function unit tests for the ledger and manifest parsers; unlike the
+# evidence_archive contract test they build their own ledger lines and archives.
+add_test(NAME evidence_archive_units COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_evidence_archive.py)
+set_tests_properties(evidence_archive_units PROPERTIES TIMEOUT 60)
 add_test(NAME restored_tree COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_restored_tree_contract.py)
 set_tests_properties(restored_tree PROPERTIES TIMEOUT 120)
 add_test(NAME shader_snapshot COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_shader_snapshot.py --fixture $<TARGET_FILE:rrt_shader_fixture>)
