@@ -84,10 +84,10 @@ explicit CTest skip (D3).
 | **Shader evidence** `src/shader/` | `intercept.cpp` (41.6 KB) + 5 `.inc`; `fixture.cpp` (14.6 KB) + 4 `.inc`; `position*`, `snapshot`, `inventory`, `disassemble` | The core and the most complex part: the v1–v19 capture ladder, texture shadow/budget accounting, and the native oracle fixture. |
 | **Scene** `src/scene/` | `scene.{h,cpp}` (192 ln) | Canonical geometry/material/texture model, stable SHA-256 asset IDs, `.rrscene` serialization. Shared by proxy, replay and renderer. |
 | **Replay** `src/replay/` | `main.cpp` (101 ln) | Raster replay correctness oracle. Deliberately the simplest binary in the repo. |
-| **Renderer** `src/dxr/` | `main.cpp` (943 ln) + 11 header-only mixins; 7 HLSL (`render.hlsl` shared by every DXIL build; `display.hlsl` presentation) | DXR 1.1 viewer, one-bounce diffuse GI, native presentation — **plus** the RR and RC research harnesses in the same translation unit. |
+| **Renderer** `src/dxr/` | `main.cpp` (1031 ln) + 22 headers (mostly `rc_*`/`rr_*` header-only mixins); 7 HLSL (`render.hlsl` shared by every DXIL build; `display.hlsl` presentation) | DXR 1.1 viewer, one-bounce diffuse GI, native presentation — **plus** the RR and RC research harnesses in the same translation unit. |
 | **Sample** `src/sample/` | `d3d9_smoke_sample.cpp` (296 ln) | Legal in-repo D3D9 target for baseline/proxy equivalence. |
-| **Tooling** `tools/` | 58 files | Runner, workbench, inspectors, ~50 analysis modules; notable: `png_texture.py` (bounded PNG decode), `export_gltf.py` (glTF 2.0 export), `inspect_trace.py` (trace validation), `position_scene.py`/`reconstruct_positions.py` (position evidence pipeline). |
-| **Tests** `tests/` | 71 files | CTest-driven qualification matrices (argparse scripts, not pytest); the only C++ test is `verify_rr_settings_native.cpp` (x64, `RRT_FSR_SDK`-gated). |
+| **Tooling** `tools/` | 68 files | Runner, workbench, inspectors, ~50 analysis modules; notable: `png_texture.py` (bounded PNG decode), `export_gltf.py` (glTF 2.0 export), `inspect_trace.py` (trace validation), `position_scene.py`/`reconstruct_positions.py` (position evidence pipeline). |
+| **Tests** `tests/` | 81 files | CTest-driven qualification matrices (argparse scripts, not pytest); the only C++ test is `verify_rr_settings_native.cpp` (x64, `RRT_FSR_SDK`-gated). |
 
 ### The one thing worth understanding first
 
