@@ -24,7 +24,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'tools'))
-from evidence_archive import MANIFEST, Refused, append_ledger, read_ledger, read_manifest, walk_archive
+from evidence_archive import MANIFEST, Refused, append_ledger, read_ledger, read_manifest, verify, walk_archive
 
 SCHEMA = 'rrt-evidence-archive'
 VERSION = 1
@@ -245,6 +245,22 @@ class ManifestTests(unittest.TestCase):
                       manifest=manifest)
         error = self.consume_walk(archive)
         self.assertIn('missing archive members: ledger.jsonl', error)
+
+
+class TruncationTests(unittest.TestCase):
+    def test_truncated_archive_is_a_failed_verification_not_a_crash(self):
+        with tempfile.TemporaryDirectory() as name:
+            folder = Path(name)
+            # Incompressible payload so cutting the file really cuts the stream.
+            files = {'blob.bin': bytes((index * 167 + (index >> 8) * 31) % 251 for index in range(300000))}
+            archive = folder/'whole.tar.gz'
+            build_archive(archive, files)
+            self.assertEqual(verify(archive)['result'], 'verified')
+            cut = folder/'cut.tar.gz'
+            cut.write_bytes(archive.read_bytes()[:len(archive.read_bytes())//2])
+            report = verify(cut)
+            self.assertEqual(report['result'], 'failed')
+            self.assertTrue(report['problems'])
 
 
 if __name__ == '__main__':
