@@ -177,3 +177,8 @@ binary identities. The ledger contains metadata only. Its timestamp is UTC;
 the run date above uses local time. Use the documented archive `check` command
 with the ledger, rather than relying on archive self-consistency alone.
 The final ledger check verified all 421 files with no problems.
+
+A later [bounded repeatability diagnosis](RR_REPEATABILITY.md) records fresh
+worker, resource/context reuse, Debug/Release and host-pause controls separately
+from replay of these exact archived inputs. Passing samples do not invalidate
+the failures above or establish context recreation as a repeatability fix.
