@@ -72,4 +72,9 @@ Final hardened Release quality evidence: `build/rr-sdk-probe/Release/rr-quality-
 
 ## Remaining gates
 
+[Eight-frame sequence diagnostics](RR_SEQUENCE_QUALITY.md) extend the original
+four-frame motion fixture with depth motion, explicit resets and error measured
+in cohorts after geometric reveal. They retain the same reference work bound,
+variance criterion and non-regression thresholds.
+
 The textured/PBR reference and matched fallback comparison are now implemented; their [failed spatial gates](RR_SURFACE_QUALITY.md) require isolated colour/albedo/signal-convention investigation next. Broaden to soft lights, stronger depth/normal discontinuities, more motion and multiple noise seeds; assess spatial detail loss and longer-lived ghosting. Investigate the zero-light floor separately. This work changes no renderer shader, SDK binary, driver or installed game, and does not promote RR as the default filter.

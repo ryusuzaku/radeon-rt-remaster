@@ -219,6 +219,19 @@ Multi-seed comparison: `docs/RR_MULTI_SEED_SETTINGS.md`.
 Longer history/reset evidence: `docs/RR_LONG_HISTORIES.md`.
 Coordinate-scale evidence: `docs/RR_COORDINATE_SCALE.md`.
 
+**RR bounded sequence quality follow-up (2026-10-23):** eight-frame lateral,
+rotated/depth-translation and explicit-reset fixtures now have matched 1,024-sample
+CPU references and geometric reveal-age diagnostics. Cohorts retain error
+measurements after disocclusion and clear at resets; injected trails, deterministic
+replay and exact fresh-segment controls exercise the harness. The extended reset
+comparison exposed differing SDK output despite matching inputs and dispatch
+metadata; no equality tolerance was added. Quality results and
+current-machine build/test limitations are recorded separately in
+`docs/RR_SEQUENCE_QUALITY.md`. This adds no renderer defaults, SDK settings or
+memory-budget changes. Zero-light bias, textured/PBR regressions and general
+quality acceptance remain open. Next isolate exact repeat/reset variability
+under the existing pinned worker and budgets before broader qualification.
+
 **Work**
 
 - Build a D3D12 renderer with adapter feature checks and a raster fallback.

@@ -55,3 +55,9 @@ The zero-light fixture produces a maximum positive RGB value of **1.090764999389
 ## Next gates
 
 A [bounded stationary sequence](RR_SEQUENCE.md) now reuses one SDK context and the same textures across 2–8 frames, with tested history influence and reset isolation. [Renderer-owned recording](RR_RECORDING.md) adds source/settings provenance and camera continuity without yet admitting those recordings to the SDK. Next implement that admission and actual motion/cut/disocclusion dispatches. Investigate the zero-light bias and compare high-sample references across seeds, lighting and material boundaries before quality acceptance. Performance, asynchronous interop, larger resolutions, animated geometry and live game integration remain open. No installed game, driver or default renderer path was changed.
+
+Subsequent [recorded admission](RR_RECORDED_DISPATCH.md) and
+[bounded eight-frame quality tests](RR_SEQUENCE_QUALITY.md) now exercise actual
+camera motion, geometric reveal regions and explicit reset-to-fresh controls
+against matched CPU references. This extends diagnostic coverage only; the
+exact-zero oracle and general quality acceptance remain unresolved.
