@@ -1,0 +1,84 @@
+# The part of the suite that is honest on a Linux runner.
+#
+# The project itself is Windows-only -- the proxy, the renderer and the DXR
+# probes all need D3D and a display -- but a set of checks is pure Python over
+# files in the checkout. They need no Windows, no GPU, no game content and no
+# built binaries, so they can run here without a skip or a `continue-on-error`
+# hiding a regression.
+#
+# The set is exactly the no-argument checks that CMake registers without a
+# `$<TARGET_FILE:...>` dependency, minus `evidence_registration`: that one drives
+# cmake/ctest and inspects a configured build, so it is not a plain Python check
+# and is left to the Windows job. The NumPy-based `rr_*` settings contracts are
+# also omitted; they need `tools/requirements-rr-quality.txt`, which this job
+# deliberately does not install.
+#
+# Ruff is not run. The repository has no ruff configuration and the tool is not
+# installed by anything in it, so a default-ruleset run would be a new policy
+# decision rather than a check of the code as it stands. `compileall` is run
+# instead: it catches a syntax error in any tool or test without judging style.
+
+name: python-tools
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python-tools:
+    name: Pure-Python tool checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show the interpreter
+        run: python3.12 --version
+
+      - name: Byte-compile every tool and test
+        run: python3.12 -m compileall -q tests tools
+
+      # The checked-in COM forwards must match their generator.
+      - name: Generated forwards are current
+        run: python3.12 tests/verify_codegen_freshness.py
+
+      # The capture-version ladder, its JSON schema, the Python reader and the
+      # game_pass CLI must all describe the same levels.
+      - name: Capture version contract
+        run: python3.12 tests/verify_capture_version_contract.py
+
+      # Every relative link and backticked path in the published docs must
+      # resolve against `git ls-files`, not the working tree.
+      - name: Published references resolve
+        run: python3.12 tests/verify_published_references.py
+
+      # The shadow-budget analysis must read its cap from source and refuse a
+      # ledger that cannot answer the peak question.
+      - name: Shadow-budget tool contract
+        run: python3.12 tests/verify_shadow_budget_tool.py
+
+      # An evidence archive is only trusted if corruption, truncation, an extra
+      # member and a schema bump are all refused and named.
+      - name: Evidence archive contract
+        run: python3.12 tests/verify_evidence_archive.py
+
+      # A restored tree is checked against its manifest, including extra and
+      # missing files, and refuses to compare a tree with itself.
+      - name: Restored tree contract
+        run: python3.12 tests/verify_restored_tree_contract.py
+
+      # Unit tests for the tools, all standard library only.
+      - name: Trace reader
+        run: python3.12 tests/test_trace_reader.py
+
+      - name: Position scene
+        run: python3.12 tests/test_position_scene.py
+
+      - name: Material inputs
+        run: python3.12 tests/test_material_inputs.py
+
+      - name: Mod validation
+        run: python3.12 tests/test_mods.py
