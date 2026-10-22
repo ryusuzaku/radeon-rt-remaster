@@ -69,19 +69,25 @@ Two optional SDK paths gate a third of the test suite:
 `RRT_DXC` is auto-discovered from the Windows SDK. If absent, `rrt_dxr` is
 silently omitted with a CMake warning (`CMakeLists.txt:119-121`).
 
+The 13 evidence-gated tests are registered unconditionally by
+`cmake/EvidenceTests.cmake` (`rrt_add_evidence_test`) and run through
+`tests/run_evidence_test.py`, which reports missing local evidence as an
+explicit CTest skip (D3).
+
 ## 3. Module map
 
 | Module | Files | Responsibility |
 |---|---|---|
 | **Proxy** `src/proxy/` | `d3d9_proxy.cpp` (74 ln), `observers.{h,cpp}`, `generated_*.inc`, `d3d9_proxy.def` | Loads system D3D9 lazily, forwards 20 interfaces / 119 device methods, preserves COM identity. `RRT_PROXY_DISABLE=1` escape hatch. |
 | **Capture** `src/capture/` | `capture.{h,cpp}` (284 ln) | Bounded JSONL trace writer: resources, locks, state, draws, presents, lifetimes. Opt-in via `RRT_TRACE_FILE`. |
+| **Trace** `src/trace/` | `trace.{h,cpp}` (139 ln) | Low-level JSONL writer for the `trace.jsonl` observation stream (object IDs, field records, present results); shared by proxy, capture and observers. |
 | **Shader evidence** `src/shader/` | `intercept.cpp` (41.6 KB) + 5 `.inc`; `fixture.cpp` (14.6 KB) + 4 `.inc`; `position*`, `snapshot`, `inventory`, `disassemble` | The core and the most complex part: the v1–v19 capture ladder, texture shadow/budget accounting, and the native oracle fixture. |
 | **Scene** `src/scene/` | `scene.{h,cpp}` (192 ln) | Canonical geometry/material/texture model, stable SHA-256 asset IDs, `.rrscene` serialization. Shared by proxy, replay and renderer. |
 | **Replay** `src/replay/` | `main.cpp` (101 ln) | Raster replay correctness oracle. Deliberately the simplest binary in the repo. |
-| **Renderer** `src/dxr/` | `main.cpp` (943 ln) + 11 header-only mixins; 7 HLSL | DXR 1.1 viewer, one-bounce diffuse GI, native presentation — **plus** the RR and RC research harnesses in the same translation unit. |
+| **Renderer** `src/dxr/` | `main.cpp` (943 ln) + 11 header-only mixins; 7 HLSL (`render.hlsl` shared by every DXIL build; `display.hlsl` presentation) | DXR 1.1 viewer, one-bounce diffuse GI, native presentation — **plus** the RR and RC research harnesses in the same translation unit. |
 | **Sample** `src/sample/` | `d3d9_smoke_sample.cpp` (296 ln) | Legal in-repo D3D9 target for baseline/proxy equivalence. |
-| **Tooling** `tools/` | 58 files | Runner, workbench, inspectors, ~50 analysis modules. |
-| **Tests** `tests/` | 71 files | CTest-driven qualification matrices (argparse scripts, not pytest). |
+| **Tooling** `tools/` | 58 files | Runner, workbench, inspectors, ~50 analysis modules; notable: `png_texture.py` (bounded PNG decode), `export_gltf.py` (glTF 2.0 export), `inspect_trace.py` (trace validation), `position_scene.py`/`reconstruct_positions.py` (position evidence pipeline). |
+| **Tests** `tests/` | 71 files | CTest-driven qualification matrices (argparse scripts, not pytest); the only C++ test is `verify_rr_settings_native.cpp` (x64, `RRT_FSR_SDK`-gated). |
 
 ### The one thing worth understanding first
 
@@ -102,7 +108,7 @@ binary because there is nothing smaller to call.
 | `rrt_shader_fixture` | `src/shader/fixture.cpp` | Native oracle; drives every texture/position test |
 | `rrt_replay` | `src/replay/main.cpp` | Raster replay oracle; `--inspect` for scenes |
 | `rrt_dxr` | `src/dxr/main.cpp` `wmain` | DXR viewer + RR/RC harness (`--probe`, `--rc-*`, `--rr-*`) |
-| `rrt_rr_probe`, `rrt_rc_probe`, `rrt_rc_shared` | `src/dxr/*.cpp` | Contained SDK probes (x64, optional) |
+| `rrt_rr_probe`, `rrt_rc_probe`, `rrt_rc_shared` | `src/dxr/rr_probe.cpp`, `rc_probe.cpp`, `rc_shared.cpp` | Contained SDK probes (x64, optional) |
 | `d3d9_smoke_sample` | `src/sample/d3d9_smoke_sample.cpp` | Baseline / proxy / disabled equivalence |
 | `tools/game_pass.py` | CLI | **The only sanctioned way to touch a real game** |
 | `tools/workbench.py` | CLI + local HTTP | UI over the runner; owns no resources |
