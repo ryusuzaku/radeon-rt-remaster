@@ -53,6 +53,10 @@ def main():
     rejected(lambda: run_pass(bundle,'proxy',position_texture_uploads=True))
     rejected(lambda: run_pass(bundle,'proxy',position_dirty_textures=True))
     rejected(lambda: run_pass(bundle,'proxy',position_surface_uploads=True))
+    for cap in (True,0,129,512,'256'):
+        rejected(lambda: run_pass(bundle,'proxy',shadow_mib=cap))
+    rejected(lambda: run_pass(bundle,'baseline',shadow_mib=256))
+    rejected(lambda: run_pass(bundle,'proxy',shadow_mib=256))
     for invalid in ('0x96:1','128x96:0','16385x96:1','128x96:4097','0128x96:1'):
         rejected(lambda: run_pass(bundle,'proxy',wait_trigger=True,shader_inventory=True,position_capture=True,position_frames=True,position_selection=invalid))
     baseline=run_pass(bundle,'baseline',note='synthetic baseline')
@@ -83,7 +87,7 @@ def main():
     prepare(executable,args.proxy,armed_bundle,'armed',['--scene-fixture','--frames','1000'],plan['baseline_arguments'])
     reuse_baseline(armed_bundle,bundle)
     with ThreadPoolExecutor(max_workers=1) as pool:
-        future=pool.submit(run_pass,armed_bundle,'proxy',frames=3,wait_trigger=True,shader_inventory=True,position_capture=True,position_frames=True,position_selection='128x96:1',position_multi_draw=True,position_render_state=True,position_clear_evidence=True,position_write_evidence=True,position_surface_scope=True,position_color_replay=True,position_material_inputs=True,position_pixel_material=True,position_texture_inputs=True,position_texture_assets=True,position_compressed_textures=True,position_texture_uploads=True,position_dirty_textures=True,position_surface_uploads=True)
+        future=pool.submit(run_pass,armed_bundle,'proxy',frames=3,wait_trigger=True,shader_inventory=True,position_capture=True,position_frames=True,position_selection='128x96:1',position_multi_draw=True,position_render_state=True,position_clear_evidence=True,position_write_evidence=True,position_surface_scope=True,position_color_replay=True,position_material_inputs=True,position_pixel_material=True,position_texture_inputs=True,position_texture_assets=True,position_compressed_textures=True,position_texture_uploads=True,position_dirty_textures=True,position_surface_uploads=True,shadow_mib=256)
         armed_report=armed_bundle/'runs'/'proxy'/'report.json'
         deadline=time.monotonic()+15
         while time.monotonic()<deadline and not future.done():
@@ -103,6 +107,7 @@ def main():
     need(inventory['draws']>0 and inventory['failed_draws']==0,'triggered inventory missing draws')
     from inspect_position_capture import inspect as inspect_position
     position=inspect_position(triggered['position_capture_file'])
+    need(triggered['shadow_mib']==256 and position['retained']['shadow_cap_bytes']==256*1024*1024,'experimental shadow cap not passed to child')
     need(position['version']==18 and position['frame_sampling'] and triggered['position_frame_sampling'] and triggered['position_selection']=='128x96:1' and triggered['position_multi_draw'] and triggered['position_render_state'] and triggered['position_clear_evidence'] and triggered['position_write_evidence'] and triggered['position_surface_scope'] and triggered['position_color_replay'] and triggered['position_material_inputs'] and triggered['position_pixel_material'] and triggered['position_texture_inputs'] and triggered['position_texture_assets'] and triggered['position_compressed_textures'] and triggered['position_texture_uploads'] and triggered['position_dirty_textures'] and triggered['position_surface_uploads'],'runner did not enable surface uploads')
     need(Path(triggered['texture_asset_directory']).is_dir() and not list(Path(triggered['texture_asset_directory']).iterdir()),'fixed-function asset directory should be empty')
     need(position['attempts_recorded']>0 and not position['captures'],'fixed-function fixture incorrectly captured HL2 geometry')

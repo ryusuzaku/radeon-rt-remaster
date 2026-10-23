@@ -54,8 +54,9 @@ inputs are present, so no fixed count is quoted here — run
 
 Always present: trace-reader and mod-validation suites, classic/Ex mod replay,
 classic/Ex proxy equivalence, classic/Ex scene replay, the contract checks
-(`codegen_freshness`, `capture_version_contract`, `published_references`) and
-smoke/help entry points. Integration tests load the system DLL explicitly for
+(`codegen_freshness`, `capture_version_contract`, `published_references`,
+`shadow_budget_tool`, `evidence_registration`, `evidence_archive`,
+`restored_tree`) and smoke/help entry points. Integration tests load the system DLL explicitly for
 baseline renders, confirm the proxy marker when requested, and compare raw image
 bytes with proxy-on, trace-off, and proxy-disabled runs.
 
@@ -67,9 +68,100 @@ adapters; they do not silently use a software renderer. Standard D3D12
 debug-layer validation is enabled when the Windows Graphics Tools component is
 installed.
 
-Added when `build/game-passes/` holds a captured pass: the `texture_*` and
-`position_capture` matrices. Those need the pinned inventory, so they are skipped
-on a clean checkout rather than failing.
+All 13 local-evidence tests stay registered in the x86 build, including
+`texture_*`, `position_capture` and the recorded-position suites. They carry the
+`local_evidence` label. When a required file is unavailable, CTest lists the test
+as **Skipped**, and verbose output names the path and the CMake variable to set.
+Existing malformed evidence still fails the original validator. Evidence is
+checked at execution time, so restoring or removing a file takes effect without
+reconfiguring; changing the configured path requires another CMake configure.
+
+```powershell
+ctest --test-dir build/x86-vs -C Release -L local_evidence -V
+cmake --preset windows-x86 "-DRRT_HL2_POSITION_INVENTORY=P:/owned-pass/shader-inventory.jsonl" "-DRRT_HL2_POSITION_CAPTURE=P:/owned-pass/position-capture.jsonl" "-DRRT_HL2_GROUP_CAPTURE=P:/owned-multidraw/position-capture.jsonl"
+```
+
+The inventory enables nine tests, the position capture three, and the grouped
+capture one. These need the pinned HL2 programs/recording shapes described in
+[the position contract](HL2_POSITION_CONTRACT.md) and
+[grouped replay](HL2_GROUPED_POSITION_REPLAY.md); arbitrary JSONL is not a substitute.
+Obtain the files from your owned local pass or a private backup. Game artifacts
+remain excluded from the public repository; retention storage is still undecided.
+The GPU-free `evidence_registration` contract checks registration of all 13 tests
+and real CTest missing/restored/invalid evidence transitions, including paths with
+spaces and preservation of child exit codes. CI runs this contract.
+
+Measured 2026-10-19 with restored evidence on the RX 9070 XT: the whole
+`local_evidence` label takes about 11 minutes in x86 Debug, and `texture_upload`
+alone takes 156 s. Its CTest budget was 120 s and killed a passing test; it is now
+300 s. If a texture test times out, time the underlying command before assuming a
+defect.
+
+### Restoring a preserved tree
+
+A consolidation that removes `build/` does not necessarily destroy it. The
+2026-10-15 move preserved the whole pre-move tree — gitignored content included —
+as a WIM image plus a SHA-256 manifest, and that is how the pass bundles were
+recovered on 2026-10-19. The pattern is worth knowing before writing evidence off:
+
+```powershell
+# List what the image holds without extracting anything.
+wimlib-imagex.exe dir IMAGE.wim 1 | Select-String "game-passes"
+
+# Extract one subtree, preserving its path, and check the image while doing it.
+wimlib-imagex.exe extract IMAGE.wim 1 '\build\game-passes' --check `
+    --preserve-dir-structure --no-acls --dest-dir=DEST
+
+# Verify every extracted file against the manifest that shipped with it.
+python tools/verify_restored_tree.py MANIFEST.jsonl DEST --prefix "build\game-passes\"
+```
+
+The verifier compares path, byte count and SHA-256 for every declared file and
+fails on anything missing, resized, changed or extra — the four ways an extraction
+goes wrong quietly. It prints counts and names up to twenty problems.
+
+The 2026-10-19 run extracted 881 MiB and verified 738/738 files with zero
+problems. Verify before trusting: the image is a copy of a working tree, not a
+signed artifact, and the manifest is what makes the comparison meaningful. Never
+extract over a live working tree.
+
+### Keeping a pass
+
+`build/` is gitignored, so a cleanup or a workspace move deletes pass bundles
+without warning. That happened on 2026-10-15 and took the shader inventory and the
+candidate program's bytecode with it. The retention policy is now decided:
+
+- **Archives live outside the working tree**, one file per pass. The root is
+  `--evidence-root`, else `RRT_EVIDENCE_ROOT`, else
+  `<repo parent>/radeon-rt-remaster-evidence`.
+- **`docs/EVIDENCE_LEDGER.jsonl` is the only tracked artifact.** It records the
+  pass name, file count, sizes and the archive's SHA-256 — never content — so it
+  can live in git without redistributing anything captured from a game.
+- **`check` is the verification command, not `verify`.** An archive carries its
+  own manifest, so a rewrite that regenerates the manifest is self-consistent;
+  the ledger is the record outside the artifact that detects it.
+- **Nothing is committed from an archive.** No Git LFS, no object store, no
+  captured content in history. A destination that git would track is refused
+  outright rather than warned about, because that mistake has a legal consequence
+  rather than a data one. Re-capture remains the fallback for content, but the
+  ledger makes losing an archive a visible mismatch instead of a silent absence.
+
+```powershell
+python tools/game_pass.py archive build/game-passes/PASS --note "material pass, windowed 1920x1080"
+python tools/evidence_archive.py check "P:/workspace/ninja-code/radeon-rt-remaster-evidence/PASS-20261019-091500.tar.gz" --ledger docs/EVIDENCE_LEDGER.jsonl
+python tools/evidence_archive.py restore ARCHIVE --out P:/restored/PASS
+```
+
+The lower-level verbs are available directly: `create` (with `--out` for an exact
+path or `--evidence-root` for the policy root), `verify` for self-consistency,
+`list` for a summary, and `restore`. The archive manifest holds a SHA-256 per
+file, so `verify` names any member that changed, disappeared or was added, and
+exits 1 rather than reporting a plausible success. `restore` refuses a non-empty
+target, refuses to overwrite, and refuses members that are not regular files or
+that would land outside the target. Bounds are 200,000 files, 2 GiB per file and
+8 GiB total; `--max-files` can only lower the file bound, never raise it. CTest
+`evidence_archive` is the GPU-free contract covering corruption, truncation,
+traversal, symlinks, ledger mismatch and the refusals.
 
 The fixture draws textured indexed geometry through fixed-function and shader paths and includes UP draws, resource/stateblock identities, device/swap-chain Present, invalid-reset recovery, resize, readback, and resource-held device lifetime recovery. Trace checks cover record validation, deterministic IDs/counts, selected frame ranges, byte budgets, and unavailable/existing output paths.
 

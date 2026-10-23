@@ -96,25 +96,32 @@ rendered and which of them reach the scene passes; `any` requires
 
 A pass built after the peak instrument landed writes `retained_peak`,
 `peak_buffers` and `peak_textures` into the ledger footer alongside the stop
-values. **The peak is the one that decides policy**: a reservation that was
-*refused* proves the total was higher at that moment than at the stop, so a
-capture that stops below the cap tells you nothing about what filled it.
+values. Resources can be released between a refused reservation and the stop,
+so the peak split is useful alongside the stop split. A refusal proves only that
+the requested reservation exceeded remaining headroom at that moment; the peak
+does not identify its size or resource identity.
 
 ```powershell
 python tools/analyse_shadow_budget.py build/game-passes/PASS --refused-bytes 94371840
 ```
 
 Pass a ledger directly, or a pass directory and it finds the newest
-`position-capture.jsonl` under `runs/`. It reads the 128 MiB cap from the proxy
-source rather than repeating it, reports the stop and peak splits side by side,
+`position-capture.jsonl` under `runs/`. It uses the footer's `shadow_cap_bytes`
+when present, falling back to the source default for historical ledgers, and
+reports the stop and peak splits side by side,
 names whether the peak is buffer- or texture-dominated, and — given the refused
-demand in bytes — says what cap would have admitted it.
+demand in bytes — reports the headroom for that demand on top of the peak.
+Repeated rejection rows can refer to the same resource; their sizes must not be
+summed as independent live allocations without identity/lifetime evidence.
 
 It **exits 3 and refuses to answer** if the ledger has no peak fields. That is
 deliberate: the stop split cannot answer the question, and a tool that quietly
-analysed it anyway would produce a confident wrong recommendation. `20 * 4718592`
-is the 90 MiB that `material3`'s twenty refused 1024x512 `A16B16G16R16` inputs
-represent.
+analysed it anyway would produce a confident wrong recommendation.
+
+The default CPU shadow cap remains 128 MiB. For a bounded experiment, add
+`--shadow-mib 256` to a triggered position-capture run; baseline/disabled runs
+reject the larger-cap option. See [HL2 shadow-cap experiment](HL2_SHADOW_CAP_EXPERIMENT.md)
+for the measured run, rationale and qualification controls.
 
 A triggered capture arms on the first successful Present after the trigger and
 starts its interval numbering there. If the game is not presenting when the

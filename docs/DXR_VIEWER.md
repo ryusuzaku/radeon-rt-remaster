@@ -293,7 +293,9 @@ All integers and IEEE-754 float32 values are little endian. The 36-byte header
 contains eight ASCII bytes `RRTSIG02`, then seven uint32 fields: version (2),
 width, height, record stride (144), raw accumulated sample count, flags (bit 0 =
 spatial filter requested, bit 1 = temporal requested; other bits zero), and mode
-(0 albedo, 1 normals, 2 relit, 3 GI).
+(0 albedo, 1 normals, 2 relit, 3 GI). Width and height are the internal render
+grid, because the payload is per rendered pixel; at `--render-scale 100` they
+equal the captured extent and the file is byte-identical to earlier versions.
 Exactly width×height records follow in top-to-bottom, left-to-right order, with
 no trailer. Each record contains nine float4 values:
 
@@ -432,6 +434,74 @@ Each render prints JSON with:
 The first cold shader/driver compilation can dominate wall time. Tiny synthetic
 fixture timings must not be extrapolated into performance claims for real games.
 
+## Internal render resolution
+
+`--render-scale PERCENT` (1..100, default 100) renders on a smaller internal grid
+than the captured target extent and upscales at presentation. The value must be
+decimal digits only; zero, negative, out-of-range, non-numeric and missing values
+are rejected with `render scale must be 1..100 percent` on stderr and a non-zero
+exit, never clamped or defaulted. 100 is the identity:
+output pixels, signal payloads and per-pixel allocations are byte-identical to the
+previous renderer, which the exact-pixel `dxr_render` checks continue to prove.
+
+| Layer | Behaviour |
+|---|---|
+| Allocation | output, readback, history and all three signal buffers are sized from the render grid (240 B/px); constants, acceleration structures and scene uploads are fixed costs |
+| Dispatch | every per-pixel dispatch uses the render grid |
+| Camera | ray generation maps render pixel centres into the same NDC range, so the field of view is unchanged and pixels are merely larger |
+| Motion vectors | computed in render pixels, so a translation reports displacement on the render grid: the 64x48 grid reports exactly half the 128x96 value for the identical ray, and temporal history stays keyed to that grid |
+| Captured scissors | recorded in target pixels; the shader maps the render pixel centre back into target space before the scissor test, so clip boundaries do not move with the grid |
+| Display | the display shader samples the render grid and writes the window, so the upscale is nearest-pixel |
+| Exports | `--pixels` writes the render grid; RRTSIG02 records the render grid in its header because the payload is per rendered pixel |
+| Report | `width`/`height` are the render grid, `scene_width`/`scene_height` the captured extent, `render_scale` the percentage |
+
+Measured on the 128x96 fixture: 100% requests 2,967,408 B, 50% requests 755,568 B
+(ratio 0.255 — the remainder is the fixed per-frame cost). x86 and x64 report
+identical figures.
+
+Deliberately bounded. The percentage never exceeds the captured extent, so this is
+a reduction path and not supersampling, and the RR/RC evidence paths refuse it
+because their recorded payloads assume the captured extent exactly. The upscale is
+nearest-pixel, not filtered: this is the resolution decoupling FidelityFX upscaling
+needs, not an upscaler. Visible-desktop DPI behaviour remains unqualified.
+
+## Working set and extent limits
+
+Every per-pixel buffer costs 240 bytes per rendered pixel: output 4, readback 4,
+history 16, `signals` 88 (`WorkingSignal`), previous and next temporal records 64
+each. Fixed overhead is 18,288 bytes. Measured 2026-10-19 on the RX 9070 XT with
+the albedo fixture and no signal export; x86 and x64 report byte-identical figures.
+
+| Captured extent | Scale | Render grid | Requested bytes | Share of 8 GiB |
+|---|---:|---|---:|---:|
+| 1920x1080 | 100% | 1920x1080 | 497,682,288 | 5.8% |
+| 2560x1440 | 100% | 2560x1440 | 884,754,288 | 10.3% |
+| 3840x2160 | 100% | 3840x2160 | 1,990,674,288 | 23.2% |
+| 4096x4096 | 100% | 4096x4096 | 4,026,550,128 | 46.9% |
+| 1920x1080 | 50% | 960x540 | 124,434,288 | 1.4% |
+| 2560x1440 | 50% | 1280x720 | 221,202,288 | 2.6% |
+| 3840x2160 | 50% | 1920x1080 | 497,682,288 | 5.8% |
+| 4096x4096 | 50% | 2048x2048 | 1,006,651,248 | 11.7% |
+
+The last four rows are the point of the decoupling: a 4K capture at 50% requests
+**exactly** what a 1080p capture requests at 100% (497,682,288 B), because the
+working set follows the render grid and nothing else.
+
+The scene format stops at 4096 per axis. That is deliberate, and it is not the
+binding limit for a larger display anyway:
+
+- 5120x2880 would cost 3.54 GiB with a 1.21 GiB `signals` buffer, so it fits both
+  caps. It is simply not a target, and the format does not express it.
+- 7680x4320 would cost 7.42 GiB — under the 8 GiB total — but its `signals`
+  buffer alone is 2.72 GiB, past the 2 GiB per-allocation cap. Raising the format
+  limit alone would move the failure from "invalid scene dimensions" to "GPU
+  allocation budget exceeded", which is a worse error rather than a feature. 8K
+  needs a smaller per-pixel record or a split buffer, not a bigger constant.
+
+Both larger figures are arithmetic from the verified 240 B/px, not measurements:
+the scene encoder refuses anything above 4096 per axis, so they cannot be
+measured through the normal path.
+
 ## Automated verification
 
 `dxr_render` generates a ground plane and a foreground occluder, then checks:
@@ -462,6 +532,13 @@ fixture timings must not be extrapolated into performance claims for real games.
 - A hidden native window exercises its message loop: paused navigation, Home,
   resume, mode/light/shadow/filter changes and automatic close. Restored output matches
   headless rendering. This does not qualify visible-window DPI/fullscreen behavior.
+- Reduced internal render scale: allocation shrinks with the grid, colours stay a
+  subset of the full-resolution palette, captured scissors keep their target-space
+  boundary at 50%, motion vectors report exactly half the displacement for the
+  identical camera ray, eight-sample temporal GI stays deterministic with zero
+  resets and an accepted history count, the signal header and pixel file follow the
+  render grid, a reduced-scale native presentation verifies against the upscaled
+  back buffer, and out-of-range values plus RR/RC evidence paths fail closed.
 - Rejection of incompatible materials, singular/multiple cameras, partial
   captures, out-of-range geometry, invalid adapters and output overwrite.
 - The installed D3D12 debug layer, when available. This is standard API-layer

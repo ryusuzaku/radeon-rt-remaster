@@ -69,6 +69,10 @@ struct Options {
     std::filesystem::path materialPath,rrInputs,rcPaths,rcProbe,rcSdkBin; bool lightingTest{},varianceFilter{},rcStream{},rcPresentCandidate{},rcPresentationTest{},rcLiveSessionTest{};
     UINT rcTrainingBatches{1},rcBudgetMiB{32},rcWorkerTimeoutMs{60000},rcPersistentEpochs{1}; std::wstring rcSchedulerTest; bool rcResourceTest{},rcPoolTest{},rcGpuPoolTest{},rcRendererSessionTest{};
     std::filesystem::path rrRecord; float rrStep[3]{}; UINT rrResetFrame{UINT32_MAX}; bool rrStepSet{};
+    // Internal render extent as a percentage of the captured target extent.
+    // 100 keeps every historical output byte-identical; below that the frame is
+    // rendered smaller and upscaled by the display shader.
+    UINT renderPercent{100};
     float lightColor[3]{1,1,1},lightIntensity{.85f},ambient{.15f};
     float offset[3]{},yaw{},pitch{},sunRadius{.04f};
 };
@@ -183,8 +187,18 @@ struct Frame { XMFLOAT4X4 inverse; UINT width,height,mode,shadows; float backgro
     XMFLOAT4X4 previousViewProjection;
     UINT randomIndex,exportStart,exportCount,padding;
     float lightColor[3]; UINT colorPadding;
+    // Captured target extent. width/height above are the internal render grid,
+    // which is what the shader indexes; scissors are expressed in this space.
+    UINT sceneWidth,sceneHeight;
 };
-static_assert(sizeof(Frame)==224 && offsetof(Frame,previousViewProjection)==128);
+static_assert(sizeof(Frame)==232 && offsetof(Frame,previousViewProjection)==128);
+// Internal render extent from a bounded percentage of the captured extent.
+// Nearest-pixel rounding, clamped to at least one pixel and never above the
+// captured extent: this is a reduction path, not supersampling.
+UINT RenderExtent(UINT extent,UINT percent) {
+    const auto scaled=(UINT64(extent)*percent+50)/100;
+    return UINT(std::clamp<UINT64>(scaled,1,extent));
+}
 struct Signal { XMFLOAT4 radiance,normalDepth,albedoHit,motion,filtered,position,sample,temporal,statistics; };
 static_assert(sizeof(Signal)==144);
 struct WorkingSignal { XMFLOAT4 normalDepth,albedoId,position,sample,temporal; XMFLOAT2 motion; };
@@ -236,8 +250,13 @@ struct Renderer {
     UINT64 pendingTiming[Device::SlotCount]{};
     MaterialInputs materialInputs; UINT pbrDraws{};
     bool rrResetPending{true},rrFrameReset{true}; UINT rrInputSubmissions{},rcPathSubmissions{},rcPathQueries{},rcPathTraining{};
+    // Immutable for the renderer's lifetime: every per-pixel buffer, dispatch and
+    // readback is sized from this, independently of the captured target extent.
+    const UINT renderWidth,renderHeight;
     const UINT64 bytes;
-    Renderer(Device& device,const rrt::scene::Scene& inputScene,const Options& options):gpu(device),scene(inputScene),bytes(UINT64(scene.width)*scene.height*4) {
+    Renderer(Device& device,const rrt::scene::Scene& inputScene,const Options& options):gpu(device),scene(inputScene),
+        renderWidth(RenderExtent(scene.width,options.renderPercent)),renderHeight(RenderExtent(scene.height,options.renderPercent)),
+        bytes(UINT64(renderWidth)*renderHeight*4) {
     Admit(scene);
     materialInputs=LoadMaterials(options.materialPath,scene);
     std::vector<rrt::scene::Vertex> vertices; std::vector<UINT> indices,texels; std::vector<GpuDraw> draws;
@@ -330,7 +349,8 @@ struct Renderer {
     void Drain() { gpu.Drain(); for(UINT i=0;i<Device::SlotCount;++i) CollectTiming(i); }
     void Configure(const Options& options,bool forceReset=false) {
     Require(!configured || options.materialPath==activeOptions.materialPath,"material sidecars are immutable; recreate the renderer to change them");
-    Frame next{}; next.width=scene.width; next.height=scene.height; next.mode=options.mode; next.shadows=options.shadows;
+    Frame next{}; next.width=renderWidth; next.height=renderHeight; next.mode=options.mode; next.shadows=options.shadows;
+    next.sceneWidth=scene.width; next.sceneHeight=scene.height;
     next.background[0]=float((scene.clearColor>>16)&255)/255; next.background[1]=float((scene.clearColor>>8)&255)/255; next.background[2]=float(scene.clearColor&255)/255;
     next.ambient=options.ambient; next.intensity=options.lightIntensity; next.seed=options.seed; next.sunRadius=options.sunRadius; next.flags=(options.denoise?1:0)|(options.temporal?4:0);
     memcpy(next.lightColor,options.lightColor,12);
@@ -402,10 +422,10 @@ struct Renderer {
     frame.randomIndex=(frame.flags&4) && frame.mode==3?randomSequence:samples;
     filterScratch=previousSignals;
     Bind(pso.Get());
-    gpu.list->Dispatch((scene.width+7)/8,(scene.height+7)/8,1);
+    gpu.list->Dispatch((renderWidth+7)/8,(renderHeight+7)/8,1);
     gpu.list->EndQuery(timing.Get(),D3D12_QUERY_TYPE_TIMESTAMP,query+1);
     gpu.Uav(history.Get()); gpu.Uav(signals.Get()); gpu.list->SetPipelineState(temporalPso.Get());
-    gpu.list->Dispatch((scene.width+7)/8,(scene.height+7)/8,1);
+    gpu.list->Dispatch((renderWidth+7)/8,(renderHeight+7)/8,1);
     gpu.list->EndQuery(timing.Get(),D3D12_QUERY_TYPE_TIMESTAMP,query+2);
     gpu.Uav(signals.Get());
     const bool varianceActive=(frame.flags&33)==33 && frame.mode==3;
@@ -415,10 +435,10 @@ struct Renderer {
         D3D12_RESOURCE_BARRIER scratchBarrier{}; scratchBarrier.Type=D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
         scratchBarrier.Transition={filterScratch.Get(),D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,D3D12_RESOURCE_STATE_UNORDERED_ACCESS};
         gpu.list->ResourceBarrier(1,&scratchBarrier); gpu.list->SetPipelineState(variancePso.Get());
-        gpu.list->Dispatch((scene.width+7)/8,(scene.height+7)/8,1); gpu.Uav(filterScratch.Get()); ++varianceDispatches;
+        gpu.list->Dispatch((renderWidth+7)/8,(renderHeight+7)/8,1); gpu.Uav(filterScratch.Get()); ++varianceDispatches;
     }
     gpu.list->SetPipelineState(presentPso.Get());
-    gpu.list->Dispatch((scene.width+7)/8,(scene.height+7)/8,1);
+    gpu.list->Dispatch((renderWidth+7)/8,(renderHeight+7)/8,1);
     gpu.list->EndQuery(timing.Get(),D3D12_QUERY_TYPE_TIMESTAMP,query+3);
     D3D12_RESOURCE_BARRIER barrier{}; barrier.Type=D3D12_RESOURCE_BARRIER_TYPE_TRANSITION; barrier.Transition.pResource=output.Get(); barrier.Transition.StateBefore=D3D12_RESOURCE_STATE_UNORDERED_ACCESS; barrier.Transition.StateAfter=D3D12_RESOURCE_STATE_COPY_SOURCE; barrier.Transition.Subresource=D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES; gpu.list->ResourceBarrier(1,&barrier);
     if(readPixels) gpu.list->CopyResource(readback.Get(),output.Get());
@@ -436,7 +456,7 @@ struct Renderer {
     }
     std::vector<std::uint32_t> ReadPixels() {
     ++renderReadbacks;
-    void* mapped{}; D3D12_RANGE range{0,SIZE_T(bytes)}; Check(readback->Map(0,&range,&mapped),"readback map"); std::vector<std::uint32_t> pixels(std::size_t(scene.width)*scene.height); memcpy(pixels.data(),mapped,bytes); D3D12_RANGE noWrite{0,0}; readback->Unmap(0,&noWrite); return pixels;
+    void* mapped{}; D3D12_RANGE range{0,SIZE_T(bytes)}; Check(readback->Map(0,&range,&mapped),"readback map"); std::vector<std::uint32_t> pixels(std::size_t(renderWidth)*renderHeight); memcpy(pixels.data(),mapped,bytes); D3D12_RANGE noWrite{0,0}; readback->Unmap(0,&noWrite); return pixels;
     }
     std::vector<std::uint32_t> Snapshot() {
         Require(copied && samples>0,"snapshot requires a rendered frame");
@@ -455,12 +475,15 @@ struct Renderer {
         Require(file!=INVALID_HANDLE_VALUE,"signal output exists or path unavailable");
         try {
         const char magic[8]={'R','R','T','S','I','G','0','2'};
-        const UINT header[]={2,scene.width,scene.height,sizeof(Signal),samples,(frame.flags&1)|((frame.flags&4)>>1),frame.mode}; DWORD written{};
+        // The payload is per rendered pixel, so the header records the internal
+        // render grid. At --render-scale 100 this equals the captured extent and
+        // the artifact is byte-identical to previous versions.
+        const UINT header[]={2,renderWidth,renderHeight,sizeof(Signal),samples,(frame.flags&1)|((frame.flags&4)>>1),frame.mode}; DWORD written{};
         bool ok=WriteFile(file,magic,8,&written,nullptr) && written==8;
         ok=ok && WriteFile(file,header,sizeof(header),&written,nullptr) && written==sizeof(header);
         Require(ok,"signal header output failed");
-        for(UINT first=0;first<scene.width*scene.height;first+=ExportChunkPixels) {
-            frame.exportStart=first; frame.exportCount=std::min(ExportChunkPixels,scene.width*scene.height-first);
+        for(UINT first=0;first<renderWidth*renderHeight;first+=ExportChunkPixels) {
+            frame.exportStart=first; frame.exportCount=std::min(ExportChunkPixels,renderWidth*renderHeight-first);
             gpu.Begin(); Bind(exportPso.Get()); gpu.Uav(history.Get()); gpu.Uav(signals.Get());
             gpu.list->EndQuery(timing.Get(),D3D12_QUERY_TYPE_TIMESTAMP,0);
             gpu.list->Dispatch((frame.exportCount+63)/64,1,1);
@@ -569,9 +592,11 @@ LRESULT CALLBACK Procedure(HWND window,UINT message,WPARAM a,LPARAM b) {
     return DefWindowProcW(window,message,a,b);
 }
 void Show(std::vector<UINT>& pixels,Renderer& renderer,Options& options) {
+    // The window is sized to the captured extent; the GDI bitmap it stretches is
+    // the internal render grid, so a reduced render scale upscales on paint.
     const auto width=renderer.scene.width,height=renderer.scene.height;
     WNDCLASSW c{}; c.lpfnWndProc=Procedure; c.hInstance=GetModuleHandleW(nullptr); c.lpszClassName=L"RRTRayQuery"; Check(RegisterClassW(&c)?S_OK:E_FAIL,"preview class");
-    Preview preview{&pixels,width,height,options.interactive?&options:nullptr}; RECT rect{0,0,LONG(width),LONG(height)}; AdjustWindowRect(&rect,WS_OVERLAPPEDWINDOW,FALSE);
+    Preview preview{&pixels,renderer.renderWidth,renderer.renderHeight,options.interactive?&options:nullptr}; RECT rect{0,0,LONG(width),LONG(height)}; AdjustWindowRect(&rect,WS_OVERLAPPEDWINDOW,FALSE);
     preview.native=!options.gdi;
     HWND window=CreateWindowW(c.lpszClassName,L"RRT - DXR hardware-ray-query result",WS_OVERLAPPEDWINDOW,CW_USEDEFAULT,CW_USEDEFAULT,rect.right-rect.left,rect.bottom-rect.top,nullptr,nullptr,c.hInstance,&preview); Require(window!=nullptr,"preview window");
     if(!options.windowTest && !options.asyncCloseTest) ShowWindow(window,SW_SHOW);
@@ -822,7 +847,7 @@ int wmain(int argc,wchar_t** argv) {
             if(arg==L"--help") std::puts("Radiance Cache paths: --rc-paths NEW_FILE (128x96 headless legacy-diffuse GI; offline secondary-hit fixture, no cache dispatch)");
             if(arg==L"--help") std::puts("Radiance Cache stream: --rc-stream (writes exactly one binary RCRPATH1 artifact to stdout; no JSON or files)");
             if(arg==L"--help") std::puts("Radiance Cache direct: --rc-shared-probe ABSOLUTE_RRT_RC_PROBE --rc-sdk-bin ABSOLUTE_SIGNEDBIN [--rc-present-candidate|--rc-presentation-test|--rc-live-session-test] [--rc-training-batches 1|2] [--rc-persistent-epochs 1|2] [--rc-budget-mib 1..256] [--rc-worker-timeout-ms 1..60000]");
-            if(arg==L"--help") { std::puts("rrt_dxr [SCENE] [--probe] [--adapter N] [--mode albedo|normals|relit|gi] [--samples 1..4096] [--seed N] [--sun-radius 0..1] [--no-shadows] [--denoise] [--temporal] [--materials FILE.rrmat] [--light X Y Z] [--light-color R G B] [--light-intensity 0..32] [--ambient 0..32] [--camera-offset X Y Z] [--yaw DEG] [--pitch DEG] [--pixels NEW_FILE] [--signals NEW_FILE] [--show|--interactive] [--gdi|--no-frame-pacing] [--budget-test] [--history-test|--lighting-test|--window-test|--presentation-test|--async-test|--async-close-test|--pacing-test|--motion-test|--temporal-test move|light|cut|reset] [--debug]"); return 0; }
+            if(arg==L"--help") { std::puts("rrt_dxr [SCENE] [--probe] [--adapter N] [--mode albedo|normals|relit|gi] [--samples 1..4096] [--seed N] [--sun-radius 0..1] [--no-shadows] [--denoise] [--temporal] [--materials FILE.rrmat] [--render-scale 1..100] [--light X Y Z] [--light-color R G B] [--light-intensity 0..32] [--ambient 0..32] [--camera-offset X Y Z] [--yaw DEG] [--pitch DEG] [--pixels NEW_FILE] [--signals NEW_FILE] [--show|--interactive] [--gdi|--no-frame-pacing] [--budget-test] [--history-test|--lighting-test|--window-test|--presentation-test|--async-test|--async-close-test|--pacing-test|--motion-test|--temporal-test move|light|cut|reset] [--debug]"); return 0; }
             if(arg==L"--probe") options.probe=true;
             else if(arg==L"--debug") options.debug=true;
             else if(arg==L"--show") options.show=true;
@@ -873,6 +898,16 @@ int wmain(int argc,wchar_t** argv) {
             }
             else if(arg==L"--rr-reset-frame" && i+1<argc && options.rrResetFrame==UINT32_MAX) {
                 const std::wstring value=argv[++i]; Require(value.size()==1&&value[0]>=L'1'&&value[0]<=L'7',"RR reset frame must be 1..7"); options.rrResetFrame=UINT(value[0]-L'0');
+            }
+            else if(arg==L"--render-scale") {
+                // Decimal digits only: wcstoul would also accept leading whitespace and a sign,
+                // and would silently wrap a negative value, so validate the text first.
+                Require(i+1<argc,"render scale must be 1..100 percent");
+                const std::wstring value=argv[++i];
+                const bool digits=!value.empty()&&value.find_first_not_of(L"0123456789")==std::wstring::npos;
+                const auto n=digits?wcstoul(value.c_str(),nullptr,10):0ul;
+                Require(digits && n>=1 && n<=100,"render scale must be 1..100 percent");
+                options.renderPercent=UINT(n);
             }
             else if(arg==L"--shader" && i+1<argc) options.shader=argv[++i];
             else if(arg==L"--materials" && i+1<argc) { options.materialPath=argv[++i]; Require(!options.materialPath.empty(),"empty material path"); }
@@ -940,6 +975,9 @@ int wmain(int argc,wchar_t** argv) {
         Require(options.temporalTest.empty() || (options.temporal && options.mode==3 && !options.signals.empty() && !options.interactive && !options.show && !options.historyTest && !options.motionTest),"temporal-test requires --temporal, GI, --signals and no other diagnostics/window");
         Require(options.rrInputs.empty() || (((scene.width==128&&scene.height==96)||(scene.width==256&&scene.height==192)) && options.mode==3 && !options.interactive && !options.show && !options.historyTest && !options.lightingTest && options.shader.empty()),"RR input preparation requires 128x96 or 256x192 headless GI and matching built-in shaders; no history/lighting diagnostics");
         const bool rcDirect=!options.rcProbe.empty()||!options.rcSdkBin.empty(); const bool rcRequested=!options.rcPaths.empty()||options.rcStream||rcDirect;
+        // RR and RC are fixed-extent offline evidence paths: their recorded input
+        // and payload layouts assume the captured extent exactly.
+        Require(options.renderPercent==100 || (options.rrRecord.empty() && options.rrInputs.empty() && !rcRequested),"render scale is unsupported with RR/RC evidence paths");
         Require(!options.rcPresentCandidate||rcDirect,"RC candidate presentation requires RC direct mode");
         Require(!options.rcPresentationTest||rcDirect,"RC native presentation test requires RC direct mode");
         Require(!options.rcRendererSessionTest||(rcDirect&&!options.rcPresentationTest&&!options.rcLiveSessionTest&&!options.rcResourceTest&&!options.rcPresentCandidate&&options.rcPersistentEpochs==1),"RC renderer session test requires direct diagnostic mode and default epochs, without other RC tests");
@@ -991,8 +1029,8 @@ int wmain(int argc,wchar_t** argv) {
         std::printf("\"maximum_frame_latency\":%u,\"pacing_waits\":%u,\"pacing_ready\":%u,\"pacing_messages\":%u,\"pacing_timeouts\":%u,\"pacing_test_mask\":%u,\"pacing_wait_ms\":%.3f,",renderer.frameLatency,renderer.pacingWaits,renderer.pacingReady,renderer.pacingMessages,renderer.pacingTimeouts,renderer.pacingTestMask,renderer.pacingWaitMs);
         std::printf("\"presentation\":\"%s\",\"display_submissions\":%u,\"display_resizes\":%u,\"display_verified\":%u,\"display_presented\":%u,\"display_occluded\":%u,\"display_buffer_mask\":%u,\"display_suspended_ticks\":%u,\"display_rejected_resizes\":%u,\"peak_requested_bytes\":%llu,",
             options.interactive||options.show?(options.gdi?"gdi":"d3d12-swapchain"):"headless",renderer.displaySubmissions,renderer.displayResizes,renderer.displayVerified,renderer.displayPresented,renderer.displayOccluded,renderer.displayMask,renderer.displaySuspended,renderer.displayRejected,gpu.peakRequested);
-        std::printf("\"renderer\":\"dxr-inline-1.1\",\"adapter\":\"%s\",\"mode\":%u,\"draws\":%zu,\"width\":%u,\"height\":%u,\"samples\":%u,\"dispatches\":%u,\"history_resets\":%u,\"scene_build_submissions\":%llu,\"history_test\":%s,\"denoised\":%s,\"temporal\":%s,\"temporal_resets\":%u,\"signal_stride\":%zu,\"working_stride\":%zu,\"temporal_stride\":%zu,\"export_chunk_pixels\":%u,\"export_submissions\":%u,\"requested_buffer_bytes\":%llu,\"requested_buffer_limit_bytes\":%llu,\"build_render_readback_ms\":%.3f,\"gpu_build_ms\":%.6f,\"gpu_trace_ms\":%.6f,\"gpu_temporal_ms\":%.6f,\"gpu_filter_ms\":%.6f,\"gpu_copy_ms\":%.6f,\"gpu_export_ms\":%.6f,\"signal_export_ms\":%.3f,\"pixel_sha256_bgra\":\"%s\"}\n",
-            JsonName(gpu.desc.Description).c_str(),options.mode,scene.draws.size(),scene.width,scene.height,renderer.samples,renderer.dispatches,renderer.resets,gpu.sequence-renderer.dispatches-renderer.exportSubmissions-renderer.displaySubmissions-renderer.readbackSubmissions,options.historyTest?"true":"false",options.denoise && options.mode==3?"true":"false",options.temporal && options.mode==3?"true":"false",renderer.temporalResets,sizeof(Signal),sizeof(WorkingSignal),sizeof(TemporalRecord),ExportChunkPixels,renderer.exportSubmissions,gpu.allocated,gpu.requestedLimit,std::chrono::duration<double,std::milli>(end-start).count(),gpu.buildMs,gpu.traceMs,gpu.temporalMs,gpu.filterMs,gpu.copyMs,gpu.exportMs,renderer.exportWallMs,rrt::scene::Hex(rrt::scene::Digest(pixels.data(),pixels.size()*4)).c_str());
+        std::printf("\"renderer\":\"dxr-inline-1.1\",\"adapter\":\"%s\",\"mode\":%u,\"draws\":%zu,\"width\":%u,\"height\":%u,\"scene_width\":%u,\"scene_height\":%u,\"render_scale\":%u,\"samples\":%u,\"dispatches\":%u,\"history_resets\":%u,\"scene_build_submissions\":%llu,\"history_test\":%s,\"denoised\":%s,\"temporal\":%s,\"temporal_resets\":%u,\"signal_stride\":%zu,\"working_stride\":%zu,\"temporal_stride\":%zu,\"export_chunk_pixels\":%u,\"export_submissions\":%u,\"requested_buffer_bytes\":%llu,\"requested_buffer_limit_bytes\":%llu,\"build_render_readback_ms\":%.3f,\"gpu_build_ms\":%.6f,\"gpu_trace_ms\":%.6f,\"gpu_temporal_ms\":%.6f,\"gpu_filter_ms\":%.6f,\"gpu_copy_ms\":%.6f,\"gpu_export_ms\":%.6f,\"signal_export_ms\":%.3f,\"pixel_sha256_bgra\":\"%s\"}\n",
+            JsonName(gpu.desc.Description).c_str(),options.mode,scene.draws.size(),renderer.renderWidth,renderer.renderHeight,scene.width,scene.height,options.renderPercent,renderer.samples,renderer.dispatches,renderer.resets,gpu.sequence-renderer.dispatches-renderer.exportSubmissions-renderer.displaySubmissions-renderer.readbackSubmissions,options.historyTest?"true":"false",options.denoise && options.mode==3?"true":"false",options.temporal && options.mode==3?"true":"false",renderer.temporalResets,sizeof(Signal),sizeof(WorkingSignal),sizeof(TemporalRecord),ExportChunkPixels,renderer.exportSubmissions,gpu.allocated,gpu.requestedLimit,std::chrono::duration<double,std::milli>(end-start).count(),gpu.buildMs,gpu.traceMs,gpu.temporalMs,gpu.filterMs,gpu.copyMs,gpu.exportMs,renderer.exportWallMs,rrt::scene::Hex(rrt::scene::Digest(pixels.data(),pixels.size()*4)).c_str());
         return 0;
     } catch(const std::exception& error) { std::fprintf(stderr,"%s\n",error.what()); return 2; }
 }

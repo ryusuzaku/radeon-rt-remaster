@@ -66,3 +66,9 @@ The normal x64 Release renderer build and all 10 CTests also pass after this cha
 Full optimized-Python sequence verification passes too: `build/rr-sdk-probe/Release/rr-sequence-cd7frnye/verification.json`. Validation uses explicit checks and remains active with `python -O`.
 
 Follow-up: a [renderer-owned recorder](RR_RECORDING.md) supplies explicit source/settings identity, camera continuity and per-frame input checks. Its distinct RRTRRC01 format is now handled by a [separate recorded dispatch mode](RR_RECORDED_DISPATCH.md), not this stationary worker. Recorded resets use fresh contexts after motion-reset equivalence exposed residual differences. High-sample/disocclusion quality comparisons, animated objects, general lighting changes, resizing, live IPC, asynchronous interop, larger resolutions and default promotion remain open. No game installation or driver was changed.
+
+The [bounded sequence quality extension](RR_SEQUENCE_QUALITY.md) now tests
+eight-frame motion/disocclusion and explicit resets against matched high-sample
+references, including error in cohorts tracked after reveal. It uses the
+source-bound recorded path; stationary admission is unchanged. Narrow fixture
+measurements do not resolve zero-light bias or establish general quality.

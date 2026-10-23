@@ -59,3 +59,9 @@ The full final test also passes under `python -O` with the Debug worker: `build/
 The SDK-free Release renderer rebuild and input/recording compatibility subset pass **2/2**. No renderer/shader source changed in this slice. Other renderer tests, x86, legacy D3D9 and historical 53-file comparisons were not rerun; their earlier evidence is not relabelled current.
 
 Follow-up: [independent matched-hit CPU references and geometric visibility/error measurements](RR_QUALITY.md) now cover a small constant-colour diffuse perspective fixture. It improves over noisy input in those measurements, but the exact-zero bias remains and textured/PBR coverage, fallback comparison and longer ghosting tests are still open. No default-filter promotion, full RR feature set, specular input, driver modification or installed-game change is claimed.
+
+The [eight-frame quality extension](RR_SEQUENCE_QUALITY.md) adds lateral and
+rotated/depth motion, reset-to-fresh controls and measurements in persistent
+geometric reveal cohorts at 1,024 reference samples per hit. It preserves all
+worker admission, context lifetime and memory limits; reports separate harness
+success from quality gates and retain `not-qualified` quality acceptance.
