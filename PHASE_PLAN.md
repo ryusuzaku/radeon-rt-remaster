@@ -232,6 +232,37 @@ memory-budget changes. Zero-light bias, textured/PBR regressions and general
 quality acceptance remain open. Next isolate exact repeat/reset variability
 under the existing pinned worker and budgets before broader qualification.
 
+**RR repeatability diagnosis (2026-10-23):** a bounded, opt-in diagnostic now
+compares fresh workers, consecutive/paused launches, same-context stationary
+resets and recreated-context stationary/moving resets, with exact input,
+packing, dispatch and output identities. The current Debug/Release fixture
+matrix is exact; this does not resolve the earlier failure. Unchanged archived
+failing inputs are replayed separately, retaining differences from historical
+outputs and the executable/shader identities. Host pauses are not verified GPU
+idle; allocation placement and scheduling remain unmeasured. No renderer,
+SDK settings, budgets or tolerances change. See `docs/RR_REPEATABILITY.md` for
+the measured cases, strict regression results and retained archive. Next obtain
+a failing/pass pair with the same executable, driver and inputs before assigning
+a cause or expanding qualification; controlled allocation/scheduling experiments
+remain candidates, not established fixes.
+
+**RR concurrent GPU load follow-up (2026-10-23):** the optional repeatability
+diagnostic can now run its unchanged exact matrix while a contained second
+process repeatedly performs bounded headless DXR renders. Three serial rounds
+per Debug/Release and unloaded/loaded condition each give **75 exact matches /
+0 differences** (300 / 0 total). Cross-load, cross-round and cross-build byte
+comparisons also match; per-frame/report/binary hashes and load lifecycle/timing
+evidence are retained. The operator-reported contention hypothesis is **not
+reproduced in this bounded sample**; no cause or fix is established. This does
+not replay every historical witness under load or measure continuous GPU
+utilization, clocks or scheduling. No renderer, default, budget or tolerance
+changes. Quality qualification and a fixed-executable failing/pass pair remain
+open. See `docs/RR_REPEATABILITY.md` for exact counts, final validation summaries
+and the ledger-bound follow-up archive. Display tests are excluded from this step.
+Final focused RR CTest is 13/13 passing in each build; the cheap CPU-only subset
+is 15/15 passing in x86 Debug and Release, with no skips counted. The external
+follow-up archive verifies all 1,392 files against its ledger entry.
+
 **Work**
 
 - Build a D3D12 renderer with adapter feature checks and a raster fallback.
