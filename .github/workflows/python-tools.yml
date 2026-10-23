@@ -85,3 +85,6 @@ jobs:
 
       - name: Evidence archive unit tests
         run: python3.12 tests/test_evidence_archive.py
+
+      - name: PNG texture decoding
+        run: python3.12 tests/test_png_texture.py
