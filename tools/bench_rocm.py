@@ -15,6 +15,7 @@ os.environ["MIOPEN_CONVOLUTION_MAX_WORKSPACE"] = str(WORKSPACE_LIMIT)
 # os.environ["HIP_LAUNCH_BLOCKING"] = "1"
 # os.environ["TORCH_ROCM_FA_PREFER_CK"] = "1"
 
+import argparse
 import gc
 import json
 import subprocess
@@ -28,24 +29,79 @@ import torch.nn.functional as F
 from torch.nn.utils.parametrizations import weight_norm
 
 # ----------------------------
-# SDPA toggles
-# Keep disabled for this conv benchmark to avoid weird side-paths.
-# ----------------------------
-torch.backends.cuda.enable_flash_sdp(False)
-torch.backends.cuda.enable_mem_efficient_sdp(False)
-torch.backends.cuda.enable_math_sdp(False)
-
-print("POST-SET flash:", torch.backends.cuda.flash_sdp_enabled())
-print("POST-SET mem_eff:", torch.backends.cuda.mem_efficient_sdp_enabled())
-print("POST-SET math:", torch.backends.cuda.math_sdp_enabled())
-
-# ----------------------------
 # Config
 # ----------------------------
 B = 8
 ISOLATE_BASE_OPS = True
 ISOLATE_HEAVY_OPS = True
 CHILD_TIMEOUT_SEC = 180
+
+# ----------------------------
+# SDPA backend selection
+# The benchmark includes SDPA/transformer layers, so the backend has to be
+# chosen deliberately instead of being disabled globally. "auto" leaves all
+# backends enabled and lets PyTorch pick a kernel per call.
+# ----------------------------
+ATTENTION_BACKENDS = ("auto", "flash", "mem-efficient", "math")
+DEFAULT_ATTENTION_BACKEND = "auto"
+ATTENTION_BACKEND_ENV = "BENCH_ROCM_ATTN_BACKEND"
+
+# choice -> (flash, mem_efficient, math)
+_ATTENTION_BACKEND_FLAGS = {
+    "auto": (True, True, True),
+    "flash": (True, False, False),
+    "mem-efficient": (False, True, False),
+    "math": (False, False, True),
+}
+
+
+def resolve_attention_backend(cli_value, environ=None):
+    """Resolve the backend from CLI > environment > default, validating it."""
+    environ = os.environ if environ is None else environ
+    value = cli_value or environ.get(ATTENTION_BACKEND_ENV) or DEFAULT_ATTENTION_BACKEND
+    value = value.strip().lower()
+    if value not in ATTENTION_BACKENDS:
+        raise ValueError(
+            f"unknown attention backend {value!r}; "
+            f"expected one of {', '.join(ATTENTION_BACKENDS)}"
+        )
+    return value
+
+
+def apply_attention_backend(cuda_backends, choice):
+    """Enable exactly the requested SDPA backend(s) and return the new state."""
+    try:
+        flash, mem_efficient, math = _ATTENTION_BACKEND_FLAGS[choice]
+    except KeyError:
+        raise ValueError(
+            f"unknown attention backend {choice!r}; "
+            f"expected one of {', '.join(ATTENTION_BACKENDS)}"
+        ) from None
+    cuda_backends.enable_flash_sdp(flash)
+    cuda_backends.enable_mem_efficient_sdp(mem_efficient)
+    cuda_backends.enable_math_sdp(math)
+    return {"flash": flash, "mem_efficient": mem_efficient, "math": math}
+
+
+def build_arg_parser():
+    parser = argparse.ArgumentParser(description="ROCm/AMD GPU micro-benchmark.")
+    parser.add_argument(
+        "--child",
+        nargs=3,
+        metavar=("LAYER", "SHAPE", "DTYPE"),
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--attn-backend",
+        choices=ATTENTION_BACKENDS,
+        default=None,
+        help=(
+            "SDPA backend to measure (default: auto, or "
+            f"${ATTENTION_BACKEND_ENV})"
+        ),
+    )
+    return parser
+
 
 # This does NOT directly pass a workspace pointer into stock PyTorch conv kernels.
 # Keep False unless you explicitly want to test memory pressure side-effects.
@@ -71,9 +127,10 @@ def cleanup() -> None:
     gc.collect()
 
 
-def env_info() -> None:
+def env_info(attn_backend: str) -> None:
     print("=== Environment ===")
     print("python              :", sys.version.replace("\n", " "))
+    print("attn backend        :", attn_backend)
     print("torch               :", torch.__version__)
     print("torch.version.hip   :", getattr(torch.version, "hip", None))
     print("torch.version.cuda  :", getattr(torch.version, "cuda", None))
@@ -313,7 +370,7 @@ def make_layers():
 
         # ----------------------------
         # Added: SDPA / transformer
-        # Note: with your current global SDPA toggles this will be math path only.
+        # The active path follows --attn-backend (see apply_attention_backend).
         # ----------------------------
         ("sdpa h16 s512 d64", SDPABlock(), (4, 16, 512, 64), 5, 20),
         ("transformer block 1024", TinyTransformerBlock(dim=1024, heads=16, mlp_ratio=4), (2, 256, 1024), 3, 15),
@@ -454,10 +511,10 @@ def print_result(name: str, shape, res) -> None:
             print(res["trace"])
 
 
-def main() -> None:
+def main(attn_backend: str) -> None:
     global workspace_tensor
 
-    env_info()
+    env_info(attn_backend)
 
     if not is_cuda:
         print("No GPU visible.")
@@ -510,6 +567,18 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 5 and sys.argv[1] == "--child":
-        raise SystemExit(child(sys.argv[2], tuple(json.loads(sys.argv[3])), sys.argv[4]))
-    main()
+    args = build_arg_parser().parse_args()
+    try:
+        selected_backend = resolve_attention_backend(args.attn_backend)
+    except ValueError as exc:
+        raise SystemExit(str(exc))
+
+    # Children are fresh interpreters; the environment is what carries the
+    # selection into them.
+    os.environ[ATTENTION_BACKEND_ENV] = selected_backend
+    apply_attention_backend(torch.backends.cuda, selected_backend)
+
+    if args.child:
+        layer_name, shape_json, dtype_name = args.child
+        raise SystemExit(child(layer_name, tuple(json.loads(shape_json)), dtype_name))
+    main(selected_backend)
