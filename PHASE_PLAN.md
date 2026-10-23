@@ -286,7 +286,7 @@ follow-up archive verifies all 1,392 files against its ledger entry.
 
 **Work**
 
-- Decide and implement one transport model: in-process shared renderer first, or a thin 32-bit proxy with a 64-bit renderer process and versioned IPC/shared-memory transport.
+- Decide and implement one transport model: in-process shared renderer first, or a thin 32-bit proxy with a 64-bit renderer process and versioned IPC/shared-memory transport. Proposed decision, test plan and exit gate: [`docs/PHASE6_TRANSPORT_DECISION.md`](docs/PHASE6_TRANSPORT_DECISION.md).
 - Synchronize capture, rendering, and presentation; handle resize, alt-tab, reset, and clean shutdown.
 - Preserve original raster presentation as an immediate fallback.
 - Add a simple in-game status overlay and a per-title config file.
