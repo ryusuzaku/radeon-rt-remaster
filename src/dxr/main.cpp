@@ -899,9 +899,14 @@ int wmain(int argc,wchar_t** argv) {
             else if(arg==L"--rr-reset-frame" && i+1<argc && options.rrResetFrame==UINT32_MAX) {
                 const std::wstring value=argv[++i]; Require(value.size()==1&&value[0]>=L'1'&&value[0]<=L'7',"RR reset frame must be 1..7"); options.rrResetFrame=UINT(value[0]-L'0');
             }
-            else if(arg==L"--render-scale" && i+1<argc) {
-                const std::wstring value=argv[++i]; wchar_t* end{}; const auto n=wcstoul(value.c_str(),&end,10);
-                Require(!value.empty() && value[0]!=L'-' && *end==0 && n>=1 && n<=100,"render scale must be 1..100 percent");
+            else if(arg==L"--render-scale") {
+                // Decimal digits only: wcstoul would also accept leading whitespace and a sign,
+                // and would silently wrap a negative value, so validate the text first.
+                Require(i+1<argc,"render scale must be 1..100 percent");
+                const std::wstring value=argv[++i];
+                const bool digits=!value.empty()&&value.find_first_not_of(L"0123456789")==std::wstring::npos;
+                const auto n=digits?wcstoul(value.c_str(),nullptr,10):0ul;
+                Require(digits && n>=1 && n<=100,"render scale must be 1..100 percent");
                 options.renderPercent=UINT(n);
             }
             else if(arg==L"--shader" && i+1<argc) options.shader=argv[++i];

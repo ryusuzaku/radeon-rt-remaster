@@ -437,7 +437,10 @@ fixture timings must not be extrapolated into performance claims for real games.
 ## Internal render resolution
 
 `--render-scale PERCENT` (1..100, default 100) renders on a smaller internal grid
-than the captured target extent and upscales at presentation. 100 is the identity:
+than the captured target extent and upscales at presentation. The value must be
+decimal digits only; zero, negative, out-of-range, non-numeric and missing values
+are rejected with `render scale must be 1..100 percent` on stderr and a non-zero
+exit, never clamped or defaulted. 100 is the identity:
 output pixels, signal payloads and per-pixel allocations are byte-identical to the
 previous renderer, which the exact-pixel `dxr_render` checks continue to prove.
 
