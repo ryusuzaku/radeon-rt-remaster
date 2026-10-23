@@ -97,6 +97,35 @@ alone takes 156 s. Its CTest budget was 120 s and killed a passing test; it is n
 300 s. If a texture test times out, time the underlying command before assuming a
 defect.
 
+### Pure-Python tool checks
+
+A separate Linux CI job (the `python-tools` workflow) runs the part of the suite
+that needs no Windows, GPU, game content or built binaries: standard-library-only
+tools and tests. It byte-compiles everything under `tests` and `tools`, runs the
+GPU-free contract scripts, and runs the standard-library unit tests:
+
+```bash
+python3 -m compileall -q tests tools
+python3 tests/verify_codegen_freshness.py
+python3 tests/verify_capture_version_contract.py
+python3 tests/verify_published_references.py
+python3 tests/verify_shadow_budget_tool.py
+python3 tests/verify_evidence_archive.py
+python3 tests/verify_restored_tree_contract.py
+python3 tests/test_trace_reader.py
+python3 tests/test_position_scene.py
+python3 tests/test_material_inputs.py
+python3 tests/test_mods.py
+python3 tests/test_evidence_archive.py
+python3 tests/test_png_texture.py
+python3 tests/test_bench_rocm_attention.py
+```
+
+`evidence_registration` is excluded from that job because it drives CMake/CTest
+against a configured build, and the NumPy-based `rr_*` settings contracts are
+excluded because the job deliberately does not install
+`tools/requirements-rr-quality.txt`; both stay on the Windows job.
+
 ### Restoring a preserved tree
 
 A consolidation that removes `build/` does not necessarily destroy it. The
