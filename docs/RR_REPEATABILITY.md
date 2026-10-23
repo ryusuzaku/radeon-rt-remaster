@@ -83,7 +83,182 @@ too. It checks injected RGB error, a signed-zero alpha difference, header-only
 differences, metadata mutations, missing/count-mismatched comparisons and exact
 input-hash normalization. It also passes under `python -O`.
 
-## Observations and limits
+## Optional second-process GPU load
+
+The `run` command accepts `--with-gpu-load --load-dxr PATH`. This remains an
+opt-in diagnostic; ordinary runs and CTest GPU regressions do not start load.
+The five modes, three launches per mode, exact controls and tolerances are
+identical in loaded and unloaded runs. `verification.json` now includes explicit
+`exact_comparisons` totals (`match`/`differ`), per-case worker intervals and
+`gpu_load` settings/lifecycle evidence. Per-frame RGBA and whole-file hashes are
+retained as before. The report schema is `rr-repeatability-2`.
+
+The Windows implementation starts a helper gated on stdin, assigns it to a
+non-inherited kill-on-close job, then allows it to launch one headless renderer
+at a time. The job permits two processes: helper and renderer. Normal exit,
+exceptions and a watchdog terminate the job, reap the helper and verify zero
+active job processes. Abrupt diagnostic exit closes its sole job handle and
+kills both descendants. The CPU-only contract exercises these paths, early
+helper exit, assignment failure, opt-in behavior, invalid bounds and exact
+comparison accounting; its load fixtures execute Python sleepers, not GPU work.
+Job lifecycle checks require Windows; portable comparison/worker-loop checks
+still run elsewhere.
+
+Load repeatedly renders an enlarged copy of the same synthetic scene at
+2048×1536, adapter zero, headless GI, 1,024 samples and the standard debug layer.
+It uses existing renderer options and shaders. `--load-samples` accepts 1..4096;
+`--load-seconds` is a finite hard lifetime of 5..600 seconds (default 300),
+including warmup. Each render also has a 60-second timeout. One successful
+render with positive GPU trace time is required before measuring RR. Helper
+exit or deadline expiry fails execution, with completed checkpoints retained;
+it cannot silently label an unloaded remainder as loaded. Cleanup also stops
+an in-flight renderer. `gpu-load.json`, `load-state.json` and
+`load-settings.json` retain settings, scene/executable/shader hashes, completed
+native render reports, monotonic intervals and cleanup results.
+
+For example, use the same Release load executable for both RR configurations:
+
+```powershell
+python tools/rr_repeatability.py run --probe build/rr-sdk-probe/Debug/rrt_rr_probe.exe --sdk-bin build/dependencies/fsr-2.3.0-probe/Kits/FidelityFX/signedbin --inputs build/rr-repeatability-inputs --out build/rr-repeatability-debug-loaded --with-gpu-load --load-dxr build/rr-sdk-probe/Release/rrt_dxr.exe --load-seconds 300 --load-samples 1024
+```
+
+Run the matching command without the load options and with a new output
+directory for the unloaded condition; substitute the Release probe to repeat
+both conditions in Release. Repeat these pairs in new directories, alternating
+condition order, without running other GPU regressions concurrently. The
+existing `--quiet-seconds` remains a host pause; load continues through it.
+"Unloaded" means no load started by this diagnostic, not verified exclusive
+GPU access. Live-helper checks before/after workers and completed GPU timings
+establish concurrent workload execution, not continuous utilization, exact
+GPU scheduling overlap, residency, clocks or power behavior.
+
+## Controlled load follow-up (2026-10-23)
+
+The operator reports that the original failing session had another process
+using this GPU; that historical contention was not instrumented by these
+diagnostics. This follow-up tests the hypothesis with a deliberately added
+second workload, rather than assigning a cause to the historical observations.
+
+Three complete matrices per build and condition use one newly prepared input
+set and fixed executables throughout. Debug runs unloaded/loaded in rounds one
+and three, loaded/unloaded in round two; Release reverses each of those orders.
+All runs are serial. The Release load executable is shared by both builds.
+The standard two-second host pauses are retained in every matrix, with load
+continuing during pauses. Final matrix counts exclude all development attempts.
+
+| RR build | Condition | Round 1 match / differ | Round 2 match / differ | Round 3 match / differ | Total match / differ |
+|---|---|---:|---:|---:|---:|
+| Debug | Unloaded | 25 / 0 | 25 / 0 | 25 / 0 | **75 / 0** |
+| Debug | Loaded | 25 / 0 | 25 / 0 | 25 / 0 | **75 / 0** |
+| Release | Unloaded | 25 / 0 | 25 / 0 | 25 / 0 | **75 / 0** |
+| Release | Loaded | 25 / 0 | 25 / 0 | 25 / 0 | **75 / 0** |
+
+That is **180 RR workers / 1,044 RR dispatches / 300 exact comparisons** across
+the twelve final matrices. Every comparison's input records, matrices, packed
+textures and dispatch metadata match. The six loaded runs each complete 13
+large renders: **78 completed load renders**, including warmup, each with 1,024
+dispatches and 754,993,008 requested buffer bytes. Every load job is verified
+empty after cleanup; none expires its deadline. The in-flight load render is
+terminated at matrix exit and is not counted as completed work.
+
+Full byte comparisons across runs also match, with exact input/dispatch
+controls in every pair:
+
+| Pairing | Match | Differ |
+|---|---:|---:|
+| Loaded vs unloaded, corresponding round/build/case | 90 | 0 |
+| Round one vs rounds two and three, same build/condition/case | 120 | 0 |
+| Debug vs Release, corresponding condition/round/case | 90 | 0 |
+
+These comparisons reuse the same outputs; they are not independent trials.
+Concatenating raw RGBA payloads in sorted case-label order, then frame order,
+produces the same **17,104,896-byte** stream in all twelve matrices. Its SHA-256,
+the shared inputs and the fixed executable identities are:
+
+| Identity | SHA-256 |
+|---|---|
+| RGBA payload stream, every final matrix | `b7f164e215bea9cda984f12ab16e3ca77bcb4792d776c2ff8480c22c0dec8a60` |
+| Stationary recording | `1f2346a6bb326d8c75717a5ac555252036e12fa59a81bdfb336ef46110b13ea7` |
+| Moving recording | `ddd7a9dd8eaa2a01147e90a57008b0c638f290f0fd190bfe7820c7f172dbe8f5` |
+| Fresh recording | `33881c5ff1b9b46b8e18803fdf701802a7644e11f72678d7138239146fdc9705` |
+| Debug RR probe | `99c26364a974bdc9f5eb426eb3bcc01c7e9f390c19a7896591fdda70e64271c3` |
+| Release RR probe | `7ed5b0e0e3e11eb9b87afabb6adb72a54ec151763e18bc8592b4da47d9147634` |
+| Release load renderer | `5254bbd1943b59c17054f94d0f89ccbf6320602ed5d56b9d94a557b5027bd17c` |
+| Aggregate `experiment.json` | `45af24af80828a3f4592b81346545639efcb83d10954b5d7a4c6790ddec60db5` |
+| `payload-identities.json` | `860e400e39924eee3da5c52d3a7a7e8cdd46cfdca2a8095c6356bb79b54f63c6` |
+
+The aggregate binds all twelve individual verification-report hashes and
+retains every cross-run per-frame comparison; individual reports retain input,
+output and per-frame hashes. Payload identities additionally check unchanged
+whole-file and per-frame hashes before hashing the concatenated streams. Load
+scene and shader hashes, completed native timings, check intervals and actual
+binaries are retained in the follow-up archive below.
+
+**Load sensitivity is not reproduced in this bounded sample.** No cause or fix
+is established. This tests the five prepared diagnostic modes above, not every
+historical failing input under load. The original archived perspective witness
+is not replayed under load in this follow-up. The workload also introduces CPU,
+memory-transfer and residency activity; it does not isolate GPU scheduling.
+Different concurrent applications, intermittent effects, clocks and broader
+GPU/driver combinations remain untested. Earlier failures remain valid evidence.
+Quality is still `not-qualified`, and raw SDK acceptance is still `failed`.
+
+Two completed calibration matrices (one smaller workload, one final workload)
+each had 25 matches / 0 differences. A preceding scene-construction error
+stopped before load started. All three development attempts are retained
+separately and excluded from the final counts above.
+
+## Follow-up validation
+
+Final CTest summaries for this follow-up, with no skipped tests:
+
+| Subset | Configuration | Final summary | Total test time |
+|---|---|---|---:|
+| SDK + RR contracts | Debug | `100% tests passed, 0 tests failed out of 13` | 328.56 s |
+| SDK + RR contracts | Release | `100% tests passed, 0 tests failed out of 13` | 327.55 s |
+| Cheap CPU-only | x86 Debug | `100% tests passed, 0 tests failed out of 15` | 14.20 s |
+| Cheap CPU-only | x86 Release | `100% tests passed, 0 tests failed out of 15` | 14.31 s |
+
+Both RR subsets run after the matrices, with the added workload stopped.
+The unchanged `rr_dispatch`, `rr_sequence`, `rr_recorded_dispatch` and
+`rr_sequence_quality` controls pass in both builds. The quality harness still
+retains and rejects positive exact-black output: maximum RGB
+**0.000010967254638671875** in both builds. These passes validate the harness
+and strict controls, not general image quality or raw SDK acceptance.
+
+The CPU-only comparison/load contract also passes with `python -O`. Published
+reference and changed-file privacy checks pass. The existing two CPU evidence
+tests consume a restored local position ledger; no missing-evidence skip is
+counted. **Display tests are not run and are not counted in this follow-up.**
+The earlier display failures below remain historical results. No full renderer,
+proxy, cross-GPU or broader optional-SDK qualification is claimed.
+
+## Follow-up evidence retention
+
+The appended ledger record binds
+`rr-gpu-load-validation-20261022-232642.tar.gz`: **1,392 files**,
+1,083,571,874 uncompressed bytes, 70,360,447 archive bytes, SHA-256
+`6a048228797ab4981b36f91d2f92f8326321d24c986d81fbca1e46a95623db84`.
+The ledger-bound `check` verified all 1,392 files with no problems. The archive
+timestamp is UTC; the follow-up date above is local time.
+
+The external archive retains all final matrices and their checkpoints, inputs,
+per-frame/cross-run comparisons, payload identities, load settings and native
+timings, development attempts, final CTest logs and RR artifacts/reference
+arrays, implementation snapshots, actual binaries/shaders and the pinned SDK
+subset with its license. Documentation snapshots precede insertion of the
+archive's own digest. The public ledger contains metadata only.
+
+To inspect or replay with the retained inputs and binaries, restore into a new
+directory; the new run's output directory must also be new:
+
+```powershell
+python tools/evidence_archive.py check ARCHIVE --ledger docs/EVIDENCE_LEDGER.jsonl
+python tools/evidence_archive.py restore ARCHIVE --out build/rr-gpu-load-restored
+python tools/rr_repeatability.py run --probe build/rr-gpu-load-restored/binaries/Debug/rrt_rr_probe.exe --sdk-bin build/rr-gpu-load-restored/sdk/Kits/FidelityFX/signedbin --inputs build/rr-gpu-load-restored/inputs --out build/rr-gpu-load-debug-new --with-gpu-load --load-dxr build/rr-gpu-load-restored/binaries/Release/rrt_dxr.exe --load-seconds 300 --load-samples 1024
+```
+
+## Earlier observations and limits
 
 Measured on 2026-10-23 in Windows session 0 with one RX 9070 XT, driver
 32.0.32015.7029, VS 2022/MSVC 19.44, Python 3.12.10 and NumPy 1.26.4.
@@ -133,7 +308,7 @@ The current contexts retain 20,971,520 callback bytes peak and 1,900,544 externa
 bytes, with the existing 64 MiB / 8 MiB ceilings and validated releases. These
 are tracked/requested allocations, not total GPU residency.
 
-## Validation
+## Earlier validation
 
 Final CTest summaries, with no skips in these subsets:
 
@@ -170,7 +345,7 @@ error `0x887a0022`. These are recorded failures, not display passes or full
 renderer/proxy qualification. Other display tests, the full x86/x64 renderer
 suites and other optional SDK experiments were not rerun.
 
-## Evidence retention
+## Earlier evidence retention
 
 `docs/EVIDENCE_LEDGER.jsonl` records the external archive
 `rr-repeatability-validation-20261022-224102.tar.gz`: **849 files**,
