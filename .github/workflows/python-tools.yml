@@ -88,3 +88,8 @@ jobs:
 
       - name: PNG texture decoding
         run: python3.12 tests/test_png_texture.py
+
+      # The ROCm benchmark must select its SDPA backend instead of disabling
+      # all of them; torch is stubbed, so this needs no GPU.
+      - name: ROCm benchmark attention backend
+        run: python3.12 tests/test_bench_rocm_attention.py
