@@ -1,5 +1,15 @@
 # Radeon Remix — proposed direction
 
+> **Status note (2026-10-23):** this page is the original direction proposal and
+> is kept for history; it does not track current state. The active plan and
+> per-phase status live in [PHASE_PLAN.md](PHASE_PLAN.md), with the canonical
+> project status in [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md). The Phase 5
+> RR follow-up diagnostics (sequence quality, repeatability, concurrent GPU load)
+> are recorded as phase notes there, and the Phase 6 transport decision
+> (proposed: a thin 32-bit proxy plus a separate 64-bit renderer process) is
+> recorded in
+> [docs/PHASE6_TRANSPORT_DECISION.md](docs/PHASE6_TRANSPORT_DECISION.md).
+
 ## The honest framing
 
 This can be a **Remix-inspired legacy-game remastering runtime for AMD-capable PCs**. It should not promise universal game support or describe ROCm as the renderer. The viable first target is a narrow, offline/single-player **32-bit Direct3D 9 fixed-function** game, where legacy draw calls still contain enough geometry, textures, transforms, and fixed-function material/light state to reconstruct a scene.
