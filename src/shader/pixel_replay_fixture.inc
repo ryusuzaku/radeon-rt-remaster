@@ -92,7 +92,7 @@ void PixelReplayFixture(){
     else if(mode==L"address")Check(d->SetSamplerState(0,D3DSAMP_ADDRESSU,textures[0].states[0]==D3DTADDRESS_WRAP?D3DTADDRESS_CLAMP:D3DTADDRESS_WRAP));
     else if(mode==L"srgb")Check(d->SetSamplerState(0,D3DSAMP_SRGBTEXTURE,1-textures[0].states[10]));
     else if(mode==L"lod")nativeTextures[0]->SetLOD(textures[0].levels-1);
-    else if(mode==L"filter")Check(d->SetSamplerState(0,D3DSAMP_MAGFILTER,textures[0].states[4]==D3DTEXF_LINEAR?D3DTEXF_POINT:D3DTEXF_LINEAR));
+    else if(mode==L"filter"){auto f=textures[0].states[4]==D3DTEXF_LINEAR?D3DTEXF_POINT:D3DTEXF_LINEAR;Check(d->SetSamplerState(0,D3DSAMP_MAGFILTER,f));Check(d->SetSamplerState(0,D3DSAMP_MINFILTER,f));}
     else if(mode==L"texel"){auto& t=textures[0];for(UINT level=0;level<t.levels;++level){auto layout=PixelLayout((std::max)(DWORD(1),t.width>>level),(std::max)(DWORD(1),t.height>>level),t.format);D3DLOCKED_RECT lock{};Check(nativeTextures[0]->LockRect(level,&lock,nullptr,0));Need(lock.pBits&&lock.Pitch>0&&std::size_t(lock.Pitch)>=layout.rowBytes,"pixel control pitch");for(std::size_t y=0;y<layout.rows;++y)memset(static_cast<char*>(lock.pBits)+y*lock.Pitch,0,layout.rowBytes);Check(nativeTextures[0]->UnlockRect(level));}}
     else Need(mode.empty()||mode==L"one_sample","pixel control");
     auto actual=render(reconstructed.Get());double worst=0,alphaSum=0;unsigned covered=0;
