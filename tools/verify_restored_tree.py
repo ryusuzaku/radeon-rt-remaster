@@ -60,6 +60,9 @@ def main(argv=None):
                     raise Refused(f'manifest line {number} is not JSON: {error}')
                 path = entry.get('path')
                 need(isinstance(path, str) and path, f'manifest line {number} has no path')
+                parts = path.replace('\\', '/').split('/')
+                need(not path.startswith(('/', '\\')) and ':' not in parts[0] and '..' not in parts,
+                     f'manifest line {number} has an unsafe path: {path}')
                 if not path.startswith(args.prefix):
                     continue
                 need(isinstance(entry.get('bytes'), int) and isinstance(entry.get('sha256'), str),
@@ -78,9 +81,11 @@ def main(argv=None):
             elif digest(target) != entry['sha256']:
                 problems.append(f'sha256 mismatch: {name}')
 
-        root = args.restored / Path(args.prefix.replace('\\', '/')) if args.prefix else args.restored
-        present = {str(path.relative_to(args.restored)).replace('/', '\\')
-                   for path in root.rglob('*') if path.is_file()} if root.exists() else set()
+        # Walk the whole tree and filter by the same string prefix the manifest
+        # uses, so a prefix that is not a directory boundary cannot hide extras.
+        present = {name for name in (str(path.relative_to(args.restored)).replace('/', '\\')
+                                     for path in args.restored.rglob('*') if path.is_file())
+                   if name.startswith(args.prefix)}
         for name in sorted(present - set(declared)):
             problems.append(f'extra: {name}')
     except Refused as error:

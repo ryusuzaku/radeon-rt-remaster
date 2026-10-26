@@ -155,10 +155,20 @@ def main():
     assert ground[34] == 1, ground[32:36]          # accepted
     assert ground[32] >= 4, ground[32]             # converged count
 
-    # Out-of-range values fail closed instead of silently clamping.
-    for bad in ('0', '101', '-50', 'abc'):
+    # Both inclusive bounds parse. The probe path stops before rendering, so this
+    # only proves the parser accepts the endpoints.
+    for good in ('1', '100'):
+        run([args.dxr, '--probe', '--render-scale', good])
+
+    # Out-of-range, zero, negative, non-numeric and malformed values fail closed
+    # with the same clear diagnostic instead of being clamped or defaulted.
+    for bad in ('0', '101', '-50', '-1', 'abc', '1.5', '+50', ' 50', '50x',
+                '', '999999999999999999999999'):
         result = run([args.dxr, source, '--render-scale', bad], ok=False)
-        assert 'render scale' in result.stderr, (bad, result.stderr)
+        assert 'render scale must be 1..100 percent' in result.stderr, (bad, result.stderr)
+    # A missing value is the same parse error, not a generic argument failure.
+    result = run([args.dxr, source, '--render-scale'], ok=False)
+    assert 'render scale must be 1..100 percent' in result.stderr, result.stderr
     # RR evidence paths are fixed-extent and must refuse a reduced grid, not fail
     # earlier for an unrelated option mismatch.
     result = run([args.dxr, source, '--mode', 'gi', '--render-scale', '50',
