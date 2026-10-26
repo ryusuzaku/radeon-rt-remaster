@@ -4,7 +4,7 @@ def validate(row,version):
         if not value:raise ValueError('texture diagnostic: '+message)
     t=row['texture_diagnostic']
     keys={'slot','id','descriptor','levels','tracked','admission','revision','known_bytes','total_bytes','pending_mips','upload_source','upload_revision','surface_transfers','last_invalidation','last_upload'}
-    need(version in (18,19) and row.get('status')=='rejected' and row.get('hr',-1)>=0 and row.get('evidence_failure',{}).get('stage')=='texture_inputs','failure scope')
+    need(version>=18 and row.get('status')=='rejected' and row.get('hr',-1)>=0 and row.get('evidence_failure',{}).get('stage')=='texture_inputs','failure scope')
     need(type(t) is dict and (set(t)==keys or set(t)==keys|{'coverage_bytes','upload_source_lock_flags','upload_source_invalidation'}),'shape')
     for key in keys-{'descriptor','tracked','admission','last_invalidation','last_upload'}:
         need(type(t[key]) is int and 0<=t[key]<2**64,'integer '+key)

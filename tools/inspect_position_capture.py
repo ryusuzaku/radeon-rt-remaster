@@ -15,6 +15,7 @@ from position_pixel_material import validate as validate_pixel_material
 from position_texture_inputs import validate as validate_texture_inputs
 from texture_assets import TextureAssets
 from position_texture_diagnostic import validate as validate_texture_diagnostic
+from scene_io import DEFAULT_METADATA, UNITS, UP_AXES, HANDEDNESS
 
 DIGEST='0c16f3b5a2ba1f9f33162727e7eda81e02d599e20d95743f05a3daab846798d2'
 COMPOSITION_STATES=set('z_enable z_write z_func alpha_test alpha_ref alpha_func blend_enable src_blend dst_blend blend_op separate_alpha src_blend_alpha dst_blend_alpha blend_op_alpha blend_factor color_write cull fill scissor_enable stencil_enable srgb_write depth_bias slope_depth_bias'.split())
@@ -30,6 +31,7 @@ def inspect_bytes(data,include_records=False,assets=None):
     need(type(data) is bytes and len(data)<=16*1024*1024,'file budget')
     policy=None;shader_policy=None;failure_stages=Counter()
     header=False;version=0;session=None;selection=None;footer=None;seen=set();captured=[];reasons=Counter();records=[];intervals=Counter();draw_keys=set();total_limit=4;interval_limit=1
+    scene_metadata=dict(DEFAULT_METADATA)
     observed_targets=Counter();texture_diagnostics=Counter()
     write_events={};write_captures={};write_through=0;write_gaps={'observer_gap':False,'overlap':False}
     scope_origins={};scope_caps={};scope_access_gap=False
@@ -43,7 +45,7 @@ def inspect_bytes(data,include_records=False,assets=None):
             need(len(line)<=1200000 and line.endswith(b'\n'),'record bound/truncation')
             row=json.loads(line);need(isinstance(row,dict) and footer is None,'record ordering')
             if not header:
-                version=row.get('version');need(type(version) is int and version in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19),'header version')
+                version=row.get('version');need(type(version) is int and version in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20),'header version')
                 expected={'kind':'header','schema':'rrt-position-capture','version':version}
                 if version>=3:
                     session=row.get('session');need(isinstance(session,str) and len(session)==32 and all(c in '0123456789abcdef' for c in session),'session identity')
@@ -62,12 +64,24 @@ def inspect_bytes(data,include_records=False,assets=None):
                     expected['selection']=selection
                 if 'selection_rejections' in row:
                     policy=row['selection_rejections']
-                    need(version in (18,19) and policy=='first4-per-target-reason-up-to64-keys-plus-every64th-attempt','selection rejection sampling')
+                    need(version>=18 and policy=='first4-per-target-reason-up-to64-keys-plus-every64th-attempt','selection rejection sampling')
                     expected['selection_rejections']=policy
                 if 'shader_rejections' in row:
                     shader_policy=row['shader_rejections']
-                    need(version in (18,19) and shader_policy=='first4-per-target-reason-up-to64-keys-plus-every64th-attempt','shader rejection sampling')
+                    need(version>=18 and shader_policy=='first4-per-target-reason-up-to64-keys-plus-every64th-attempt','shader rejection sampling')
                     expected['shader_rejections']=shader_policy
+                if version>=20:
+                    scene=row.get('scene')
+                    need(isinstance(scene,dict) and set(scene)==set(DEFAULT_METADATA),'scene metadata')
+                    need(scene['units'] in UNITS,'scene units')
+                    need(scene['up_axis'] in UP_AXES,'scene up-axis')
+                    need(scene['handedness'] in HANDEDNESS,'scene handedness')
+                    scale=scene['scale']
+                    need(type(scale) in (int,float) and math.isfinite(scale) and scale>0,'scene scale')
+                    need(scene['units']!='unitless' or scale==1.0,'unitless scene must have unit scale')
+                    expected['scene']=scene;scene_metadata=scene
+                else:
+                    need('scene' not in row,'legacy capture cannot claim scene metadata')
                 need(row==expected,'header');header=True;continue
             if row.get('kind')=='end':
                 need(row.get('reason') in (('capture_limit','attempt_limit','byte_limit','io_error','present_limit') if version>=3 else ('capture_limit','attempt_limit','byte_limit','io_error')),'footer reason')
@@ -117,7 +131,7 @@ def inspect_bytes(data,include_records=False,assets=None):
             if version<13:need('texture_inputs' not in row,'legacy capture cannot claim texture inputs')
             if 'evidence_failure' in row:
                 failure=row['evidence_failure']
-                need(version in (18,19) and row.get('status')=='rejected' and hr>=0 and type(failure) is dict and set(failure)=={'stage','detail'},'evidence failure shape')
+                need(version>=18 and row.get('status')=='rejected' and hr>=0 and type(failure) is dict and set(failure)=={'stage','detail'},'evidence failure shape')
                 need(failure['stage'] in ('topology','device_state','selection','buffer_binding','buffer_tracking','position_material','composition','surface_scope','color_evidence','pixel_material','texture_inputs'),'evidence failure stage')
                 detail=failure['detail'];need(type(detail) is str and 0<len(detail)<=96 and all('a'<=c<='z' or c in '_ ' for c in detail),'evidence failure detail')
                 failure_stages[(failure['stage'],detail)]+=1
@@ -217,14 +231,14 @@ def inspect_bytes(data,include_records=False,assets=None):
             if include_records:records.append(row)
         else:raise ValueError('record count')
     need(header,'missing header')
-    result={'completion':footer['reason'] if footer else 'partial','version':version,'resource_provenance':version>=2,'session':session,'selection':selection,'limits':{'per_interval':interval_limit if version>=3 else None,'total':total_limit},'frame_sampling':version>=3,'attempts_recorded':len(seen),'captures':captured,'rejections':dict(reasons)}
+    result={'completion':footer['reason'] if footer else 'partial','version':version,'resource_provenance':version>=2,'session':session,'selection':selection,'limits':{'per_interval':interval_limit if version>=3 else None,'total':total_limit},'frame_sampling':version>=3,'attempts_recorded':len(seen),'captures':captured,'rejections':dict(reasons),'scene':scene_metadata,'scene_declared':version>=20}
     if footer and 'retained' in footer:
         result['retained']={name:footer[name] for name in ('retained','retained_buffers','retained_textures','live_textures')}
         if 'retained_peak' in footer:
             result['retained'].update({name:footer[name] for name in ('retained_peak','peak_buffers','peak_textures')})
         if 'shadow_cap_bytes' in footer:
             result['retained']['shadow_cap_bytes']=footer['shadow_cap_bytes']
-    need(policy is None or version in (18,19),'selection sampling version')
+    need(policy is None or version>=18,'selection sampling version')
     result['texture_diagnostics']=[dict(json.loads(t),recorded_rejections=n) for t,n in sorted(texture_diagnostics.items())]
     result['shader_rejection_sampling']=shader_policy
     result['evidence_failures']=[{'stage':stage,'detail':detail,'recorded_rejections':n} for (stage,detail),n in sorted(failure_stages.items())]

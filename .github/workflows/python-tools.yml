@@ -77,6 +77,11 @@ jobs:
       - name: Position scene
         run: python3.12 tests/test_position_scene.py
 
+      # Scene header v2 metadata and the ledger's v20 scene object must default
+      # v1 captures to the documented values rather than guessing.
+      - name: Scene metadata
+        run: python3.12 tests/test_scene_metadata.py
+
       - name: Material inputs
         run: python3.12 tests/test_material_inputs.py
 

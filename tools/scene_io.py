@@ -7,6 +7,13 @@ import struct
 MAX_BYTES = 64 * 1024 * 1024
 MAX_DRAWS = 4096
 STATE_BYTES = 452
+# Append-only, mirrored by the enums in src/scene/scene.h. The v2 header stores
+# the index, not the name, so reordering either list is a format change.
+UNITS = ('unitless', 'metre', 'centimetre', 'millimetre', 'inch', 'foot')
+UP_AXES = ('+X', '-X', '+Y', '-Y', '+Z', '-Z')
+HANDEDNESS = ('left', 'right')
+# The documented interpretation of a v1 capture, which carried no metadata.
+DEFAULT_METADATA = {'units': 'unitless', 'scale': 1.0, 'up_axis': '+Y', 'handedness': 'left'}
 REASONS = ('invalid', 'programmable_shader', 'unsupported_topology_or_fvf',
            'unsupported_fixed_function_state', 'missing_or_invalid_resource_payload',
            'unsupported_render_target', 'capture_budget_exceeded',
@@ -21,6 +28,17 @@ class SceneError(ValueError):
 def require(condition, message):
     if not condition:
         raise SceneError(message)
+
+
+def require_metadata(value):
+    require(isinstance(value, dict) and set(value) == {'units', 'scale', 'up_axis', 'handedness'},
+            'invalid scene metadata')
+    require(value['units'] in UNITS, 'invalid scene units')
+    require(value['up_axis'] in UP_AXES, 'invalid scene up-axis')
+    require(value['handedness'] in HANDEDNESS, 'invalid scene handedness')
+    scale = value['scale']
+    require(type(scale) in (int, float) and math.isfinite(scale) and scale > 0, 'invalid scene scale')
+    require(value['units'] != 'unitless' or scale == 1.0, 'unitless scene must have unit scale')
 
 
 def load_scene(path):
@@ -47,14 +65,22 @@ def decode_scene(data):
 
     require(bytes(take(8)) == b'RRTSCN1\0', 'invalid scene magic')
     version, frame, width, height, clear, attempted, cleared, draws, rejects = unpack('9I')
-    require(version == 1, 'unsupported scene version')
+    require(version in (1, 2), 'unsupported scene version')
+    metadata = dict(DEFAULT_METADATA)
+    if version >= 2:
+        units, scale, up_axis, handedness = unpack('IfII')
+        require(units < len(UNITS) and up_axis < len(UP_AXES) and handedness < len(HANDEDNESS),
+                'invalid scene metadata')
+        metadata = dict(units=UNITS[units], scale=scale, up_axis=UP_AXES[up_axis],
+                        handedness=HANDEDNESS[handedness])
+        require_metadata(metadata)
     require(0 < width <= 4096 and 0 < height <= 4096, 'invalid scene dimensions')
     require(cleared in (0, 1) and (cleared or rejects), 'invalid clear flag or missing clear')
     require(draws <= MAX_DRAWS and rejects <= MAX_DRAWS + 1, 'too many scene records')
     require(rejects or attempted == draws, 'complete scene omits draws')
     result = dict(version=version, frame=frame, width=width, height=height,
                   clear_color=clear, attempted=attempted, cleared=bool(cleared),
-                  complete=rejects == 0, draws=[], rejected=[])
+                  complete=rejects == 0, metadata=metadata, draws=[], rejected=[])
     for _ in range(rejects):
         ordinal, reason = unpack('2I')
         require(0 < reason < len(REASONS), 'invalid rejection reason')
@@ -103,9 +129,13 @@ def decode_scene(data):
 
 def encode_scene(scene):
     """Re-identify and validate before publishing bytes; never mutate the input."""
+    metadata = scene.get('metadata', dict(DEFAULT_METADATA))
+    require_metadata(metadata)
     data = bytearray(b'RRTSCN1\0')
-    data.extend(struct.pack('<9I', 1, scene['frame'], scene['width'], scene['height'],
+    data.extend(struct.pack('<9I', 2, scene['frame'], scene['width'], scene['height'],
         scene['clear_color'], scene['attempted'], int(scene['cleared']), len(scene['draws']), len(scene['rejected'])))
+    data.extend(struct.pack('<IfII', UNITS.index(metadata['units']), float(metadata['scale']),
+        UP_AXES.index(metadata['up_axis']), HANDEDNESS.index(metadata['handedness'])))
     for rejection in scene['rejected']:
         data.extend(struct.pack('<2I', rejection['ordinal'], REASONS.index(rejection['reason'])))
     for draw in scene['draws']:

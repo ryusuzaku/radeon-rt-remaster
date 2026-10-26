@@ -57,6 +57,11 @@ const char* ReasonName(Reason r) {
 }
 void Validate(const Scene& s) {
     Require(s.width>0 && s.height>0 && s.width<=4096 && s.height<=4096,"invalid scene dimensions");
+    Require(static_cast<unsigned>(s.metadata.units)<=static_cast<unsigned>(Units::Foot) &&
+        static_cast<unsigned>(s.metadata.upAxis)<=static_cast<unsigned>(UpAxis::MinusZ) &&
+        static_cast<unsigned>(s.metadata.handedness)<=static_cast<unsigned>(Handedness::Right),"invalid scene metadata");
+    Require(std::isfinite(s.metadata.scale) && s.metadata.scale>0,"invalid scene scale");
+    Require(s.metadata.units!=Units::Unitless || s.metadata.scale==1.0f,"unitless scene must have unit scale");
     Require(s.draws.size()<=MaxDraws && s.rejected.size()<=MaxDraws+1,"too many records");
     Require(s.cleared || !s.rejected.empty(),"scene has no initial clear");
     Require(!s.rejected.empty() || s.attempted==s.draws.size(),"complete scene omits draws");
@@ -84,6 +89,7 @@ void Validate(const Scene& s) {
 void Save(const Scene& s,const std::filesystem::path& path) {
     Validate(s); Bytes b; b.Put("RRTSCN1\0",8); b.Pod(Version); b.Pod(s.frame); b.Pod(s.width); b.Pod(s.height); b.Pod(s.clearColor);
     b.Pod(s.attempted); b.Pod(std::uint32_t(s.cleared)); b.Pod(std::uint32_t(s.draws.size())); b.Pod(std::uint32_t(s.rejected.size()));
+    b.Pod(s.metadata.units); b.Pod(s.metadata.scale); b.Pod(s.metadata.upAxis); b.Pod(s.metadata.handedness);
     for(auto& r:s.rejected) { b.Pod(r.ordinal); b.Pod(r.reason); }
     for(auto& d:s.draws) {
         b.Pod(d.ordinal); b.Pod(d.width); b.Pod(d.height); b.Pod(std::uint32_t(d.vertices.size())); b.Pod(std::uint32_t(d.indices.size()));
@@ -102,10 +108,17 @@ Scene Load(const std::filesystem::path& path,Hash* sourceDigest) {
     std::vector<std::uint8_t> bytes(static_cast<std::size_t>(length)); f.seekg(0); f.read(reinterpret_cast<char*>(bytes.data()),bytes.size()); Require(f.good(),"scene read failed");
     Hash checksum{}; memcpy(checksum.data(),bytes.data()+bytes.size()-32,32);
     Require(checksum==Digest(bytes.data(),bytes.size()-32),"scene checksum mismatch"); bytes.resize(bytes.size()-32);
-    Reader r{bytes}; char magic[8]; r.Get(magic,8); Require(memcmp(magic,"RRTSCN1\0",8)==0,"invalid scene magic"); Require(r.Pod<std::uint32_t>()==Version,"unsupported scene version");
+    Reader r{bytes}; char magic[8]; r.Get(magic,8); Require(memcmp(magic,"RRTSCN1\0",8)==0,"invalid scene magic");
+    const auto version=r.Pod<std::uint32_t>(); Require(version>=1 && version<=Version,"unsupported scene version");
     Scene s; s.frame=r.Pod<std::uint32_t>(); s.width=r.Pod<std::uint32_t>(); s.height=r.Pod<std::uint32_t>(); s.clearColor=r.Pod<std::uint32_t>(); s.attempted=r.Pod<std::uint32_t>();
     auto cleared=r.Pod<std::uint32_t>(); Require(cleared<=1,"invalid clear flag"); s.cleared=cleared!=0;
     auto draws=r.Pod<std::uint32_t>(),rejects=r.Pod<std::uint32_t>(); Require(draws<=MaxDraws && rejects<=MaxDraws+1,"too many scene records");
+    // v1 has no metadata block; Scene's member initializers are its documented
+    // interpretation (unitless, scale 1, +Y up, left-handed).
+    if(version>=2) {
+        s.metadata.units=r.Pod<Units>(); s.metadata.scale=r.Pod<float>();
+        s.metadata.upAxis=r.Pod<UpAxis>(); s.metadata.handedness=r.Pod<Handedness>();
+    }
     for(std::uint32_t i=0;i<rejects;++i) s.rejected.push_back({r.Pod<std::uint32_t>(),r.Pod<Reason>()});
     for(std::uint32_t i=0;i<draws;++i) {
         Draw d; d.ordinal=r.Pod<std::uint32_t>(); d.width=r.Pod<std::uint32_t>(); d.height=r.Pod<std::uint32_t>();

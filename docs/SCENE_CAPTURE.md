@@ -84,7 +84,7 @@ qualified. Shared/external resource mutation must not be used for correctness
 claims. An untested title may expose additional mutation paths: compare with a
 native reference before treating a capture's completeness flag as fidelity proof.
 
-## Limits and format v1
+## Limits and format versions
 
 - Shadow payloads: 16 MiB/resource, 64 MiB total (plus bounded bookkeeping).
 - Scene accumulation: 32 MiB estimated payload, 4,096 accepted draws, bounded
@@ -97,12 +97,27 @@ native reference before treating a capture's completeness flag as fidelity proof
 
 | Record | Layout |
 |---|---|
-| Header (44 bytes) | 8-byte `RRTSCN1\0`, then nine uint32: version, frame, width, height, clear ARGB, attempted successful draws, cleared flag, accepted draw count, rejection count |
+| Header (60 bytes, v2) | 8-byte `RRTSCN1\0`, then nine uint32: version, frame, width, height, clear ARGB, attempted successful draws, cleared flag, accepted draw count, rejection count; then the metadata block: units uint32, scale float32, up-axis uint32, handedness uint32 |
+| Header (44 bytes, v1) | the same 8-byte magic and nine uint32, with no metadata block |
 | Rejection (8 bytes each) | uint32 ordinal and reason; ordinal `0xffffffff` denotes a frame-wide issue |
 | Draw prefix (116 bytes) | five uint32: ordinal, texture width, texture height, vertex count, index count; then 32-byte mesh, texture and material SHA-256 IDs |
 | Draw state (452 bytes) | three row-major D3DMATRIX values; D3DVIEWPORT9; four-int32 scissor; 34 render-state, 8 texture-stage and 13 sampler uint32 values, in the slot order defined in `src/scene/scene.h` |
 | Draw payload | 24-byte vertices (`3 float`, ARGB uint32, `2 float`), uint32 triangle indices, tightly packed BGRA8 texture texels |
 | Footer (32 bytes) | SHA-256 integrity digest |
+
+Version 2 writes the coordinate contract instead of leaving it implicit. The
+metadata enumerations are append-only and defined in `src/scene/scene.h`: units
+`unitless`, `metre`, `centimetre`, `millimetre`, `inch`, `foot`; up-axis one of
+`+X`, `-X`, `+Y`, `-Y`, `+Z`, `-Z`; handedness `left` or `right`. `scale` is a
+positive uniform factor from stored units to metres, and is exactly 1.0 when
+units is `unitless`.
+
+Version 1 carried no metadata block. Readers therefore apply the documented v1
+interpretation — **unitless, scale 1.0, +Y up, left-handed** — rather than
+guessing from the geometry, and a v1 file decodes to exactly the same draws and
+pixels as before. The writer always emits v2. Both readers accept v1 and v2 and
+reject any other version; the metadata values themselves are range-checked, so a
+file cannot claim an unknown unit or axis.
 
 Geometry is normalized into first-index-use vertex order and zero-based 32-bit
 indices. Mesh ID hashes uint32 vertex/index counts followed by those payloads;
@@ -115,15 +130,20 @@ payloads per draw (no on-disk content deduplication).
 
 C++ (`rrt_replay --inspect`) and Python (`tools/scene_io.py`) readers verify
 checksums, IDs, dimensions, counts, index bounds, finite positions/transforms,
-viewport bounds, required subset state and exact end-of-file. These are integrity
-checks, not authentication or a security boundary for arbitrary third-party files.
+viewport bounds, required subset state, the metadata block and exact end-of-file.
+These are integrity checks, not authentication or a security boundary for
+arbitrary third-party files.
 
 ## glTF interchange
 
 `tools/export_gltf.py` exports self-contained glTF 2.0 with embedded vertex/index
-data and PNG images, unlit materials, and node transforms. It converts handedness
-by reflecting Z and reversing triangle winding; original view/projection,
-viewport, scissor and D3D9 material state are retained in `extras`.
+data and PNG images, unlit materials, and node transforms. It reads the v2
+metadata rather than assuming a convention: a left-handed `+Y` capture is
+converted by reflecting Z and reversing triangle winding; a right-handed `+Y`
+capture passes through; any other up-axis is refused. The declared units, scale,
+up-axis and handedness are retained in `extras`, and a non-unit scale is applied
+to node transforms. Original view/projection, viewport, scissor and D3D9 material
+state are retained in `extras`.
 
 glTF is an asset interchange, **not the pixel-fidelity target**. Arbitrary D3D9
 projection, cull orientation, blend/alpha-test functions, border addressing,
@@ -140,7 +160,10 @@ Four visible quadrants exercise buffer, UP and indexed-UP geometry, negative
 base vertex, 32-bit indices, partial updates, mid-frame texture changes,
 transforms and scissor state. The tests also verify cross-session byte stability,
 draw-prefix output, explicit incomplete-scene rejection, draw budgets, no
-overwrite, capture disable, damaged files, and glTF structure.
+overwrite, capture disable, damaged files, and glTF structure. The pure-Python
+`scene_metadata` contract additionally checks that v1 and v2 headers decode to the
+same draws, that the v1 defaults are stated rather than inferred, and that the
+exporter follows or refuses the declared convention.
 
 Artifacts remain under `build/x86-vs/<configuration>/scene-*`: captures, raw BGR
 images, `reference.png`, `replay.png`, `image-diff.json`, glTF and negative inputs.

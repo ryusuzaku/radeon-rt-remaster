@@ -1,12 +1,32 @@
 {
   "schema": "rrt-capture-version",
   "version": 1,
-  "description": "Capture ledger versions for the rrt-position-capture schema. Levels 5..19 form an ordered, cumulative evidence ladder emitted on the multi-draw path; the proxy's environment parser refuses a level whose predecessor is not enabled, so the header version is the highest enabled level rather than an independent set of flags. Levels 2..4 are emitted by the other header paths. Level 1 is legacy and no longer produced. Adding a level means updating this file, the CaptureLevel enum and Level() in src/shader/intercept.cpp, and the accepted set in tools/inspect_position_capture.py; tests/verify_capture_version_contract.py fails if they disagree.",
+  "description": "Capture ledger versions for the rrt-position-capture schema. Levels 5..20 form an ordered, cumulative evidence ladder emitted on the multi-draw path; the proxy's environment parser refuses a level whose predecessor is not enabled, so the header version is the highest enabled level rather than an independent set of flags. Levels 2..4 are emitted by the other header paths. Level 1 is legacy and no longer produced. Level 20 adds the scene metadata object to the header. Adding a level means updating this file, the CaptureLevel enum and Level() in src/shader/intercept.cpp, and the accepted set in tools/inspect_position_capture.py; tests/verify_capture_version_contract.py fails if they disagree. The same file also records the independent .rrscene header versions: v1 has no coordinate metadata and v2 carries the units/scale/up-axis/handedness block that the position ledger's v20 object mirrors.",
   "source_of_truth": {
     "cpp_enum": "src/shader/intercept.cpp (enum class CaptureLevel)",
     "cpp_fold": "src/shader/intercept.cpp (Context::Level)",
-    "reader": "tools/inspect_position_capture.py (the header version check)"
+    "reader": "tools/inspect_position_capture.py (the header version check)",
+    "scene_cpp": "src/scene/scene.h (Version, Units, UpAxis, Handedness)",
+    "scene_reader": "tools/scene_io.py (accepted header versions and metadata names)"
   },
+  "scene_metadata": {
+    "fields": ["units", "scale", "up_axis", "handedness"],
+    "units": ["unitless", "metre", "centimetre", "millimetre", "inch", "foot"],
+    "up_axis": ["+X", "-X", "+Y", "-Y", "+Z", "-Z"],
+    "handedness": ["left", "right"],
+    "defaults": {"units": "unitless", "scale": 1.0, "up_axis": "+Y", "handedness": "left"},
+    "rules": "scale is a positive uniform factor from stored units to metres and is exactly 1.0 when units is unitless"
+  },
+  "scene_headers": [
+    {
+      "version": 1,
+      "evidence": "legacy scene capture: no units, scale, up-axis or handedness block; readers apply the documented defaults"
+    },
+    {
+      "version": 2,
+      "evidence": "scene capture header carrying the units, scale, up-axis and handedness block"
+    }
+  ],
   "legacy": [
     {
       "version": 1,
@@ -117,6 +137,14 @@
       "name": "SurfaceLocks",
       "flag": "RRT_POSITION_SURFACE_LOCKS",
       "evidence": "observed texture-mip surface lock/unlock tracking"
+    },
+    {
+      "version": 20,
+      "name": "SceneMetadata",
+      "flag": "RRT_POSITION_SCENE_METADATA",
+      "header": "scene",
+      "fields": ["units", "scale", "up_axis", "handedness"],
+      "evidence": "header declares the captured scene's units, uniform scale, up-axis and handedness instead of leaving them implicit"
     }
   ]
 }

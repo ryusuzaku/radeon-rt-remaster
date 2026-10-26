@@ -81,7 +81,7 @@ explicit CTest skip (D3).
 | **Proxy** `src/proxy/` | `d3d9_proxy.cpp` (74 ln), `observers.{h,cpp}`, `generated_*.inc`, `d3d9_proxy.def` | Loads system D3D9 lazily, forwards 20 interfaces / 119 device methods, preserves COM identity. `RRT_PROXY_DISABLE=1` escape hatch. |
 | **Capture** `src/capture/` | `capture.{h,cpp}` (284 ln) | Bounded JSONL trace writer: resources, locks, state, draws, presents, lifetimes. Opt-in via `RRT_TRACE_FILE`. |
 | **Trace** `src/trace/` | `trace.{h,cpp}` (139 ln) | Low-level JSONL writer for the `trace.jsonl` observation stream (object IDs, field records, present results); shared by proxy, capture and observers. |
-| **Shader evidence** `src/shader/` | `intercept.cpp` (41.6 KB) + 5 `.inc`; `fixture.cpp` (14.6 KB) + 4 `.inc`; `position*`, `snapshot`, `inventory`, `disassemble` | The core and the most complex part: the v1–v19 capture ladder, texture shadow/budget accounting, and the native oracle fixture. |
+| **Shader evidence** `src/shader/` | `intercept.cpp` (41.6 KB) + 5 `.inc`; `fixture.cpp` (14.6 KB) + 4 `.inc`; `position*`, `snapshot`, `inventory`, `disassemble` | The core and the most complex part: the v1–v20 capture ladder, texture shadow/budget accounting, and the native oracle fixture. |
 | **Scene** `src/scene/` | `scene.{h,cpp}` (192 ln) | Canonical geometry/material/texture model, stable SHA-256 asset IDs, `.rrscene` serialization. Shared by proxy, replay and renderer. |
 | **Replay** `src/replay/` | `main.cpp` (101 ln) | Raster replay correctness oracle. Deliberately the simplest binary in the repo. |
 | **Renderer** `src/dxr/` | `main.cpp` (1031 ln) + 22 headers (mostly `rc_*`/`rr_*` header-only mixins); 7 HLSL (`render.hlsl` shared by every DXIL build; `display.hlsl` presentation) | DXR 1.1 viewer, one-bounce diffuse GI, native presentation — **plus** the RR and RC research harnesses in the same translation unit. |
@@ -127,11 +127,11 @@ tests/*.py ──► build/game-passes/**   ← UNTRACKED EVIDENCE (see D3)
 ```
 
 Runtime artifacts: the proxy writes `trace.jsonl` (bounded metadata) and a
-position-capture ledger (evidence payloads, v1–v19); `.rrscene` carries
+position-capture ledger (evidence payloads, v1–v20); `.rrscene` carries
 geometry/texture bytes separately with content hashes. The renderer consumes
 scenes; the Python layer validates ledgers.
 
-## 6. The central artifact contract: capture versions v1–v19
+## 6. The central artifact contract: capture versions v1–v20
 
 This is the project's real interface. It is now a named, ordered ladder rather
 than an expression, with a machine-readable schema and a test that keeps the
@@ -139,7 +139,7 @@ three descriptions of it honest.
 
 ```cpp
 // src/shader/intercept.cpp
-enum class CaptureLevel : int { Bounded = 5, RenderState = 6, /* ... */ SurfaceLocks = 19 };
+enum class CaptureLevel : int { Bounded = 5, RenderState = 6, /* ... */ SurfaceLocks = 19, SceneMetadata = 20 };
 CaptureLevel Context::Level() const;   // highest enabled level, scanned highest-first
 ```
 

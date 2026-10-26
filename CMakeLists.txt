@@ -253,6 +253,8 @@ endif()
 if(NOT RRT_RENDERER_ONLY)
   add_test(NAME trace_reader COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_trace_reader.py)
   add_test(NAME position_scene COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_position_scene.py)
+add_test(NAME scene_metadata COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_scene_metadata.py)
+set_tests_properties(scene_metadata PROPERTIES TIMEOUT 60)
 # The checked-in generated forwards must stay current with their generator;
 # nothing else verifies them, so a hand edit or schema change would ship silently.
 add_test(NAME codegen_freshness COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_codegen_freshness.py)
