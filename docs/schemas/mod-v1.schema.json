@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "RRT offline mod manifest v1",
+  "description": "RRT offline mod manifest v1. The replacement kinds texture, mesh and material are implemented; the entry field normal_convention names the normal-map convention of a payload and is reserved for the normal-map path. The auxiliary texture slot is stated here as the reserved kind auxiliary_texture (per-material auxiliary channels: masks, guides) so the next version bump has a slot rather than an argument. The same names, values and defaults are enforced by tools/mod_scene.py and documented in docs/MOD_WORKFLOW.md; tests/verify_mod_schema_contract.py fails if they disagree.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "version", "id", "priority", "replacements"],
@@ -17,12 +18,23 @@
         "additionalProperties": false,
         "required": ["kind", "target", "asset", "sha256"],
         "properties": {
-          "kind": {"enum": ["texture", "mesh", "material"]},
+          "kind": {
+            "enum": ["texture", "mesh", "material"],
+            "description": "Replacement payload kind: a texture replacement, a mesh replacement or a material patch. auxiliary_texture is reserved (see x-reserved-kinds) and is not accepted by this version."
+          },
           "target": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "asset": {"type": "string", "minLength": 1},
-          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "normal_convention": {
+            "enum": ["directx", "opengl", "unspecified"],
+            "default": "directx",
+            "description": "Normal-map convention of any normal data the payload carries: directx is the D3D convention (green channel Y-down), opengl is the OpenGL convention (green channel Y-up), and unspecified is an explicit declaration of no convention that fails closed on any asset that needs one. Omitted means directx, the documented default for captured D3D9 data, which carries no normal input."
+          }
         }
       }
     }
+  },
+  "x-reserved-kinds": {
+    "auxiliary_texture": "Reserved future replacement kind: the auxiliary texture slot for per-material auxiliary channels (masks, guides). Entries with this kind fail validation until a manifest version implements them; tools/mod_scene.py rejects them by name."
   }
 }

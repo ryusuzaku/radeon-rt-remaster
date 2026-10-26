@@ -19,6 +19,13 @@ HASH = re.compile(r'[0-9a-f]{64}\Z')
 MOD_ID = re.compile(r'[a-z0-9][a-z0-9._-]{0,63}\Z')
 MAX_ENTRIES = 256
 MAX_ASSET = 20*1024*1024
+REPLACEMENT_KINDS = ('texture', 'mesh', 'material')
+# The auxiliary texture slot (per-material channels: masks, guides) is reserved in
+# docs/schemas/mod-v1.schema.json and rejected here until a version implements it.
+RESERVED_KINDS = ('auxiliary_texture',)
+NORMAL_CONVENTIONS = ('directx', 'opengl', 'unspecified')
+# The documented convention of captured D3D9 data, which carries no normal input.
+DEFAULT_NORMAL_CONVENTION = 'directx'
 
 
 def read_bounded(path, limit):
@@ -111,10 +118,13 @@ def load_mod(path):
     used_bytes = len(raw)
     entries = []
     for entry in mod['replacements']:
-        fields(entry, ('kind', 'target', 'asset', 'sha256'))
+        fields(entry, ('kind', 'target', 'asset', 'sha256'), ('normal_convention',))
         kind, target, digest = entry['kind'], entry['target'], entry['sha256']
-        require(kind in ('texture', 'mesh', 'material') and isinstance(target, str) and HASH.fullmatch(target), 'invalid replacement target')
+        require(kind not in RESERVED_KINDS, 'reserved replacement kind (not implemented): ' + str(kind))
+        require(kind in REPLACEMENT_KINDS and isinstance(target, str) and HASH.fullmatch(target), 'invalid replacement target')
         require(isinstance(digest, str) and HASH.fullmatch(digest), 'invalid dependency hash')
+        if 'normal_convention' in entry:
+            require(entry['normal_convention'] in NORMAL_CONVENTIONS, 'invalid normal_convention')
         require((kind, target) not in seen, 'duplicate target in mod')
         seen.add((kind, target))
         data = read_bounded(asset_path(path.parent, entry['asset']), MAX_ASSET)
@@ -128,7 +138,7 @@ def load_mod(path):
         elif kind == 'mesh':
             used_bytes += len(decoded['vertices'])*24 + len(decoded['indices'])*4
         require(used_bytes <= MAX_BYTES, 'mod decoded-payload budget exceeded')
-        entries.append({**entry, 'payload': decoded})
+        entries.append({**entry, 'normal_convention': entry.get('normal_convention', DEFAULT_NORMAL_CONVENTION), 'payload': decoded})
     return {**mod, 'replacements': entries, 'manifest_sha256': sha256(raw).hexdigest(), 'bytes': used_bytes}
 
 
@@ -250,7 +260,7 @@ def main():
     catalog = commands.add_parser('extract', help='export editable mesh JSON/PNG plus catalog and identity starter mod')
     catalog.add_argument('scene', type=Path); catalog.add_argument('directory', type=Path)
     make = commands.add_parser('make', help='validate an edited asset and write a new one-entry manifest with its checksum')
-    make.add_argument('--kind', required=True, choices=('mesh', 'texture', 'material'))
+    make.add_argument('--kind', required=True, choices=REPLACEMENT_KINDS)
     make.add_argument('--target', required=True); make.add_argument('--asset', required=True)
     make.add_argument('--id', required=True); make.add_argument('--priority', type=int, default=0)
     make.add_argument('--output', required=True, type=Path)
