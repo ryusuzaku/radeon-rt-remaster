@@ -282,6 +282,10 @@ add_test(NAME evidence_archive_units COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRE
 set_tests_properties(evidence_archive_units PROPERTIES TIMEOUT 60)
 add_test(NAME restored_tree COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_restored_tree_contract.py)
 set_tests_properties(restored_tree PROPERTIES TIMEOUT 120)
+# The staleness policy reference model must keep matching the decision table,
+# the generation split and the metric definitions in docs/RC_STALENESS_POLICY.md.
+add_test(NAME rc_staleness_contract COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_rc_staleness_contract.py)
+set_tests_properties(rc_staleness_contract PROPERTIES TIMEOUT 60)
 add_test(NAME shader_snapshot COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_shader_snapshot.py --fixture $<TARGET_FILE:rrt_shader_fixture>)
 set_tests_properties(shader_snapshot PROPERTIES TIMEOUT 120)
 add_test(NAME shader_proxy COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_shader_proxy.py --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy>)
