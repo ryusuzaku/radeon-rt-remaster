@@ -70,6 +70,11 @@ jobs:
       - name: Restored tree contract
         run: python3.12 tests/verify_restored_tree_contract.py
 
+      # The staleness policy reference model must match the decision table, the
+      # generation derivation split and the metric math it declares.
+      - name: RC staleness policy contract
+        run: python3.12 tests/verify_rc_staleness_contract.py
+
       # Unit tests for the tools, all standard library only.
       - name: Trace reader
         run: python3.12 tests/test_trace_reader.py

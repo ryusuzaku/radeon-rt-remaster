@@ -410,7 +410,9 @@ epoch refreshes its rows.
 **Stage 0 — policy and pure-Python contract (this document).**
 No behaviour change. Declare the table above, add a pure-Python policy contract
 and the metric definitions, and leave every existing test untouched. Default
-off. Everything stays byte-identical.
+off. Everything stays byte-identical. **Implemented:** the reference model is
+[tools/rc_staleness.py](../tools/rc_staleness.py) and the contract test is
+[tests/verify_rc_staleness_contract.py](../tests/verify_rc_staleness_contract.py).
 
 **Stage 1 — generation wiring and diagnostics (opt-in RC mode only).**
 Derive `scene`, `lighting`, `material` and `settings` generations from the
