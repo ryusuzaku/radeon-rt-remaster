@@ -600,7 +600,7 @@ Calendar time is longer (see R2).
 | M0.2 | ~~Add a test that the C++ reported version set and the Python accepted set are identical~~ **done 2026-09-24** — `tests/verify_capture_version_contract.py`, CTest `capture_version_contract`, passes in 0.38 s; verified to fail on five distinct divergences | M0.1 | ~~0.5 d~~ 0 |
 | M0.2b | ~~Remove the hand-maintained per-level plumb-through in `tools/game_pass.py`~~ **done 2026-09-25** — the ladder is now declared once in `CAPTURE_LEVELS` and the argparse flags, prerequisite checks, environment/report construction and call site all derive from it. Adding a level is the table plus the `run_pass` signature. Verified: CLI surface byte-identical (23 flags, no help-text change), `game_pass_workflow` green, and `verify_capture_version_contract.py` now treats the CLI as a fourth description that must agree with the enum, schema and reader | M0.1 | ~~0.5–1 d~~ 0 |
 | M0.3 | ~~Add a codegen freshness test~~ **done 2026-09-24** — `tests/verify_codegen_freshness.py`, CTest `codegen_freshness`, passes in 1.9 s | — | ~~0.5 d~~ 0 |
-| M0.4 | **Done 2026-10-19.** All 13 tests remain registered and explicitly skip missing local files; a GPU-free CTest contract checks registration and skip/pass/fail transitions and is included in CI. The storage decision (§12 Q6) is closed: local archives outside the working tree with a per-file manifest, a tracked content-free digest ledger, `game_pass.py archive`, and `check` for verification against the ledger. CTest `evidence_archive` covers corruption, truncation, traversal, symlinks and ledger mismatch | — | 0 |
+| M0.4 | **Done 2026-10-19.** All 14 tests remain registered and explicitly skip missing local files; a GPU-free CTest contract checks registration and skip/pass/fail transitions and is included in CI. The storage decision (§12 Q6) is closed: local archives outside the working tree with a per-file manifest, a tracked content-free digest ledger, `game_pass.py archive`, and `check` for verification against the ledger. CTest `evidence_archive` covers corruption, truncation, traversal, symlinks and ledger mismatch | — | 0 |
 | M0.5 | ~~Reconcile the planning logs~~ **mostly done 2026-09-24** — `docs/PROJECT_STATUS.md` refreshed from 2026-09-06 to 2026-09-24 and now covers v19, surface locks and the material3 capture; the missing milestone record was published as `docs/HL2_DYNAMIC_MATERIAL_CAPTURE.md` (it had existed only in the local session logs); `PHASE_PLAN.md` declares `PROJECT_STATUS.md` canonical instead of asserting its own stale checkpoint; the four logs are now gitignored. Remaining: the duplicate `material2` section in the local-only `HANDOFF.md` | — | ~~0.5 d~~ 0.1 d |
 | M0.6 | **Done 2026-09-25, green.** `.github/workflows/build.yml` builds x86 Debug and Release and the x64 renderer-only preset from a clean checkout and runs the four contract checks. It deliberately does **not** run the D3D9/D3D12/DXR suites: the shader fixture creates a window and requests `D3DDEVTYPE_HAL` with no reference fallback, and the DXR tests skip on adapters without hardware ray tracing, which a hosted runner has not got. A red build for an environment reason and a `continue-on-error` that hides a regression are both worse than saying so. It runs **green** on `main`. Remaining: make those suites runnable headless, then add them; the SDK/evidence-gated subset stays a documented manual job. **It paid for itself on the second run** — see D10 | M0.3 | ~~1–2 d~~ 0.5 d left |
 | M0.7 | ~~Split or re-time the Debug `position_capture` matrix~~ **replaced, then done 2026-09-25** — measured margins are 33% and 38%, so there was no timeout squeeze to restore. The real issue (D8) was an occluded fixture window stalling for 60 s and surfacing as a traceback; `PresentResult` now requires `S_OK` from every present and names the condition, turning it into a 0.99 s actionable failure | — | ~~0.5–1 d~~ 0 |
@@ -638,7 +638,7 @@ program allowlist.*
 | # | Task | Depends on | Effort |
 |---|---|---|---|
 | M2.1 | ~~Inventory the sampled unsupported families from the existing 16.7 MB `shader-inventory.jsonl`; classify by opcode/feature~~ **done 2026-10-19** — the inventory stores full program bytes, not only digests, so the dominant rejected family was extracted rather than merely counted: `ps_2_x`, 1912 bytes, `dbca89cc…`, 189 draws, paired with the 612-byte VS the fixture already uses. Behavioural difference is the fog input only (`length(t4.xyz - c10.xyz)` instead of `t4.w`); the constant-register rename is cosmetic and the clamp order is provably equivalent. See [the recovered contract](docs/MATERIAL_PS2X_CONTRACT.md) | — | 0 |
-| M2.2 | Extend admission: generic `ps_2_0` path for the material subset, explicit rejection for unsupported ops. **Unblocked 2026-10-19** — the candidate program's bytes are available locally, so admission, payload and reconstruction are all testable. Five ordered steps in [the contract](docs/MATERIAL_PS2X_CONTRACT.md) | M2.1 | 5–8 d |
+| M2.2 | Extend admission: generic `ps_2_0` path for the material subset, explicit rejection for unsupported ops. **Admission and reconstruction done 2026-10-20** — two-program allowlist, self-describing `rows` payload (no ladder bump: the level gates which evidence exists, not which program was bound), fixture that derives row set and blob length from the program, and CTest `pixel_program_variants` requiring both programs to clear 2e-4 on the same draw (candidate matches the accepted program to six significant figures; wrong-fog control moves 2.9e-7 to 1.5e-3). The proxy capture path is covered too: `position_capture` drives the fixture with the candidate bytes and requires 16 captured rows with a declared five-row payload. Remaining: a game pass that captures a real draw. See [the contract](docs/MATERIAL_PS2X_CONTRACT.md) | M2.1 | 5–8 d |
 | M2.3 | Fixture coverage for each newly admitted family + negative controls | M2.2 | 3–4 d |
 
 **M2 total: ~10–15 days.** Can run in parallel with M1 by a second person;
@@ -873,6 +873,21 @@ that is valid in 32-bit and accounts for other processes, and is the principled
 answer if this is wanted. It is a real design decision, not a detail: a
 machine-aware cap means the same scene can render on one GPU and be refused on
 another, which is its own kind of resolution dependence.
+
+**Q12 — Per-family vertex admission, or a generic vertex path?** Raised
+2026-10-20, after the second pixel program was admitted and the recovered inventory
+was classified: 93.1% of 2,734 inventoried draws are refused by the vertex program,
+6.9% are admitted now, and **no draw is refused only by the pixel program**. The
+inventory holds 23 vertex families. The dominant one (1420 bytes, 729 draws) is
+skinned — indexed `cModel[53]`, `cFlexScale`, compressed-normal decode, two
+texture-coordinate transforms — so admitting it means a second CPU evaluator shaped
+like `src/shader/position.cpp`, and the capture's position claims depend on that
+evaluator being right. The trivial family (228 bytes, 208 draws,
+`oPos = cModelViewProj * v0`) evaluates easily but binds no pixel shader and emits
+no model position, so it yields position evidence without material evidence.
+Per-family admission is a treadmill at 23 families; a generic path needs a
+documented transform contract and a way to validate it without a per-program
+oracle. Evidence in [the material contract](docs/MATERIAL_PS2X_CONTRACT.md).
 
 **Q10 — How should the project free disk space, and what may be deleted?**
 Raised 2026-09-24 because P: is 100% full and that breaks every test that writes

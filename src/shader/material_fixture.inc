@@ -3,14 +3,14 @@
 #include "surface_fixture.inc"
 void MaterialFixture(bool paired=false){
     using namespace rrt::shader::position;
-    std::string hex,pixelHex;std::getline(std::cin,hex);Need(hex.size()==1224,"material shader input");if(paired){std::getline(std::cin,pixelHex);Need(pixelHex.size()==3584,"paired pixel input");}char trailing;Need(!std::cin.get(trailing),"material trailing input");
+    std::string hex,pixelHex;std::getline(std::cin,hex);Need(hex.size()==1224,"material shader input");if(paired){std::getline(std::cin,pixelHex);Need(pixelHex.size()==3584||pixelHex.size()==3824,"paired pixel input");}char trailing;Need(!std::cin.get(trailing),"material trailing input");
     std::array<DWORD,153> code{};auto bytes=reinterpret_cast<unsigned char*>(code.data());
     auto digit=[](char c){Need((c>='0'&&c<='9')||(c>='a'&&c<='f'),"material hex");return c<='9'?c-'0':c-'a'+10;};
     for(unsigned i=0;i<612;++i)bytes[i]=static_cast<unsigned char>(digit(hex[i*2])*16+digit(hex[i*2+1]));Admit({bytes,612});
     Device source(true);auto d=source.device.Get();ComPtr<IDirect3DVertexShader9> native,pass;
     Check(d->CreateVertexShader(code.data(),&native));
-    std::array<DWORD,448> pixelCode{};ComPtr<IDirect3DPixelShader9> pairedPixel;
-    if(paired){auto raw=reinterpret_cast<unsigned char*>(pixelCode.data());for(unsigned i=0;i<1792;++i)raw[i]=static_cast<unsigned char>(digit(pixelHex[i*2])*16+digit(pixelHex[i*2+1]));Check(d->CreatePixelShader(pixelCode.data(),&pairedPixel));}
+    std::array<DWORD,512> pixelCode{};ComPtr<IDirect3DPixelShader9> pairedPixel;
+    if(paired){auto raw=reinterpret_cast<unsigned char*>(pixelCode.data());for(std::size_t i=0;i<pixelHex.size()/2;++i)raw[i]=static_cast<unsigned char>(digit(pixelHex[i*2])*16+digit(pixelHex[i*2+1]));Check(d->CreatePixelShader(pixelCode.data(),&pairedPixel));}
     auto compile=[](const char* text,const char* profile){ComPtr<ID3DBlob> blob,error;Check(D3DCompile(text,strlen(text),nullptr,nullptr,nullptr,"main",profile,D3DCOMPILE_OPTIMIZATION_LEVEL3,0,&blob,&error));return blob;};
     auto vs=compile("struct V{float4 p:POSITION;float4 uv:TEXCOORD0;float4 col:COLOR0;float4 m:TEXCOORD4;float4 fog:COLOR1;};struct O{float4 p:POSITION;float2 u:TEXCOORD0;float2 v:TEXCOORD2;float4 col:COLOR0;float4 m:TEXCOORD4;float4 fog:COLOR1;};O main(V v){O o;o.p=v.p;o.u=v.uv.xy;o.v=v.uv.zw;o.col=v.col;o.m=v.m;o.fog=v.fog;return o;}","vs_2_0");
     Check(d->CreateVertexShader(static_cast<const DWORD*>(vs->GetBufferPointer()),&pass));
@@ -138,12 +138,18 @@ void MaterialFixture(bool paired=false){
         constexpr UINT regs[]={0,4,5,6,7,58,59,60};for(unsigned i=0;i<8;++i)Check(d->SetVertexShaderConstantF(regs[i],constants.rows[i].data(),1));Check(d->SetVertexShaderConstantF(12,extra[0].data(),1));Check(d->SetVertexShaderConstantF(16,extra[1].data(),1));
         if(std::wstring(mode)==L"stateblock"){ComPtr<IDirect3DStateBlock9> block;Check(d->CreateStateBlock(D3DSBT_ALL,&block));Check(block->Apply());}
         if(paired){
-            constexpr UINT registers[]={11,12,29,30};std::array<Vec,4> pc={Vec{.1f,.2f,.3f,.4f},Vec{.6f+.02f*variant,.8f,.7f,.9f},Vec{.2f,.3f,.4f,.5f},Vec{1,0,0,0}};
-            for(unsigned i=0;i<4;++i)if(!(i==3&&(std::wstring(mode)==L"missingps"||std::wstring(mode)==L"failedps")))Check(d->SetPixelShaderConstantF(registers[i],pc[i].data(),1));
+            // Row set follows the program: the 1912-byte one additionally reads the
+            // eye position in c10. Both are admitted by src/shader/pixel_material.inc.
+            const bool distance=pixelHex.size()==3824;
+            constexpr UINT nearRegisters[]={11,12,29,30};constexpr UINT distanceRegisters[]={10,11,12,29,30};
+            const UINT* registers=distance?distanceRegisters:nearRegisters;const unsigned count=distance?5:4;
+            std::array<Vec,5> pc={Vec{-6005.4f,-4891.f,374.1f,1},Vec{.1f,.2f,.3f,.4f},Vec{.6f+.02f*variant,.8f,.7f,.9f},Vec{.2f,.3f,.4f,.5f},Vec{1,0,0,0}};
+            const unsigned offset=distance?0:1;
+            for(unsigned i=0;i<count;++i)if(!(i+1==count&&(std::wstring(mode)==L"missingps"||std::wstring(mode)==L"failedps")))Check(d->SetPixelShaderConstantF(registers[i],pc[i+offset].data(),1));
             if(std::wstring(mode)==L"failedps"){std::array<Vec,1024> invalid{};Need(FAILED(d->SetPixelShaderConstantF(30,invalid[0].data(),1024)),"invalid PS constant write succeeded");}
             if(std::wstring(mode)==L"psstateblock"||std::wstring(mode)==L"psrefresh"){ComPtr<IDirect3DStateBlock9> block;Check(d->CreateStateBlock(D3DSBT_ALL,&block));Check(block->Apply());
                 for(unsigned i=0;i<8;++i)Check(d->SetVertexShaderConstantF(regs[i],constants.rows[i].data(),1));Check(d->SetVertexShaderConstantF(12,extra[0].data(),1));Check(d->SetVertexShaderConstantF(16,extra[1].data(),1));
-                if(std::wstring(mode)==L"psrefresh")for(unsigned i=0;i<4;++i)Check(d->SetPixelShaderConstantF(registers[i],pc[i].data(),1));}
+                if(std::wstring(mode)==L"psrefresh")for(unsigned i=0;i<count;++i)Check(d->SetPixelShaderConstantF(registers[i],pc[i+offset].data(),1));}
             textures[0]->SetLOD(variant%2);
             for(UINT slot=0;slot<2;++slot){Check(d->SetTexture(slot,textures[(slot+variant)%2].Get()));Check(d->SetSamplerState(slot,D3DSAMP_ADDRESSU,variant%2?D3DTADDRESS_CLAMP:D3DTADDRESS_WRAP));Check(d->SetSamplerState(slot,D3DSAMP_ADDRESSV,D3DTADDRESS_CLAMP));Check(d->SetSamplerState(slot,D3DSAMP_MINFILTER,D3DTEXF_LINEAR));Check(d->SetSamplerState(slot,D3DSAMP_MAGFILTER,D3DTEXF_LINEAR));Check(d->SetSamplerState(slot,D3DSAMP_MIPFILTER,D3DTEXF_POINT));Check(d->SetSamplerState(slot,D3DSAMP_SRGBTEXTURE,variant%2));}
             if(std::wstring(mode)==L"nulltexture")Check(d->SetTexture(1,nullptr));

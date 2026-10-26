@@ -25,12 +25,22 @@ void PixelReplayFixture(){
     Need(width&&height&&width<=8192&&height<=8192&&std::uint64_t(width)*height<=8000000,"pixel target budget");
     Need(viewport.Width&&viewport.Height&&std::uint64_t(viewport.X)+viewport.Width<=width&&std::uint64_t(viewport.Y)+viewport.Height<=height&&
         std::isfinite(viewport.MinZ)&&std::isfinite(viewport.MaxZ)&&viewport.MinZ>=0&&viewport.MinZ<=viewport.MaxZ&&viewport.MaxZ<=1,"pixel viewport bounds");
-    auto vs=hex(612),ps=hex(1792),vc=hex(128),extraBytes=hex(32),pc=hex(64),vertices=hex(1024*3*48);Admit(vs);
-    Need(ps.size()==1792&&vc.size()==128&&extraBytes.size()==32&&pc.size()==64&&!vertices.empty()&&vertices.size()%144==0,"pixel input shape");
-    constexpr scene::Hash expected={0xad,0x23,0x0b,0xcd,0xf0,0x5a,0xbd,0xbb,0x55,0x84,0x51,0x94,0x3e,0x3d,0xcc,0x7c,0x4e,0x99,0x95,0xb2,0x89,0x05,0xd8,0x7e,0xa3,0xc3,0x9d,0x1b,0x29,0xd7,0x6a,0x11};
-    Need(scene::Digest(ps.data(),ps.size())==expected,"pixel program not admitted");
+    auto vs=hex(612),ps=hex(2048),vc=hex(128),extraBytes=hex(32),pc=hex(96),vertices=hex(1024*3*48);Admit(vs);
+    // Admitted programs, mirroring src/shader/pixel_material.inc. The constant row
+    // count follows the program, so the input shape is derived rather than fixed.
+    struct PixelProgram{UINT bytes;unsigned rows;const char* digest;};
+    constexpr PixelProgram programs[]={
+        {1792,4,"ad230bcdf05abdbb558451943e3dcc7c4e9995b28905d87ea3c39d1b29d76a11"},
+        {1912,5,"dbca89ccb0e1d72bae02fb44cef4b80a6088cec6d163f0d4fe3dbf8661b199b0"}};
+    constexpr UINT programRows[][5]={{11,12,29,30,0},{10,11,12,29,30}};
+    const PixelProgram* program=nullptr;unsigned programIndex=0;
+    for(unsigned i=0;i<2;++i)if(programs[i].bytes==ps.size()){program=&programs[i];programIndex=i;}
+    Need(program&&vc.size()==128&&extraBytes.size()==32&&std::size_t(pc.size())==program->rows*16&&!vertices.empty()&&vertices.size()%144==0,"pixel input shape");
+    auto toHex=[](const scene::Hash& hash){std::string s;const char* h="0123456789abcdef";for(auto b:hash){s+=h[b>>4];s+=h[b&15];}return s;};
+    Need(toHex(scene::Digest(ps.data(),ps.size()))==program->digest,"pixel program not admitted");
     Constants constants{};constants.known.fill(true);memcpy(constants.rows.data(),vc.data(),128);std::array<Vec,2> extra{};memcpy(extra.data(),extraBytes.data(),32);
-    std::array<Vec,4> pixelConstants{};memcpy(pixelConstants.data(),pc.data(),64);for(auto r:pixelConstants)for(float v:r)Need(std::isfinite(v),"pixel constant nonfinite");
+    std::array<Vec,5> pixelConstants{};memcpy(pixelConstants.data(),pc.data(),program->rows*16);
+    for(unsigned i=0;i<program->rows;++i)for(float v:pixelConstants[i])Need(std::isfinite(v),"pixel constant nonfinite");
     for(std::size_t i=0;i<vertices.size();i+=48){std::array<float,3> p{};std::array<float,4> uv{};DWORD color{};memcpy(p.data(),vertices.data()+i,12);memcpy(&color,vertices.data()+i+24,4);memcpy(uv.data(),vertices.data()+i+28,16);EvaluateMaterial(p,uv,color,constants,extra);}
     struct Texture{DWORD width{},height{},format{},levels{},lod{};std::array<DWORD,13> states{};std::vector<std::vector<std::uint8_t>> mips;};
     std::array<Texture,2> textures;
@@ -49,10 +59,14 @@ void PixelReplayFixture(){
     char trailing;Need(!std::cin.get(trailing),"pixel trailing input");
     wchar_t control[64]{};GetEnvironmentVariableW(L"RRT_PIXEL_REPLAY_CONTROL",control,64);std::wstring mode=control;
     Device source(true);auto d=source.device.Get();std::array<ComPtr<IDirect3DTexture9>,2> nativeTextures;ComPtr<IDirect3DVertexShader9> vertex;ComPtr<IDirect3DPixelShader9> original,reconstructed;
-    std::array<DWORD,153> vsCode{};memcpy(vsCode.data(),vs.data(),612);std::array<DWORD,448> psCode{};memcpy(psCode.data(),ps.data(),1792);
+    std::array<DWORD,153> vsCode{};memcpy(vsCode.data(),vs.data(),612);    std::array<DWORD,512> psCode{};memcpy(psCode.data(),ps.data(),ps.size());
     Check(d->CreateVertexShader(vsCode.data(),&vertex));Check(d->CreatePixelShader(psCode.data(),&original));
     D3D_SHADER_MACRO oneSample[]={{"RRT_ONE_SAMPLE","1"},{nullptr,nullptr}};
-    ComPtr<ID3DBlob> compiled,error;auto hr=D3DCompile(ReconstructedPixel,strlen(ReconstructedPixel),nullptr,mode==L"one_sample"?oneSample:nullptr,nullptr,"main","ps_2_b",D3DCOMPILE_OPTIMIZATION_LEVEL3|D3DCOMPILE_IEEE_STRICTNESS,0,&compiled,&error);
+    D3D_SHADER_MACRO distanceFog[]={{"RRT_DISTANCE_FOG","1"},{nullptr,nullptr}};
+    D3D_SHADER_MACRO distanceOneSample[]={{"RRT_ONE_SAMPLE","1"},{"RRT_DISTANCE_FOG","1"},{nullptr,nullptr}};
+    D3D_SHADER_MACRO* macros=programIndex?mode==L"one_sample"?distanceOneSample:distanceFog
+                                       :mode==L"one_sample"?oneSample:nullptr;
+    ComPtr<ID3DBlob> compiled,error;auto hr=D3DCompile(ReconstructedPixel,strlen(ReconstructedPixel),nullptr,macros,nullptr,"main","ps_2_b",D3DCOMPILE_OPTIMIZATION_LEVEL3|D3DCOMPILE_IEEE_STRICTNESS,0,&compiled,&error);
     if(FAILED(hr)&&error)std::cerr<<static_cast<const char*>(error->GetBufferPointer());Check(hr);Check(d->CreatePixelShader(static_cast<const DWORD*>(compiled->GetBufferPointer()),&reconstructed));
     for(UINT slot=0;slot<2;++slot){auto& t=textures[slot];auto& texture=nativeTextures[slot];Check(d->CreateTexture(t.width,t.height,t.levels,0,static_cast<D3DFORMAT>(t.format),D3DPOOL_MANAGED,&texture,nullptr));
         Need(texture->GetLevelCount()==t.levels,"pixel native mip count");for(UINT level=0;level<t.levels;++level){auto layout=PixelLayout((std::max)(DWORD(1),t.width>>level),(std::max)(DWORD(1),t.height>>level),t.format);
@@ -65,7 +79,7 @@ void PixelReplayFixture(){
     D3DVERTEXELEMENT9 layout[]={{0,0,D3DDECLTYPE_FLOAT3,0,D3DDECLUSAGE_POSITION,0},{0,24,D3DDECLTYPE_D3DCOLOR,0,D3DDECLUSAGE_COLOR,0},{0,28,D3DDECLTYPE_FLOAT2,0,D3DDECLUSAGE_TEXCOORD,0},{0,36,D3DDECLTYPE_FLOAT2,0,D3DDECLUSAGE_TEXCOORD,1},D3DDECL_END()};
     ComPtr<IDirect3DVertexDeclaration9> decl;Check(d->CreateVertexDeclaration(layout,&decl));Check(d->SetVertexDeclaration(decl.Get()));Check(d->SetVertexShader(vertex.Get()));
     constexpr UINT rows[]={0,4,5,6,7,58,59,60};for(unsigned i=0;i<8;++i)Check(d->SetVertexShaderConstantF(rows[i],constants.rows[i].data(),1));Check(d->SetVertexShaderConstantF(12,extra[0].data(),1));Check(d->SetVertexShaderConstantF(16,extra[1].data(),1));
-    constexpr UINT prows[]={11,12,29,30};for(unsigned i=0;i<4;++i)Check(d->SetPixelShaderConstantF(prows[i],pixelConstants[i].data(),1));
+    for(unsigned i=0;i<program->rows;++i)Check(d->SetPixelShaderConstantF(programRows[programIndex][i],pixelConstants[i].data(),1));
     ComPtr<IDirect3DSurface9> target,read;Check(d->CreateRenderTarget(width,height,D3DFMT_A32B32G32R32F,D3DMULTISAMPLE_NONE,0,FALSE,&target,nullptr));Check(d->CreateOffscreenPlainSurface(width,height,D3DFMT_A32B32G32R32F,D3DPOOL_SYSTEMMEM,&read,nullptr));
     Check(d->SetRenderTarget(0,target.Get()));Check(d->SetDepthStencilSurface(nullptr));Configure(d);for(auto [s,v]:ColorExtraStates)Check(d->SetRenderState(s,v));
     Check(d->SetRenderState(D3DRS_DEPTHBIAS,0));Check(d->SetRenderState(D3DRS_SLOPESCALEDEPTHBIAS,0));Check(d->SetNPatchMode(0));

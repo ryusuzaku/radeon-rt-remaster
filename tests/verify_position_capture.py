@@ -13,7 +13,7 @@ from inspect_shader_inventory import inspect as inventory
 from inspect_position_capture import inspect,DIGEST
 from capture_position_scene import Capture
 from position_scene import Scene
-p=argparse.ArgumentParser();p.add_argument('--fixture',type=Path,required=True);p.add_argument('--proxy',type=Path,required=True);p.add_argument('--inventory',type=Path,required=True);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--fixture',type=Path,required=True);p.add_argument('--proxy',type=Path,required=True);p.add_argument('--inventory',type=Path,required=True);p.add_argument('--pixel-inventory',type=Path,help='inventory holding the second admitted pixel program');a=p.parse_args()
 inventory(a.inventory);code=None
 with a.inventory.open(encoding='utf-8') as stream:
     for _ in range(4098):
@@ -482,6 +482,7 @@ source,_=run('material-no-color',{'RRT_POSITION_MATERIAL_INPUTS':'1'});assert no
 # Exact paired PS with two initialized fixture textures. This compares vertex
 # paths under the same native PS, not an independently reconstructed PS.
 from position_pixel_material import DIGEST as PIXEL_DIGEST
+from position_pixel_material import validate as validate_pixel_material
 pixel_code=None
 with a.inventory.open(encoding='utf-8') as stream:
     for line in stream:
@@ -530,6 +531,42 @@ for case in ('valid','psrefresh','missingps','failedps','psstateblock','nulltext
         except ValueError:pass
         else:raise AssertionError(('invalid pixel material admitted',mutation))
 source,_=run('pixel-no-material',{'RRT_POSITION_PIXEL_MATERIAL':'1'});assert not source.exists()
+# The second admitted program differs in the fog input and reads one more constant
+# row (c10, the eye position). Driving the proxy with its real bytes is the only
+# way to prove the admission branch itself, as opposed to the fixture that replays it.
+CANDIDATE_DIGEST='dbca89ccb0e1d72bae02fb44cef4b80a6088cec6d163f0d4fe3dbf8661b199b0'
+candidate_code=None
+if a.pixel_inventory and a.pixel_inventory.is_file():
+    with a.pixel_inventory.open(encoding='utf-8') as stream:
+        for line in stream:
+            row=json.loads(line);ps=row.get('ps')
+            if type(ps) is str and hashlib.sha256(bytes.fromhex(ps)).hexdigest()==CANDIDATE_DIGEST:candidate_code=ps;break
+    assert candidate_code,('second-program inventory lacks the candidate program',a.pixel_inventory)
+elif a.pixel_inventory:
+    print('pixel variant: skipped, no second-program inventory at',a.pixel_inventory)
+if candidate_code:
+    source=root/'pixel-variant.jsonl'
+    env=dict(clean,**pixel_env,RRT_FIXTURE_PROXY=str(a.proxy),RRT_POSITION_CAPTURE_FILE=str(source),RRT_MATERIAL_FIXTURE_CASE='valid')
+    native=subprocess.run([str(a.fixture),'--pixel-material'],input=code+'\n'+candidate_code+'\n',env=env,capture_output=True,text=True,timeout=60)
+    assert native.returncode==0,('pixel-variant',native.stdout,native.stderr)
+    result=json.loads(native.stdout);assert result['status']=='matched' and result['probes']==24,result
+    report=inspect(source,include_records=True);assert report['version']==12
+    records=report['records'];assert len(records)==16 and report['completion']=='capture_limit',report['rejections']
+    variant=records[0]['pixel_material']
+    assert variant['rows']==[10,11,12,29,30],variant['rows']
+    assert len(variant['constants'])==160,variant['constants']
+    # Eye position first, then the four rows the older program also reads. The eye
+    # coordinate is ~6000, so the comparison is relative: 1e-6 absolute is below
+    # float32 resolution at that magnitude.
+    expected=[-6005.4,-4891,374.1,1,.1,.2,.3,.4,.6,.8,.7,.9,.2,.3,.4,.5,1,0,0,0]
+    observed=struct.unpack('<20f',bytes.fromhex(variant['constants']))
+    assert all(abs(x-y)<=1e-6*max(1,abs(y)) for x,y in zip(observed,expected)),observed
+    validate_pixel_material(records[0])
+    # A payload that under-declares its rows must be refused, not reinterpreted.
+    changed=copy.deepcopy(records[0]);changed['pixel_material']['rows']=[11,12,29,30]
+    try:validate_pixel_material(changed)
+    except ValueError:pass
+    else:raise AssertionError('five-row payload accepted with four declared rows')
 # V13 contains actual initialized mip snapshots; native PS execution still uses
 # the original textures, allowing capture transparency checks without replay claims.
 texture_env=dict(pixel_env,RRT_POSITION_TEXTURE_INPUTS='1')

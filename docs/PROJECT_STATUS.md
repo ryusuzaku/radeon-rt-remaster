@@ -106,12 +106,14 @@ the inventory stores full program bytes, and the dominant rejected program is a
 1912-byte `ps_2_x` (`dbca89cc…`, 189 draws) whose only behavioural difference from
 the admitted program is that it derives fog from `length(t4.xyz - c10.xyz)` instead
 of an interpolant. The contract, the evidence and the five implementation steps are
-in [the recovered contract](MATERIAL_PS2X_CONTRACT.md). Nothing about it is
-implemented yet, and admitting it moves the rejection population rather than
-clearing it — 63 sampled unsupported vertex shaders sit behind it. Selection still
-uses `any:3` to observe actual targets rather than assuming a configured
-resolution; [game-sized material comparison](GAME_SIZED_MATERIAL_COMPARISON.md)
-describes what the comparator supports.
+in [the recovered contract](MATERIAL_PS2X_CONTRACT.md). It is now implemented: two
+programs admitted, a self-describing five-row payload, and a measured reconstruction
+at 2.9e-7. That unlocks 189 of 2,734 inventoried draws — **93.1% are refused by the
+vertex program instead**, which is a skinning problem, not a digest problem, and the
+next decision rather than the next task. Selection still uses `any:3` to observe
+actual targets rather than assuming a configured resolution; [game-sized material
+comparison](GAME_SIZED_MATERIAL_COMPARISON.md) describes what the comparator
+supports.
 
 Renderer work does not depend on that evidence and is where the last change
 landed: the internal render grid is now decoupled from the captured extent.
@@ -122,7 +124,7 @@ keeps the C++ and Python descriptions in agreement, so adding v20 no longer mean
 editing an unreadable ternary. See [the codebase map](../CODEBASE_MAP.md) for the
 architecture, the debt register and the delivery plan.
 
-Build/contract CI is in place. All 13 qualification tests that depend on private
+Build/contract CI is in place. All 14 qualification tests that depend on private
 game evidence now stay visible on clean checkouts as explicit CTest skips, with
 missing paths and configuration guidance. A GPU-free contract verifies their
 registration and missing/restored/invalid evidence behavior. See
