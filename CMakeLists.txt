@@ -292,7 +292,12 @@ set_tests_properties(shader_disassembly PROPERTIES TIMEOUT 120)
 set(RRT_HL2_POSITION_INVENTORY "${CMAKE_CURRENT_SOURCE_DIR}/build/game-passes/hl2-inventory-20260907/runs/inventory/shader-inventory.jsonl" CACHE FILEPATH "Local HL2 inventory for exact-program position oracle")
 rrt_add_evidence_test(hl2_position RRT_HL2_POSITION_INVENTORY ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_hl2_position.py --fixture $<TARGET_FILE:rrt_shader_fixture> --inventory "${RRT_HL2_POSITION_INVENTORY}")
 set_tests_properties(hl2_position PROPERTIES TIMEOUT 120)
-rrt_add_evidence_test(position_capture RRT_HL2_POSITION_INVENTORY ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_position_capture.py --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy> --inventory "${RRT_HL2_POSITION_INVENTORY}")
+# The second admitted pixel program is captured game bytecode: it lives only in the
+# local inventory, never in the repository. The capture supplies a real draw whose
+# accepted-program reconstruction clears the gate; the test skips without both.
+set(RRT_HL2_PIXEL_INVENTORY "${CMAKE_CURRENT_SOURCE_DIR}/build/game-passes/hl2-shadow256-v19-20261014/runs/material256-v2/shader-inventory.jsonl" CACHE FILEPATH "Local HL2 inventory holding the second admitted pixel program")
+set(RRT_HL2_PIXEL_CAPTURE "${CMAKE_CURRENT_SOURCE_DIR}/build/game-passes/hl2-attrib-v19d-20260916/runs/material4/position-capture.jsonl" CACHE FILEPATH "Local paired pixel-material capture for the program-variant comparison")
+rrt_add_evidence_test(position_capture RRT_HL2_POSITION_INVENTORY ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_position_capture.py --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy> --inventory "${RRT_HL2_POSITION_INVENTORY}" --pixel-inventory "${RRT_HL2_PIXEL_INVENTORY}")
 set_tests_properties(position_capture PROPERTIES TIMEOUT 180)
 foreach(texture_kind compressed upload dirty surface locks scope selection)
 rrt_add_evidence_test(texture_${texture_kind} RRT_HL2_POSITION_INVENTORY ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_texture_paths.py --kind ${texture_kind} --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy> --inventory "${RRT_HL2_POSITION_INVENTORY}")
@@ -302,6 +307,8 @@ rrt_add_evidence_test(texture_${texture_kind} RRT_HL2_POSITION_INVENTORY ${Pytho
 set_tests_properties(texture_${texture_kind} PROPERTIES TIMEOUT 300 RESOURCE_LOCK native_texture_fixture)
 endforeach()
 set_tests_properties(position_capture PROPERTIES RESOURCE_LOCK native_texture_fixture)
+rrt_add_evidence_test(pixel_program_variants RRT_HL2_PIXEL_INVENTORY ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_pixel_program_variants.py --fixture $<TARGET_FILE:rrt_shader_fixture> --inventory "${RRT_HL2_PIXEL_INVENTORY}" --capture "${RRT_HL2_PIXEL_CAPTURE}")
+set_tests_properties(pixel_program_variants PROPERTIES TIMEOUT 300 RESOURCE_LOCK native_texture_fixture)
 set(RRT_HL2_POSITION_CAPTURE "${CMAKE_CURRENT_SOURCE_DIR}/build/game-passes/hl2-combined-20260907/runs/combined/position-capture.jsonl" CACHE FILEPATH "Local real HL2 position capture for raster verification")
 rrt_add_evidence_test(recorded_position_oracle RRT_HL2_POSITION_CAPTURE ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_recorded_position_oracle.py --fixture $<TARGET_FILE:rrt_shader_fixture> --capture "${RRT_HL2_POSITION_CAPTURE}")
 set_tests_properties(recorded_position_oracle PROPERTIES TIMEOUT 180)

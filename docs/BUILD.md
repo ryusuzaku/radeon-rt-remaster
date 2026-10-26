@@ -68,7 +68,7 @@ adapters; they do not silently use a software renderer. Standard D3D12
 debug-layer validation is enabled when the Windows Graphics Tools component is
 installed.
 
-All 13 local-evidence tests stay registered in the x86 build, including
+All 14 local-evidence tests stay registered in the x86 build, including
 `texture_*`, `position_capture` and the recorded-position suites. They carry the
 `local_evidence` label. When a required file is unavailable, CTest lists the test
 as **Skipped**, and verbose output names the path and the CMake variable to set.
@@ -81,13 +81,14 @@ ctest --test-dir build/x86-vs -C Release -L local_evidence -V
 cmake --preset windows-x86 "-DRRT_HL2_POSITION_INVENTORY=P:/owned-pass/shader-inventory.jsonl" "-DRRT_HL2_POSITION_CAPTURE=P:/owned-pass/position-capture.jsonl" "-DRRT_HL2_GROUP_CAPTURE=P:/owned-multidraw/position-capture.jsonl"
 ```
 
-The inventory enables nine tests, the position capture three, and the grouped
-capture one. These need the pinned HL2 programs/recording shapes described in
+The inventory enables nine tests, the position capture three, the grouped capture
+one, and the second-program comparison one (it also needs a paired pixel-material
+capture; it skips without either). These need the pinned HL2 programs/recording shapes described in
 [the position contract](HL2_POSITION_CONTRACT.md) and
 [grouped replay](HL2_GROUPED_POSITION_REPLAY.md); arbitrary JSONL is not a substitute.
 Obtain the files from your owned local pass or a private backup. Game artifacts
 remain excluded from the public repository; retention storage is still undecided.
-The GPU-free `evidence_registration` contract checks registration of all 13 tests
+The GPU-free `evidence_registration` contract checks registration of all 14 tests
 and real CTest missing/restored/invalid evidence transitions, including paths with
 spaces and preservation of child exit codes. CI runs this contract.
 

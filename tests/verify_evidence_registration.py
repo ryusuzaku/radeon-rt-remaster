@@ -27,7 +27,8 @@ def main():
         metadata = json.loads(run([args.ctest, '--test-dir', str(args.test_dir),
                                    '-C', args.config, '-L', 'local_evidence', '--show-only=json-v1']))
         expected = {'hl2_position', 'position_capture', 'recorded_position_oracle',
-                    'position_reconstruction', 'capture_position_scene', 'position_groups'}
+                    'position_reconstruction', 'capture_position_scene', 'position_groups',
+                    'pixel_program_variants'}
         expected.update(f'texture_{kind}' for kind in
                         ('compressed', 'upload', 'dirty', 'surface', 'locks', 'scope', 'selection'))
         assert {test['name'] for test in metadata['tests']} == expected, metadata
