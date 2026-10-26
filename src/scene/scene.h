@@ -7,7 +7,7 @@
 #include <vector>
 
 namespace rrt::scene {
-constexpr std::uint32_t Version=1;
+constexpr std::uint32_t Version=2;
 constexpr std::size_t MaxBytes=64*1024*1024, MaxResourceBytes=16*1024*1024;
 constexpr std::uint32_t MaxDraws=4096, MaxVertices=500000;
 constexpr DWORD Fvf=D3DFVF_XYZ|D3DFVF_DIFFUSE|D3DFVF_TEX1;
@@ -31,6 +31,20 @@ inline constexpr D3DSAMPLERSTATETYPE SamplerStates[]={
     D3DSAMP_MAXMIPLEVEL,D3DSAMP_MAXANISOTROPY,D3DSAMP_SRGBTEXTURE,D3DSAMP_ELEMENTINDEX,
     D3DSAMP_DMAPOFFSET};
 using Hash=std::array<std::uint8_t,32>;
+// The v2 header carries the scene's coordinate contract instead of leaving it
+// implicit. The enumerations are append-only: their numeric values are part of
+// the file format and tools/scene_io.py mirrors this order.
+enum class Units : std::uint32_t { Unitless=0, Metre, Centimetre, Millimetre, Inch, Foot };
+enum class UpAxis : std::uint32_t { PlusX=0, MinusX, PlusY, MinusY, PlusZ, MinusZ };
+enum class Handedness : std::uint32_t { Left=0, Right };
+struct SceneMetadata {
+    // v1 captures have no block; these are the documented v1 interpretation.
+    Units units{Units::Unitless};
+    float scale{1.0f};
+    UpAxis upAxis{UpAxis::PlusY};
+    Handedness handedness{Handedness::Left};
+};
+static_assert(sizeof(SceneMetadata)==16);
 struct Vertex { float x,y,z; std::uint32_t color; float u,v; };
 static_assert(sizeof(Vertex)==24);
 struct State {
@@ -60,6 +74,7 @@ struct Draw {
 struct Scene {
     std::uint32_t frame{},width{},height{},clearColor{},attempted{};
     bool cleared{};
+    SceneMetadata metadata{};
     std::vector<Draw> draws;
     std::vector<Rejection> rejected;
 };

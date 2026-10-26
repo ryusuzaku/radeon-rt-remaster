@@ -78,6 +78,7 @@ enum class CaptureLevel : int {
     DirtyTextures     = 17,
     SurfaceUploads    = 18,
     SurfaceLocks      = 19,
+    SceneMetadata     = 20,  // header declares units, scale, up-axis and handedness
 };
 struct Context {
     std::unordered_map<std::string,unsigned> selectionRejections,shaderRejections;
@@ -94,7 +95,7 @@ struct Context {
     bool clearEvidence{};
     bool writeEvidence{},writeGap{},overlap{};unsigned inFlight{};
     bool surfaceScope{},accessGap{};std::unordered_map<std::uint64_t,int> accesses;
-    bool colorReplay{},materialInputs{},pixelMaterial{},textureInputs{},externalTextures{},compressedTextures{},textureUploads{},dirtyTextures{},surfaceUploads{},surfaceLocks{};std::uint64_t textureEpoch{};
+    bool colorReplay{},materialInputs{},pixelMaterial{},textureInputs{},externalTextures{},compressedTextures{},textureUploads{},dirtyTextures{},surfaceUploads{},surfaceLocks{},sceneMetadata{};std::uint64_t textureEpoch{};
     std::uint64_t assetBytes{};UINT assetFileCount{};std::unordered_map<std::string,std::size_t> assetFiles;
     std::uint64_t writeSerial{};std::array<WriteEvent,64> writes{};
     UINT CaptureLimit() const{return multiDraw?16:4;}
@@ -105,6 +106,7 @@ struct Context {
     CaptureLevel Level() const{
         struct Entry{bool enabled;CaptureLevel level;};
         const Entry entries[]={
+            {sceneMetadata,CaptureLevel::SceneMetadata},
             {surfaceLocks,CaptureLevel::SurfaceLocks},
             {surfaceUploads,CaptureLevel::SurfaceUploads},
             {dirtyTextures,CaptureLevel::DirtyTextures},
@@ -156,6 +158,7 @@ struct Context {
         n=GetEnvironmentVariableW(L"RRT_POSITION_DIRTY_TEXTURES",p,32768);if(n){if(n!=1||p[0]!=L'1'||!textureUploads){done=true;return;}dirtyTextures=true;}
         n=GetEnvironmentVariableW(L"RRT_POSITION_SURFACE_UPLOADS",p,32768);if(n){if(n!=1||p[0]!=L'1'||!dirtyTextures){done=true;return;}surfaceUploads=true;}
         n=GetEnvironmentVariableW(L"RRT_POSITION_SURFACE_LOCKS",p,32768);if(n){if(n!=1||p[0]!=L'1'||!surfaceUploads){done=true;return;}surfaceLocks=true;}
+        n=GetEnvironmentVariableW(L"RRT_POSITION_SCENE_METADATA",p,32768);if(n){if(n!=1||p[0]!=L'1'||!surfaceLocks){done=true;return;}sceneMetadata=true;}
         n=GetEnvironmentVariableW(L"RRT_POSITION_SHADOW_MIB",p,32768);if(n){
             if(!positionMode||n>=32768){done=true;return;}
             const std::wstring value(p);
@@ -176,6 +179,9 @@ struct Context {
             header="{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":"+std::to_string(static_cast<int>(Level()))+",\"session\":\""+session+"\",\"sampling\":\"bounded-per-present-interval\",\"limits\":{\"per_interval\":4,\"total\":16},\"selection\":"+selection+"}\n";}
         if(surfaceUploads)header.insert(header.size()-2,",\"selection_rejections\":\"first4-per-target-reason-up-to64-keys-plus-every64th-attempt\"");
         if(surfaceUploads)header.insert(header.size()-2,",\"shader_rejections\":\"first4-per-target-reason-up-to64-keys-plus-every64th-attempt\"");
+        // The proxy captures D3D9 fixed-function state, so the declared values
+        // are the D3D9 convention. They are recorded rather than inferred.
+        if(sceneMetadata)header.insert(header.size()-2,",\"scene\":{\"units\":\"unitless\",\"scale\":1.0,\"up_axis\":\"+Y\",\"handedness\":\"left\"}");
         if(!Line(header)){Stop("io_error");return false;}
         if(externalTextures&&!CreateDirectoryW((path+L".assets").c_str(),nullptr)){Stop("io_error");return false;}return !frameSampling||trigger.empty()||presents>0;}
 };

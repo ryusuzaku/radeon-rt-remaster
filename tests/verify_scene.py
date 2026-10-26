@@ -125,13 +125,15 @@ def main():
     def changed(name, offset, payload):
         data = bytearray(original[:-32]); data[offset:offset+len(payload)] = payload
         mutations[name] = bytes(data) + sha256(data).digest()
-    changed('version', 8, struct.pack('<I', 2))
+    changed('version', 8, struct.pack('<I', 3))
     changed('dimensions', 16, struct.pack('<I', 0xffffffff))
     changed('counts', 36, struct.pack('<I', 0xffffffff))
     changed('missing_draw', 28, struct.pack('<I', 5))
-    changed('vertex_count', 44+12, struct.pack('<I', 0xffffffff))
-    changed('asset_hash', 44+20, bytes(32))
-    changed('nan_transform', 44+116, struct.pack('<f', float('nan')))
+    changed('scene_units', 44, struct.pack('<I', 99))
+    changed('scene_scale', 48, struct.pack('<f', 0.0))
+    changed('vertex_count', 60+12, struct.pack('<I', 0xffffffff))
+    changed('asset_hash', 60+20, bytes(32))
+    changed('nan_transform', 60+116, struct.pack('<f', float('nan')))
     data = original[:-32] + b'extra'
     mutations['trailing'] = data + sha256(data).digest()
     for name, data in mutations.items():

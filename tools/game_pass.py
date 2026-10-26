@@ -180,6 +180,9 @@ CAPTURE_LEVELS = (
     dict(name='position_surface_locks', requires='position_surface_uploads',
          message='surface locks require surface uploads',
          help='observed managed/SYSTEMMEM texture-mip surface locks (v19; requires surface uploads)'),
+    dict(name='position_scene_metadata', requires='position_surface_locks',
+         message='scene metadata requires surface locks',
+         help='explicit units, scale, up-axis and handedness in the header (v20; requires surface locks)'),
 )
 
 
@@ -188,7 +191,7 @@ def capture_environment_name(level):
     return 'RRT_POSITION_' + level[len('position_'):].upper()
 
 
-def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64*1024*1024, scene_frame=None, note='', wait_trigger=False, shader_inventory=False, position_capture=False, position_frames=False, position_selection=None, position_multi_draw=False, position_render_state=False, position_clear_evidence=False, position_write_evidence=False, position_surface_scope=False, position_color_replay=False, position_material_inputs=False, position_pixel_material=False, position_texture_inputs=False, position_texture_assets=False, position_compressed_textures=False, position_texture_uploads=False, position_dirty_textures=False, position_surface_uploads=False, position_surface_locks=False, shadow_mib=128):
+def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64*1024*1024, scene_frame=None, note='', wait_trigger=False, shader_inventory=False, position_capture=False, position_frames=False, position_selection=None, position_multi_draw=False, position_render_state=False, position_clear_evidence=False, position_write_evidence=False, position_surface_scope=False, position_color_replay=False, position_material_inputs=False, position_pixel_material=False, position_texture_inputs=False, position_texture_assets=False, position_compressed_textures=False, position_texture_uploads=False, position_dirty_textures=False, position_surface_uploads=False, position_surface_locks=False, position_scene_metadata=False, shadow_mib=128):
     need(mode in ('baseline','proxy','disabled'), 'unknown pass mode')
     directory = Path(directory).resolve()
     plan = load_plan(directory)

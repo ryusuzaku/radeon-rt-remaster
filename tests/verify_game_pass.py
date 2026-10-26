@@ -53,6 +53,7 @@ def main():
     rejected(lambda: run_pass(bundle,'proxy',position_texture_uploads=True))
     rejected(lambda: run_pass(bundle,'proxy',position_dirty_textures=True))
     rejected(lambda: run_pass(bundle,'proxy',position_surface_uploads=True))
+    rejected(lambda: run_pass(bundle,'proxy',position_scene_metadata=True))
     for cap in (True,0,129,512,'256'):
         rejected(lambda: run_pass(bundle,'proxy',shadow_mib=cap))
     rejected(lambda: run_pass(bundle,'baseline',shadow_mib=256))

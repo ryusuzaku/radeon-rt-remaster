@@ -120,7 +120,8 @@ landed: the internal render grid is now decoupled from the captured extent.
 
 The capture-version ladder is now a named enum with a
 [machine-readable schema](schemas/capture-version.json) and a contract test that
-keeps the C++ and Python descriptions in agreement, so adding v20 no longer means
+keeps the C++ and Python descriptions in agreement, so adding a level — v20 now
+declares the scene's units, scale, up-axis and handedness — no longer means
 editing an unreadable ternary. See [the codebase map](../CODEBASE_MAP.md) for the
 architecture, the debt register and the delivery plan.
 

@@ -22,6 +22,7 @@ to be introduced unnoticed. Behaviour is covered separately -- the `texture_*`
 and `position_capture` suites assert specific emitted versions end to end.
 """
 import argparse
+import ast
 import json
 import re
 import sys
@@ -149,9 +150,94 @@ for (name, env), entry in zip(cli, levels):
 need(cli[0][1] == 'RRT_POSITION_MULTI_DRAW',
      'the CLI ladder must start at the multi-draw baseline')
 
+# --- the newest rung declares the scene metadata block ----------------------------
+# v20 adds one object to the header rather than evidence to a draw. The object is
+# described once in the schema and must be the same four fields the reader
+# validates; a level that names a header the reader does not check would be a
+# declaration of intent rather than a contract.
+newest = max(levels, key=lambda entry: entry['version'])
+need(newest['name'] == 'SceneMetadata',
+     f'the newest ladder level is {newest["name"]}, expected SceneMetadata')
+need(newest.get('header') == 'scene', 'the SceneMetadata level must name its header object')
+metadata_schema = schema.get('scene_metadata')
+need(metadata_schema, 'schema has no scene_metadata contract')
+need(newest.get('fields') == metadata_schema['fields'],
+     'the SceneMetadata level and the scene_metadata contract disagree on fields')
+for field in metadata_schema['fields']:
+    need(field in reader_source, f'the reader never mentions the scene field {field!r}')
+
+# --- the .rrscene header ladder ---------------------------------------------------
+# The binary scene capture has its own header version, recorded in the same schema
+# so that a v1 reader cannot quietly assume v2 fields (or the reverse). v1 is the
+# legacy header and stays readable with the documented defaults.
+scene_h_path = root / 'src' / 'scene' / 'scene.h'
+scene_cpp_path = root / 'src' / 'scene' / 'scene.cpp'
+scene_io_path = root / 'tools' / 'scene_io.py'
+for required in (scene_h_path, scene_cpp_path, scene_io_path):
+    need(required.is_file(), f'missing required file: {required}')
+scene_h = scene_h_path.read_text(encoding='utf-8')
+scene_cpp = scene_cpp_path.read_text(encoding='utf-8')
+scene_io = scene_io_path.read_text(encoding='utf-8')
+scene_headers = schema.get('scene_headers', [])
+need(scene_headers, 'schema has no scene_headers')
+scene_documented = {entry['version'] for entry in scene_headers}
+need(1 in scene_documented, 'the legacy scene header version 1 must stay documented')
+
+scene_version = re.search(r'constexpr\s+std::uint32_t\s+Version\s*=\s*(\d+)\s*;', scene_h)
+need(scene_version, 'src/scene/scene.h has no Version constant')
+need(int(scene_version.group(1)) == max(scene_documented),
+     f'scene.h writes v{scene_version.group(1)}, but the schema documents '
+     f'{sorted(scene_documented)}')
+
+scene_accepted_match = re.search(r'version\s+in\s+\(([\d,\s]+)\)', scene_io)
+need(scene_accepted_match, 'the accepted scene version set was not found in tools/scene_io.py')
+scene_accepted = {int(value) for value in scene_accepted_match.group(1).split(',') if value.strip()}
+need(scene_accepted == scene_documented,
+     f'scene reader and schema disagree: reader only {sorted(scene_accepted - scene_documented)}, '
+     f'schema only {sorted(scene_documented - scene_accepted)}')
+# The v1 path must not consume the v2 block: the reader branches on the version.
+need(re.search(r'if\s+version\s*>=\s*2\s*:', scene_io),
+     'tools/scene_io.py does not branch on the scene header version')
+need(re.search(r'version\s*>=\s*1\s*&&\s*version\s*<=\s*Version', scene_cpp),
+     'src/scene/scene.cpp does not accept every documented scene version')
+
+# The metadata names are format values, so the C++ enums, the Python tuples and
+# the schema have to agree in order as well as content.
+def cpp_enum(name):
+    body = re.search(rf'enum class {name}\s*:\s*std::uint32_t\s*\{{([^}}]*)\}}', scene_h)
+    need(body, f'enum class {name} not found in src/scene/scene.h')
+    return [item.strip().split('=')[0].strip() for item in body.group(1).split(',') if item.strip()]
+
+
+def python_tuple(name):
+    body = re.search(rf'^{name}\s*=\s*\(([^)]*)\)', scene_io, re.M)
+    need(body, f'{name} not found in tools/scene_io.py')
+    return list(ast.literal_eval('(' + body.group(1) + ')'))
+
+
+need([name.lower() for name in cpp_enum('Units')] == metadata_schema['units'],
+     'Units enum and the schema disagree')
+axes = {'PlusX': '+X', 'MinusX': '-X', 'PlusY': '+Y', 'MinusY': '-Y', 'PlusZ': '+Z', 'MinusZ': '-Z'}
+need([axes[name] for name in cpp_enum('UpAxis')] == metadata_schema['up_axis'],
+     'UpAxis enum and the schema disagree')
+need([name.lower() for name in cpp_enum('Handedness')] == metadata_schema['handedness'],
+     'Handedness enum and the schema disagree')
+need(python_tuple('UNITS') == metadata_schema['units'], 'UNITS and the schema disagree')
+need(python_tuple('UP_AXES') == metadata_schema['up_axis'], 'UP_AXES and the schema disagree')
+need(python_tuple('HANDEDNESS') == metadata_schema['handedness'], 'HANDEDNESS and the schema disagree')
+defaults = re.search(r'^DEFAULT_METADATA\s*=\s*(\{[^}]*\})', scene_io, re.M)
+need(defaults, 'DEFAULT_METADATA not found in tools/scene_io.py')
+need(ast.literal_eval(defaults.group(1)) == metadata_schema['defaults'],
+     'DEFAULT_METADATA and the schema disagree on the v1 interpretation')
+# The C++ defaults are the same stated values, not zero-initialised accidents.
+for token in ('Units::Unitless', 'UpAxis::PlusY', 'Handedness::Left', 'float scale{1.0f}'):
+    need(token in scene_h, f'src/scene/scene.h does not state the default {token}')
+
 print(f'PASS capture version contract: {len(enum)} ladder levels '
       f'({min(enum.values())}..{max(enum.values())}), '
       f'{len(schema.get("other_headers", []))} other headers, '
       f'{len(schema.get("legacy", []))} legacy, '
+      f'{len(scene_documented)} scene headers '
+      f'({min(scene_documented)}..{max(scene_documented)}), '
       f'reader accepts {len(accepted)} versions, '
       f'CLI ladder agrees on all {len(cli)}')

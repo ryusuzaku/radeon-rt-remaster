@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import struct
 import zlib
-from scene_io import load_scene, SceneError
+from scene_io import load_scene, SceneError, require, require_metadata, DEFAULT_METADATA
 
 
 def data_uri(kind, data):
@@ -29,12 +29,21 @@ def png(width, height, bgra):
 
 
 def export(scene):
+    metadata = scene.get('metadata', dict(DEFAULT_METADATA))
+    require_metadata(metadata)
+    # glTF is +Y up. The only handedness conversion implemented here is the
+    # D3D9 left-handed one; anything else must be refused rather than guessed.
+    require(metadata['up_axis'] == '+Y', 'glTF export requires +Y up, capture declares ' + metadata['up_axis'])
+    reflect = metadata['handedness'] == 'left'
+    scale = metadata['scale']
+    conversion = ('D3D left-handed to glTF right-handed: reflect Z and reverse winding'
+                  if reflect else 'Right-handed capture: no handedness conversion')
     binary = bytearray()
     gltf = dict(asset=dict(version='2.0', generator='RRT scene exporter v1'), scene=0,
         scenes=[dict(nodes=[])], nodes=[], meshes=[], materials=[], textures=[], images=[],
         samplers=[], buffers=[], bufferViews=[], accessors=[], extensionsUsed=['KHR_materials_unlit'],
         extras=dict(source_frame=scene['frame'], complete=scene['complete'], rejected=scene['rejected'],
-                    coordinate_conversion='D3D left-handed to glTF right-handed: reflect Z and reverse winding',
+                    metadata=metadata, coordinate_conversion=conversion,
                     fidelity='Geometry/texture interchange, not exact D3D9 raster equivalence. View/projection/scissor retained in node extras.'))
     textures, materials, meshes = {}, {}, {}
 
@@ -77,22 +86,28 @@ def export(scene):
             gltf['materials'].append(material)
         key = (draw['mesh_id'], draw['material_id'])
         if key not in meshes:
-            positions = [(v[0], v[1], -v[2]) for v in draw['vertices']]
+            positions = [(v[0], v[1], -v[2] if reflect else v[2]) for v in draw['vertices']]
             colors = [(((v[3] >> 16) & 255)/255, ((v[3] >> 8) & 255)/255, (v[3] & 255)/255, (v[3] >> 24)/255) for v in draw['vertices']]
             uv = [(v[4], v[5]) for v in draw['vertices']]
             indices = draw['indices']
-            reflected = [(indices[i+k],) for i in range(0, len(indices), 3) for k in (0, 2, 1)]
+            if reflect:
+                indices = [(indices[i+k],) for i in range(0, len(indices), 3) for k in (0, 2, 1)]
+            else:
+                indices = [(index,) for index in indices]
             attrs = dict(POSITION=accessor(positions, '3f', 'VEC3', 5126, 34962, True),
                          COLOR_0=accessor(colors, '4f', 'VEC4', 5126, 34962),
                          TEXCOORD_0=accessor(uv, '2f', 'VEC2', 5126, 34962))
-            primitive = dict(attributes=attrs, indices=accessor(reflected, 'I', 'SCALAR', 5125, 34963),
+            primitive = dict(attributes=attrs, indices=accessor(indices, 'I', 'SCALAR', 5125, 34963),
                              material=materials[draw['material_id']], mode=4)
             meshes[key] = len(gltf['meshes'])
             gltf['meshes'].append(dict(name=draw['mesh_id'], primitives=[primitive]))
         # Row-major D3D row-vector matrix becomes a column-major glTF matrix
-        # with the same flattened order. Apply S*M*S for the Z reflection.
-        sign = (1, 1, -1, 1)
-        matrix = [v * sign[i//4] * sign[i%4] for i, v in enumerate(draw['world'])]
+        # with the same flattened order. Apply S*M*S for the Z reflection, and
+        # scale the linear/translation columns (not the homogeneous column) by
+        # the declared scene scale.
+        sign = (1, 1, -1, 1) if reflect else (1, 1, 1, 1)
+        matrix = [v * sign[i//4] * sign[i%4] * (scale if i % 4 != 3 else 1)
+                  for i, v in enumerate(draw['world'])]
         node = dict(name=f"draw_{draw['ordinal']}", mesh=meshes[key], matrix=matrix,
                     extras=dict(source_draw=draw['ordinal'], d3d9_view=list(draw['view']),
                                 d3d9_projection=list(draw['projection']), viewport=list(draw['viewport']), scissor=list(draw['scissor'])))

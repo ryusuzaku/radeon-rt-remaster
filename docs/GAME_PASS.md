@@ -60,11 +60,11 @@ still apply. Scene asset capture is not supported in this mode. Before triggerin
 the file is empty; explicit finish produces a valid zero-event trace, but games
 that never explicitly finish may leave an empty file on exit.
 
-### Full material and texture evidence chain (v19)
+### Full material and texture evidence chain (v20)
 
 The texture/material chain is ordered and each step requires the previous one, so a
 full pass enables every flag from `--position-capture` through
-`--position-surface-locks`:
+`--position-scene-metadata`:
 
 ```powershell
 python tools/game_pass.py run build/game-passes/PASS --mode proxy --name material `
@@ -74,9 +74,17 @@ python tools/game_pass.py run build/game-passes/PASS --mode proxy --name materia
   --position-surface-scope --position-color-replay --position-material-inputs `
   --position-pixel-material --position-texture-inputs --position-texture-assets `
   --position-compressed-textures --position-texture-uploads `
-  --position-dirty-textures --position-surface-uploads --position-surface-locks
+  --position-dirty-textures --position-surface-uploads --position-surface-locks `
+  --position-scene-metadata
 python tools/game_pass.py trigger build/game-passes/PASS --name material
 ```
+
+`--position-scene-metadata` adds one object to the ledger header declaring the
+captured scene's units, uniform scale, up-axis and handedness (v20). It is
+additive and requires `--position-surface-locks`; without it the pass runs at v19
+and readers apply the documented defaults (unitless, scale 1.0, +Y up,
+left-handed). Those defaults are also what a v1–v19 ledger reports, so the older
+files keep their existing interpretation.
 
 Omit `--position-surface-locks` and the pass runs at v18: every mip-surface
 `LockRect`/`UnlockRect` on a tracked texture then invalidates the parent shadow, so
