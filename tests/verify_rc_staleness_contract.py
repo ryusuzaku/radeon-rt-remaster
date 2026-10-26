@@ -19,12 +19,14 @@ lighting/settings split would re-open silently. This test pins:
 
 It needs no built binary, no scene file and no provider DLL.
 """
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 
 from rc_staleness import (
+    MATERIAL_NONE_TAG,
     ACTION_CONTINUE,
     ACTION_RESET,
     HARD_GENERATIONS,
@@ -241,8 +243,33 @@ def never_continue_across_a_generation_change():
     # resets.
 
 
+def cpp_known_answers_match():
+    # src/dxr/rc_generation.h mirrors the derivation in C++ and checks known
+    # answers on the device. Compute the same answers here and require that the
+    # header carries exactly these numbers, so the two encodings cannot drift
+    # apart without this pure-Python check failing. Values are exactly
+    # representable in float32 so the C++ float -> double conversion is exact.
+    kat = {
+        'sun_direction': (-0.5, 0.5, -1.0), 'sun_radius': 0.25, 'light_colour': (1.0, 0.5, 0.25),
+        'intensity': 0.75, 'ambient': 0.125, 'shadows': 1,
+        'seed': 1, 'denoise': False, 'temporal': False, 'render_scale': 100, 'flags': 3,
+    }
+    expected = {
+        'lighting': lighting_generation(kat),
+        'settings': settings_generation(kat),
+        'scene': generation_from_digest(bytes(32)),
+        'material': generation_from_digest(MATERIAL_NONE_TAG),
+    }
+    header = (Path(__file__).resolve().parents[1] / 'src' / 'dxr' / 'rc_generation.h').read_text(encoding='utf-8')
+    for name, value in expected.items():
+        assert re.search(r'RC %s generation known answer mismatch' % name, header), name
+        assert re.search(r'==%du,"RC %s generation known answer mismatch"' % (value, name), header), (name, value)
+    assert MATERIAL_NONE_TAG.decode('ascii') in header
+
+
 def main():
     decision_table_row_by_row()
+    cpp_known_answers_match()
     derivation_determinism_and_split()
     tag_round_trip_and_saturation()
     metric_math()
