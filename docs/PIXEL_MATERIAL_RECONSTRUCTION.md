@@ -69,7 +69,9 @@ stateful constant-color replay rule is relaxed by this tool.
 Tests compare all16 captured fixture draws and four explicitly synthetic variants
 with higher-frequency128x64 lightmaps and varied address/filter/mip/LOD/sRGB,
 lighting, alpha and fog inputs. Negative controls alter fog, alpha, texels,
-addressing, sRGB, LOD, magnification and the four-sample lightmap filter. A single
+addressing, sRGB, LOD, the base minification and magnification filters (both are
+flipped, because the sampled path uses only one of them) and the four-sample
+lightmap filter. A single
 lightmap sample must visibly differ on the higher-frequency control. Malformed
 payloads are rejected. Reports are saved beside fixture ledgers as
 pixel-comparison.json and pixel-comparison-controls.json.
