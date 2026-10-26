@@ -88,6 +88,12 @@ jobs:
       - name: Mod validation
         run: python3.12 tests/test_mods.py
 
+      # The manifest schema, the validator and the workflow doc must state the
+      # same normal-map conventions, the same captured-D3D9 default and the same
+      # reserved auxiliary-texture slot.
+      - name: Mod schema contract
+        run: python3.12 tests/verify_mod_schema_contract.py
+
       - name: Evidence archive unit tests
         run: python3.12 tests/test_evidence_archive.py
 

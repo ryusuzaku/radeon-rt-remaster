@@ -109,7 +109,8 @@ class Mods(unittest.TestCase):
             bad = copy.deepcopy(original); bad[key] = value; cases.append(bad)
         for key, value in [('target', 'x'*64), ('kind', 'script'), ('sha256', '0'*64),
                            ('asset', '../escape.png'), ('asset', 'C:/secrets'), ('asset', 'https://x/a.png'),
-                           ('asset', '/absolute'), ('asset', 'dir\\file.png'), ('asset', 'missing.png')]:
+                           ('asset', '/absolute'), ('asset', 'dir\\file.png'), ('asset', 'missing.png'),
+                           ('convention', 'directx')]:
             bad = copy.deepcopy(original); bad['replacements'][0][key] = value; cases.append(bad)
         bad = copy.deepcopy(original); bad['replacements'] *= 2; cases.append(bad)
         for bad in cases:
@@ -120,6 +121,38 @@ class Mods(unittest.TestCase):
         for data in (b'{"version":1,"version":2}', b'{"n":NaN}', b'['*2000, b'\xff'):
             with self.assertRaises(SceneError):
                 strict_json(data)
+
+    def test_normal_convention_and_reserved_kind(self):
+        path = self.mod()
+        original = json.loads(path.read_text())
+        # An existing manifest carries no declaration and keeps its meaning: the
+        # documented default for captured D3D9 data.
+        self.assertEqual(load_mod(path)['replacements'][0]['normal_convention'], 'directx')
+        for value in ('directx', 'opengl', 'unspecified'):
+            good = copy.deepcopy(original); good['replacements'][0]['normal_convention'] = value
+            path.write_text(json.dumps(good))
+            self.assertEqual(load_mod(path)['replacements'][0]['normal_convention'], value)
+        for value in ('d3d_y_down', 'gl_y_up', 'DirectX', '', 1, True, None, ['directx']):
+            bad = copy.deepcopy(original); bad['replacements'][0]['normal_convention'] = value
+            path.write_text(json.dumps(bad))
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(SceneError, 'normal_convention'):
+                    load_mod(path)
+        bad = copy.deepcopy(original); bad['normal_convention'] = 'directx'
+        path.write_text(json.dumps(bad))
+        with self.assertRaisesRegex(SceneError, 'unknown fields'):
+            load_mod(path)
+        # The auxiliary texture slot is reserved and named, not implemented.
+        reserved = copy.deepcopy(original); reserved['replacements'][0]['kind'] = 'auxiliary_texture'
+        path.write_text(json.dumps(reserved))
+        with self.assertRaisesRegex(SceneError, 'reserved replacement kind'):
+            load_mod(path)
+        for kind in ('auxiliary', 'aux_texture', 'script'):
+            bad = copy.deepcopy(original); bad['replacements'][0]['kind'] = kind
+            path.write_text(json.dumps(bad))
+            with self.subTest(kind=kind):
+                with self.assertRaises(SceneError):
+                    load_mod(path)
 
     def test_symlink_escape(self):
         outside = self.root/'outside'; outside.mkdir(); (outside/'asset').write_bytes(b'x')

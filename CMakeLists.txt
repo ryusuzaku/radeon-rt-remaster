@@ -317,6 +317,11 @@ set_tests_properties(recorded_position_oracle PROPERTIES TIMEOUT 180)
 rrt_add_evidence_test(position_reconstruction RRT_HL2_POSITION_CAPTURE ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_position_reconstruction.py --capture "${RRT_HL2_POSITION_CAPTURE}")
 rrt_add_evidence_test(capture_position_scene RRT_HL2_POSITION_CAPTURE ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_capture_position_scene.py --capture "${RRT_HL2_POSITION_CAPTURE}")
 add_test(NAME mod_validation COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_mods.py)
+# The mod manifest's normal-map conventions, documented default and reserved
+# auxiliary-texture slot are stated in the schema, the validator and the
+# workflow doc; nothing else keeps the three in agreement.
+add_test(NAME mod_schema_contract COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_mod_schema_contract.py)
+set_tests_properties(mod_schema_contract PROPERTIES TIMEOUT 60)
 set(RRT_HL2_GROUP_CAPTURE "${CMAKE_CURRENT_SOURCE_DIR}/build/game-passes/hl2-multidraw-20260907/runs/multidraw/position-capture.jsonl" CACHE FILEPATH "Local multi-draw HL2 capture for grouped position replay")
 rrt_add_evidence_test(position_groups RRT_HL2_GROUP_CAPTURE ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_position_groups.py --capture "${RRT_HL2_GROUP_CAPTURE}" --fixture $<TARGET_FILE:rrt_shader_fixture>)
 set_tests_properties(position_groups PROPERTIES TIMEOUT 180)

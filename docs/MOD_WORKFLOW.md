@@ -114,6 +114,33 @@ game-object identity: an animated texture update has a different ID, while an
 unchanged static mesh survives resource recreation/Reset. Material IDs include
 the captured texture ID, so updated texture content can also change material IDs.
 
+### Normal-map convention and the auxiliary texture slot
+
+Each replacement entry accepts an optional `normal_convention` naming the
+normal-map convention of any normal data the payload carries:
+
+| Value | Meaning |
+|---|---|
+| `directx` | D3D convention: the green channel points down (Y-down). |
+| `opengl` | OpenGL convention: the green channel points up (Y-up). |
+| `unspecified` | Explicitly declares no convention. |
+
+The default is `directx`, the documented convention of captured D3D9 data: on a
+payload that carries no normal data — every payload in the current capture
+subset — an omitted `normal_convention` means `directx`. `unspecified` is an
+explicit declaration of no convention. It fails closed on any asset that needs
+a normal convention: a payload that carries normal data must declare `directx`
+or `opengl`, and neither `unspecified` nor an omitted field is accepted there.
+Nothing in the current capture subset carries normal data, so the field is
+reserved for the normal-map path and has no consumer yet.
+
+The `auxiliary_texture` replacement kind is reserved as the auxiliary texture
+slot: per-material auxiliary channels (masks, guides) attach there in a future
+manifest version. Entries with `kind: "auxiliary_texture"` fail validation
+until that version exists, so the next version bump has a stated slot rather
+than an argument. The same reservation is recorded in
+[mod-v1.schema.json](schemas/mod-v1.schema.json).
+
 ## Replacement payloads
 
 ### Texture: PNG
