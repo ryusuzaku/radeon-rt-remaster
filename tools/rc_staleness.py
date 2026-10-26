@@ -19,7 +19,8 @@ comes later; nothing here changes a byte of existing behaviour. Four pieces:
 2. The section 3 decision table as `decide()`: the action (`reset` or
    `continue`), the refused entries and the reason. A scene, lighting, material
    or settings generation change is always a hard reset. A camera-only change
-   resets by default and continues only when every composited entry has
+   always resets unless camera continuation is opted in, and then continues
+   only when every composited entry has
    `age <= max_age`. An unchanged identity continues, and an entry that was not
    refreshed in the current epoch (age above `max_age`) is refused either way.
 
@@ -170,7 +171,7 @@ class Decision(NamedTuple):
     reason: str
 
 
-def decide(old_generations, new_generations, entry_ages, max_age=0):
+def decide(old_generations, new_generations, entry_ages, max_age=0, camera_continuation=False):
     """Apply the section 3 decision table.
 
     Both generation mappings use the five names in GENERATIONS; a name absent
@@ -181,8 +182,10 @@ def decide(old_generations, new_generations, entry_ages, max_age=0):
     current epoch is refused.
 
     A change to scene, lighting, material or settings is a hard reset whatever
-    the ages are. A camera-only change resets by default and continues only
-    when every composited entry has age <= max_age. No change continues.
+    the ages are. A camera-only change always resets unless the caller opted
+    in with `camera_continuation=True` (the Stage 3 mode, default off); with
+    it, the session continues only when every composited entry has
+    age <= max_age. No change continues.
     """
     changed = [name for name in HARD_GENERATIONS
                if old_generations.get(name, 0) != new_generations.get(name, 0)]
@@ -191,9 +194,10 @@ def decide(old_generations, new_generations, entry_ages, max_age=0):
         return Decision(ACTION_RESET, refused,
                         '; '.join(ROW_REASONS[name] for name in changed))
     if old_generations.get('camera', 0) != new_generations.get('camera', 0):
-        # Camera-only: reset by default; the optional continue needs every
-        # composited entry within the age bound.
-        if refused:
+        # Camera-only: reset unless camera continuation is opted in, and then
+        # only with every composited entry within the age bound. Today's
+        # renderer resets here, so the default must not change that.
+        if refused or not camera_continuation:
             return Decision(ACTION_RESET, refused, ROW_REASONS['camera'])
         return Decision(ACTION_CONTINUE, refused, ROW_REASONS['camera'])
     return Decision(ACTION_CONTINUE, refused, ROW_REASONS['none'])

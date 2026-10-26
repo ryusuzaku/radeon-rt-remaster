@@ -102,19 +102,25 @@ def decision_table_row_by_row():
             assert result.action == ACTION_RESET, (name, entry_ages, max_age, result)
             assert result.reason == ROW_REASONS[name], (name, result.reason)
 
-    # Row 5: camera only. Reset by default; the optional continue exists only
-    # when every composited entry has age <= max_age.
+    # Row 5: camera only. Always reset by default, as the renderer does today,
+    # even when every entry is fresh; the optional continue exists only when
+    # opted in and every composited entry has age <= max_age.
     old = identity()
     new = identity(camera=old['camera'] + 1)
-    within = decide(old, new, [0, 0], max_age=0)
+    default = decide(old, new, [0, 0], max_age=0)
+    assert default.action == ACTION_RESET and default.refused == [], default
+    assert default.reason == camera_reason
+    default = decide(old, new, [1, 2], max_age=2)
+    assert default.action == ACTION_RESET and default.refused == [], default
+    within = decide(old, new, [0, 0], max_age=0, camera_continuation=True)
     assert within.action == ACTION_CONTINUE, within
     assert within.refused == [] and within.reason == camera_reason
-    within = decide(old, new, [1, 2], max_age=2)
+    within = decide(old, new, [1, 2], max_age=2, camera_continuation=True)
     assert within.action == ACTION_CONTINUE and within.refused == [], within
-    defaulted = decide(old, new, [0, 1], max_age=0)
+    defaulted = decide(old, new, [0, 1], max_age=0, camera_continuation=True)
     assert defaulted.action == ACTION_RESET, defaulted
     assert defaulted.refused == [1] and defaulted.reason == camera_reason
-    defaulted = decide(old, new, [1, 3], max_age=2)
+    defaulted = decide(old, new, [1, 3], max_age=2, camera_continuation=True)
     assert defaulted.action == ACTION_RESET and defaulted.refused == [1], defaulted
     # An entry over the bound is refused even when the camera is unchanged, and
     # the session still continues.
