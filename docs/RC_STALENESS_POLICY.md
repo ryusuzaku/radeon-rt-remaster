@@ -466,7 +466,7 @@ the policy run still matches the fresh session exactly, and the forced-continue 
 of 516 values closer to the old epoch than to the fresh one), `stale_mse` 3.4e-7, `stale_max_abs` 6.6e-4. The negative-control gate in
 section 4 is met and the contract asserts it. The effect is small in absolute terms because the provider learns slowly, and it is not
 monotonic in the setting (at intensity 20 the fraction fell to 0.25 with two batches), so the settings are tuned and recorded here.
-Untested: a scene with more than one light, and the visible composite. The ledger entry is not yet written.
+Untested: a scene with more than one light, and the visible composite. The ledger entry is `rc-staleness-stage2-validation-20261027-072108.tar.gz` in `docs/EVIDENCE_LEDGER.jsonl`.
 
 **Stage 3 — age-bounded camera continuation (default off).**
 Add `--rc-max-sample-age N`. Only camera-only changes may continue, and only
