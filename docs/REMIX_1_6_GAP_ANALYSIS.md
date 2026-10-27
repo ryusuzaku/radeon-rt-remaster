@@ -112,6 +112,28 @@ This is a deliberate, documented choice — "the implementation uses Microsoft's
 inline ray-query model" ([DXR viewer](DXR_VIEWER.md)) — but it has never been
 measured against an RTPSO alternative on this hardware.
 
+### First measurement (2026-10-27)
+
+One RX 9070 XT, driver 32.0.32015.7029, x64 Release, `rrt_dxr --mode gi` at 1920x1080. The scenes are generated random triangle
+soups (heavily overlapping, so a stress case for the acceleration structure, not a game scene), and the figure is GPU trace time,
+best of three where repeated.
+
+| Triangles | 1 sample | 4 samples | 16 samples | BVH build |
+|---:|---:|---:|---:|---:|
+| 1,000 | 1.0 ms | 4.1 ms | 16.3 ms | 0.2 ms |
+| 20,000 | 2.0 ms | 8.1 ms | 32.4 ms | 0.4 ms |
+| 100,000 | 9.4 ms | 39.5 ms | 151.5 ms | 2.0 ms |
+| 400,000 | 48.3 ms | 168.9 ms | 698.1 ms | 8.4 ms |
+
+Time is linear in samples. At 4 samples, 50% render scale costs 28-39% of the full-resolution time (1.2 ms against 4.1 ms at
+1,000 triangles, 64 ms against 169 ms at 400,000), so the scale is sublinear.
+
+The primary-visibility query uses `FORCE_NON_OPAQUE` so the shader can test the per-draw scissor. A scratch variant that forced
+those two queries opaque produced identical pixels and was only 0-12% faster (for example 39.2 to 35.1 ms at 100,000 triangles and
+4 samples; 42.9 against 43.5 ms at 400,000 and 1 sample). The shader round trip that is specific to the inline design is therefore not the
+bottleneck. The cost is in traversal. This does not compare inline against a `TraceRay` pipeline, which still does not exist, so the
+question stays open and the recommended action below is unchanged: no port without a profile that shows a shortfall on a game scene.
+
 ### Gap
 
 Remix's note is evidence that, on AMD Windows drivers, *which* DXR path a renderer

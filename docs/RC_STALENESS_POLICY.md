@@ -474,6 +474,14 @@ when every composited entry is within the age bound. This is the first mode
 that can change a candidate for a reason other than a generation change; it
 gets its own expected values and never becomes the default.
 
+**Stage 3 evidence note (2026-10-27).** Stage 3 as written bounds the age of "every composited entry". The pinned provider has no
+entries and no per-entry age (see open question 1), so there is nothing for such a bound to apply to. The ages in `tools/rc_staleness.py`
+describe renderer-side training samples, and a stale continue in the Stage 2 control moved the output by at most 6.6e-4 after two training
+batches, because the provider learns slowly. Before Stage 3 is built it has to be redesigned around something the provider exposes: how
+many epochs of training happened since the last reset, or the learning-rate and weight-smoothing overrides. It also needs a measurement
+that camera-only continuation does not hurt, on a scene whose queries line up between epochs. Nothing in this paragraph changes the
+default, which stays reset-on-camera-change.
+
 **Stage 4 — selective re-seed (default off).**
 Only after Stage 3 evidence and a capture with more than one light. Re-seed
 must use a deterministic subset and preserve the existing first-`min(valid,
@@ -642,10 +650,11 @@ machine with the pinned SDK, not from `windows-2022` as configured.
 
 ## 5. Open questions
 
-1. **Does the provider age samples internally?** The pinned material does not
-   say. If it does, a renderer-side age policy may double-age. The proposed
-   policy is safe either way because a generation change resets, but the
-   Stage 3 age bound would need to account for it. **(uncertain)**
+1. **Does the provider age samples internally?** Answered 2026-10-27: there is nothing to age. The pinned SDK
+   (`Kits/FidelityFX/radiancecache/include/ffx_radiancecache.h`, v2.3.0) exposes no age, lifetime or decay field. The cache is an
+   online-trained network with global weights, not a set of entries. Its only forgetting levers are `FFX_RADIANCE_CACHE_RESET` and the
+   optional `learningRate` and `weightSmoothing` overrides, which this renderer does not use. A renderer-side age therefore cannot
+   double-age, but it also has no provider object to attach to; see the note under Stage 3.
 2. **Is camera-only continuation safe?** The provider's position input is
    scene-bounds-normalized, but its target is view-dependent. The current
    policy resets on camera and the live test proves that reset matches a fresh
