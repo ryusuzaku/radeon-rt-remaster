@@ -2,8 +2,10 @@
 
 Status: **option B adopted for implementation 2026-10-27; the decision stays
 proposed until the exit gate below holds.** The original page of 2026-10-23 was
-documentation only. Stage 1 of the test plan, the protocol contract, is now
-written: see [Transport protocol](TRANSPORT_PROTOCOL.md). Stages 2 to 6 are not started.
+documentation only. Stages 1 and 2 of the test plan are now written: the protocol
+contract and transport parity on fixtures through a test host (see
+[Transport protocol](TRANSPORT_PROTOCOL.md)); the proxy itself does not use the
+protocol yet. Stages 3 to 6 are not started.
 
 [Phase 6](../PHASE_PLAN.md#phase-6--runtime-composition-and-presentation) asks for
 one transport model before live composition starts: an in-process shared renderer,

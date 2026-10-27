@@ -84,4 +84,6 @@ std::string Hex(const Hash& hash);
 void Validate(const Scene& scene);
 void Save(const Scene& scene,const std::filesystem::path& path);
 Scene Load(const std::filesystem::path& path,Hash* sourceDigest=nullptr);
+// Same validation as Load for bytes already in memory (the whole file, trailing checksum included).
+Scene Decode(std::vector<std::uint8_t> bytes,Hash* sourceDigest=nullptr);
 }

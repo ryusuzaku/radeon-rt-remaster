@@ -68,7 +68,7 @@
       ]
     },
     {
-      "name": "FrameComplete", "type": 4, "direction": "renderer->proxy", "payload_size": 48, "frame_id": "echoes an outstanding FrameSubmit",
+      "name": "FrameComplete", "type": 4, "direction": "renderer->proxy", "payload_size": 72, "frame_id": "echoes an outstanding FrameSubmit",
       "fields": [
         {"name": "fence_value", "type": "u64", "offset": 0},
         {"name": "status", "type": "u32", "offset": 8},
@@ -79,7 +79,10 @@
         {"name": "material_generation", "type": "u32", "offset": 28},
         {"name": "settings_generation", "type": "u32", "offset": 32},
         {"name": "reserved32", "type": "u32", "offset": 36},
-        {"name": "reserved", "type": "u64", "offset": 40}
+        {"name": "output_sha256_0", "type": "u64", "offset": 40},
+        {"name": "output_sha256_1", "type": "u64", "offset": 48},
+        {"name": "output_sha256_2", "type": "u64", "offset": 56},
+        {"name": "output_sha256_3", "type": "u64", "offset": 64}
       ]
     },
     {
@@ -93,10 +96,35 @@
         {"name": "discarded_frames", "type": "u32", "offset": 4},
         {"name": "reserved", "type": "u64", "offset": 8}
       ]
+    },
+    {
+      "name": "SceneAttach", "type": 7, "direction": "proxy->renderer", "payload_size": 56, "frame_id": "zero",
+      "fields": [
+        {"name": "section_handle", "type": "u64", "offset": 0},
+        {"name": "section_bytes", "type": "u64", "offset": 8},
+        {"name": "sha256_0", "type": "u64", "offset": 16},
+        {"name": "sha256_1", "type": "u64", "offset": 24},
+        {"name": "sha256_2", "type": "u64", "offset": 32},
+        {"name": "sha256_3", "type": "u64", "offset": 40},
+        {"name": "scene_generation", "type": "u32", "offset": 48},
+        {"name": "reserved", "type": "u32", "offset": 52}
+      ]
+    },
+    {
+      "name": "SceneAttachAck", "type": 8, "direction": "renderer->proxy", "payload_size": 16, "frame_id": "zero",
+      "fields": [
+        {"name": "status", "type": "u32", "offset": 0},
+        {"name": "scene_generation", "type": "u32", "offset": 4},
+        {"name": "width", "type": "u32", "offset": 8},
+        {"name": "height", "type": "u32", "offset": 12}
+      ]
     }
   ],
   "hello_ack_status": {"ok": 0, "version_mismatch": 1, "adapter_mismatch": 2, "busy": 3},
   "frame_complete_status": {"ready": 0, "discarded": 1, "failed": 2, "device_removed": 3},
+  "scene_attach_status": {"ok": 0, "bad_digest": 1, "too_large": 2, "decode_failed": 3},
+  "max_scene_bytes": 67108864,
+  "digest_encoding": "A SHA-256 digest travels as four u64 words (name_0..name_3); each word is little-endian and the words are in digest byte order, so the 32 digest bytes are the concatenation of the four words' little-endian bytes.",
   "errors": [
     "ok", "short_header", "bad_magic", "bad_version", "unknown_type", "oversized", "payload_size_mismatch",
     "bad_flags", "reserved_nonzero", "wrong_direction", "out_of_sequence", "unexpected_state",
@@ -106,10 +134,11 @@
     "Each direction numbers its messages 1, 2, 3, ... with no gaps; any other sequence is out_of_sequence.",
     "The first proxy message must be Hello and the first renderer message must be HelloAck.",
     "Version negotiation selects the highest version in both ranges. No overlap, or an adapter LUID that differs from the renderer's, is answered with HelloAck status version_mismatch or adapter_mismatch and the session is closed.",
-    "FrameSubmit is valid only after an ok HelloAck. frame_id is nonzero and strictly increasing. width and height are 1..16384 and resource_slot is below 8.",
+    "SceneAttach hands over the scene bytes: an inherited, allowlisted section handle, its size (1..max_scene_bytes) and the SHA-256 of the bytes. It is valid only after an ok HelloAck, with no frame outstanding and no attach pending, and is answered by exactly one SceneAttachAck echoing scene_generation. A non-ok status (bad_digest, too_large, decode_failed) carries width and height zero and leaves any previously attached scene in place.",
+    "FrameSubmit is valid only after an ok HelloAck and an ok SceneAttachAck, with no attach pending, and must carry the attached scene_generation. frame_id is nonzero and strictly increasing. width and height are 1..16384 and resource_slot is below 8.",
     "At most max_in_flight frames are outstanding. A FrameSubmit beyond that is too_many_in_flight unless it carries SUPERSEDE_PENDING, which discards the pending frame and keeps one active and one pending.",
-    "FrameComplete must name an outstanding frame, echo its five generations and resource_slot exactly, and carry fence_value no lower than the submitted one.",
-    "Stop ends the session: only StopAck may follow, and only after every outstanding frame has been completed or discarded.",
+    "FrameComplete must name an outstanding frame, echo its five generations and resource_slot exactly, and carry fence_value no lower than the submitted one. output_sha256 is the SHA-256 of the rendered BGRA pixels when status is ready and all zero otherwise.",
+    "Stop ends the session: only StopAck may follow, and only after every outstanding frame has been completed or discarded and no attach is pending.",
     "Reserved fields and unused flag bits must be zero."
   ]
 }

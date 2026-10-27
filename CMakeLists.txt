@@ -18,6 +18,9 @@ target_link_libraries(rrt_scene PUBLIC bcrypt)
 # dependencies, so it builds, with its layout static_asserts, in every configuration and architecture.
 add_executable(rrt_transport_check src/transport/transport_check.cpp)
 target_include_directories(rrt_transport_check PRIVATE src/transport)
+# The proxy's stand-in for transport tests: launches the x64 renderer in --transport-serve mode.
+add_executable(rrt_transport_host src/transport/transport_host.cpp)
+target_link_libraries(rrt_transport_host PRIVATE rrt_scene dxgi)
 
 option(RRT_RENDERER_ONLY "Build standalone scene renderers without a game proxy/harness" OFF)
 if(NOT RRT_RENDERER_ONLY)
@@ -236,6 +239,15 @@ if(TARGET rrt_dxr)
     add_test(NAME dxr_probe COMMAND rrt_dxr --probe)
     add_test(NAME dxr_render COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_dxr.py --dxr $<TARGET_FILE:rrt_dxr> --replay $<TARGET_FILE:rrt_replay>)
     set_tests_properties(dxr_render PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
+    # Phase 6 stage 2: the transport host stands in for the proxy; every frame it drives through
+    # `rrt_dxr --transport-serve` must equal the standalone render. The x86 pair needs the 32-bit host
+    # from the x86 tree: configure with -DRRT_X86_TRANSPORT_HOST=<path to its rrt_transport_host.exe>.
+    add_test(NAME transport_parity COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_transport_parity.py --host $<TARGET_FILE:rrt_transport_host> --dxr $<TARGET_FILE:rrt_dxr>)
+    set_tests_properties(transport_parity PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
+    if(RRT_X86_TRANSPORT_HOST)
+        add_test(NAME transport_parity_x86_host COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_transport_parity.py --host "${RRT_X86_TRANSPORT_HOST}" --dxr $<TARGET_FILE:rrt_dxr>)
+        set_tests_properties(transport_parity_x86_host PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
+    endif()
     add_test(NAME dxr_temporal COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_temporal.py --dxr $<TARGET_FILE:rrt_dxr>)
     set_tests_properties(dxr_temporal PROPERTIES TIMEOUT 120 SKIP_RETURN_CODE 77)
     add_test(NAME dxr_resolution COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_dxr_resolution.py --dxr $<TARGET_FILE:rrt_dxr>)

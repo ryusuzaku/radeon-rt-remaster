@@ -31,6 +31,13 @@ def need(condition, message):
     if not condition: raise AssertionError(message)
 
 
+def product(expression):
+    result = 1
+    for factor in expression.split('*'):
+        result *= int(factor.strip().rstrip('ul'))
+    return result
+
+
 def snake(name):
     return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
 
@@ -74,6 +81,10 @@ for m in schema['messages']:
         continue
     need(sizeof.get(m['name']) == m['payload_size'], f'C++ {m["name"]} size differs from the schema')
     cpp = dict(offsets[m['name']])
+    for array in ('sha256', 'output_sha256'):  # a digest is an array of four u64 words in C++
+        if array in cpp:
+            base = cpp.pop(array)
+            for i in range(4): cpp[f'{array}_{i}'] = base + 8 * i
     if 'generations' in cpp:  # the five generation fields are one nested struct
         base = cpp.pop('generations')
         for g, delta in gens.items(): cpp[f'{g}_generation'] = base + delta
@@ -85,8 +96,11 @@ constants = {
     'MaxInFlight': int(re.search(r'MaxInFlight\s*=\s*(\d+)', header_source).group(1)),
     'MaxDimension': int(re.search(r'MaxDimension\s*=\s*(\d+)', header_source).group(1)),
     'MaxSlots': int(re.search(r'MaxSlots\s*=\s*(\d+)', header_source).group(1)),
+    'MaxSceneBytes': product(re.search(r'MaxSceneBytes\s*=\s*([0-9ul\s*]+);', header_source).group(1)),
     'SupportedVersion': int(re.search(r'SupportedVersion\s*=\s*(\d+)', header_source).group(1)),
 }
+scene_h = (ROOT / 'src' / 'scene' / 'scene.h').read_text(encoding='utf-8')
+need(constants['MaxSceneBytes'] == schema['max_scene_bytes'] == product(re.search(r'MaxBytes\s*=\s*([0-9*]+)', scene_h).group(1)), 'max scene bytes differ between the transport and the scene format')
 need(constants['Magic'] == schema['magic'] and constants['MaxMessageBytes'] == schema['max_message_bytes'] and constants['MaxInFlight'] == schema['max_in_flight'], 'C++ constants differ from the schema')
 need(constants['MaxDimension'] == t.MAX_DIMENSION and constants['MaxSlots'] == t.MAX_SLOTS and [constants['SupportedVersion']] == schema['supported_versions'], 'C++ limits differ from the Python codec')
 need(re.search(r'FlagSupersedePending\s*=\s*1u\s*<<\s*0', header_source) and t.FLAG_SUPERSEDE_PENDING == 1, 'supersede flag bit differs')
@@ -95,6 +109,8 @@ cpp_errors = [snake(name.strip()) for name in enum_body.replace('\n', ' ').split
 need(cpp_errors == schema['errors'], f'C++ Error enum differs from the schema errors: {cpp_errors}')
 for name, value in schema['hello_ack_status'].items():
     need(re.search(r'Ack%s\s*=\s*%d' % (''.join(p.title() for p in name.split('_')), value), header_source), f'C++ HelloAckStatus {name}')
+for name, value in schema['scene_attach_status'].items():
+    need(re.search(r'Scene%s\s*=\s*%d' % (''.join(p.title() for p in name.split('_')), value), header_source), f'C++ SceneAttachStatus {name}')
 for name, value in schema['frame_complete_status'].items():
     need(re.search(r'Frame%s\s*=\s*%d' % (''.join(p.title() for p in name.split('_')), value), header_source), f'C++ FrameCompleteStatus {name}')
 for m in schema['messages']:

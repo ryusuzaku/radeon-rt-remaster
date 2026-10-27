@@ -21,30 +21,46 @@ static bool Hex(const std::string& text, std::vector<std::uint8_t>& out) {
     return true;
 }
 
+static std::string Field(const char* name, std::size_t offset, bool first = false) {
+    return std::string(first ? "" : ",") + "\"" + name + "\":" + std::to_string(offset);
+}
+static std::string Words(const char* base, std::size_t offset) {
+    std::string out;
+    for (int i = 0; i < 4; ++i) out += Field((std::string(base) + "_" + std::to_string(i)).c_str(), offset + 8 * i);
+    return out;
+}
+static std::string Generation(std::size_t base) {
+    return Field("scene_generation", base + offsetof(Generations, scene)) + Field("camera_generation", base + offsetof(Generations, camera)) +
+        Field("lighting_generation", base + offsetof(Generations, lighting)) + Field("material_generation", base + offsetof(Generations, material)) +
+        Field("settings_generation", base + offsetof(Generations, settings));
+}
+
 static void Layout() {
     const std::uint16_t probe = 1; const bool little = *reinterpret_cast<const std::uint8_t*>(&probe) == 1;
-    std::printf("{\"pointer_bytes\":%zu,\"little_endian\":%s,\"max_message_bytes\":%zu,\"magic\":%u,\"max_in_flight\":%u,\"sizes\":{"
-        "\"Header\":%zu,\"Hello\":%zu,\"HelloAck\":%zu,\"FrameSubmit\":%zu,\"FrameComplete\":%zu,\"StopAck\":%zu},\"offsets\":{"
-        "\"Header\":{\"magic\":%zu,\"version\":%zu,\"type\":%zu,\"payload_bytes\":%zu,\"flags\":%zu,\"sequence\":%zu,\"frame_id\":%zu},"
-        "\"Hello\":{\"min_version\":%zu,\"max_version\":%zu,\"adapter_luid\":%zu,\"process_id\":%zu,\"capabilities\":%zu,\"capture_level\":%zu,\"reserved\":%zu},"
-        "\"HelloAck\":{\"selected_version\":%zu,\"status\":%zu,\"adapter_luid\":%zu,\"max_in_flight\":%zu,\"capabilities\":%zu,\"reserved\":%zu},"
-        "\"FrameSubmit\":{\"fence_value\":%zu,\"resource_slot\":%zu,\"width\":%zu,\"height\":%zu,\"scene_generation\":%zu,\"camera_generation\":%zu,"
-        "\"lighting_generation\":%zu,\"material_generation\":%zu,\"settings_generation\":%zu,\"reserved\":%zu},"
-        "\"FrameComplete\":{\"fence_value\":%zu,\"status\":%zu,\"resource_slot\":%zu,\"scene_generation\":%zu,\"camera_generation\":%zu,"
-        "\"lighting_generation\":%zu,\"material_generation\":%zu,\"settings_generation\":%zu,\"reserved32\":%zu,\"reserved\":%zu},"
-        "\"StopAck\":{\"completed_frames\":%zu,\"discarded_frames\":%zu,\"reserved\":%zu}}}\n",
-        sizeof(void*), little ? "true" : "false", MaxMessageBytes, Magic, MaxInFlight,
-        sizeof(Header), sizeof(Hello), sizeof(HelloAck), sizeof(FrameSubmit), sizeof(FrameComplete), sizeof(StopAck),
-        offsetof(Header, magic), offsetof(Header, version), offsetof(Header, type), offsetof(Header, payloadBytes), offsetof(Header, flags), offsetof(Header, sequence), offsetof(Header, frameId),
-        offsetof(Hello, minVersion), offsetof(Hello, maxVersion), offsetof(Hello, adapterLuid), offsetof(Hello, processId), offsetof(Hello, capabilities), offsetof(Hello, captureLevel), offsetof(Hello, reserved),
-        offsetof(HelloAck, selectedVersion), offsetof(HelloAck, status), offsetof(HelloAck, adapterLuid), offsetof(HelloAck, maxInFlight), offsetof(HelloAck, capabilities), offsetof(HelloAck, reserved),
-        offsetof(FrameSubmit, fenceValue), offsetof(FrameSubmit, resourceSlot), offsetof(FrameSubmit, width), offsetof(FrameSubmit, height),
-        offsetof(FrameSubmit, generations) + offsetof(Generations, scene), offsetof(FrameSubmit, generations) + offsetof(Generations, camera), offsetof(FrameSubmit, generations) + offsetof(Generations, lighting),
-        offsetof(FrameSubmit, generations) + offsetof(Generations, material), offsetof(FrameSubmit, generations) + offsetof(Generations, settings), offsetof(FrameSubmit, reserved),
-        offsetof(FrameComplete, fenceValue), offsetof(FrameComplete, status), offsetof(FrameComplete, resourceSlot),
-        offsetof(FrameComplete, generations) + offsetof(Generations, scene), offsetof(FrameComplete, generations) + offsetof(Generations, camera), offsetof(FrameComplete, generations) + offsetof(Generations, lighting),
-        offsetof(FrameComplete, generations) + offsetof(Generations, material), offsetof(FrameComplete, generations) + offsetof(Generations, settings), offsetof(FrameComplete, reserved32), offsetof(FrameComplete, reserved),
-        offsetof(StopAck, completedFrames), offsetof(StopAck, discardedFrames), offsetof(StopAck, reserved));
+    std::string out = "{\"pointer_bytes\":" + std::to_string(sizeof(void*)) + ",\"little_endian\":" + (little ? "true" : "false") +
+        ",\"max_message_bytes\":" + std::to_string(MaxMessageBytes) + ",\"magic\":" + std::to_string(Magic) + ",\"max_in_flight\":" + std::to_string(MaxInFlight) +
+        ",\"max_scene_bytes\":" + std::to_string(MaxSceneBytes);
+    out += ",\"sizes\":{" + std::string("\"Header\":") + std::to_string(sizeof(Header)) + ",\"Hello\":" + std::to_string(sizeof(Hello)) + ",\"HelloAck\":" + std::to_string(sizeof(HelloAck)) +
+        ",\"FrameSubmit\":" + std::to_string(sizeof(FrameSubmit)) + ",\"FrameComplete\":" + std::to_string(sizeof(FrameComplete)) + ",\"StopAck\":" + std::to_string(sizeof(StopAck)) +
+        ",\"SceneAttach\":" + std::to_string(sizeof(SceneAttach)) + ",\"SceneAttachAck\":" + std::to_string(sizeof(SceneAttachAck)) + "}";
+    out += ",\"offsets\":{";
+    out += "\"Header\":{" + Field("magic", offsetof(Header, magic), true) + Field("version", offsetof(Header, version)) + Field("type", offsetof(Header, type)) +
+        Field("payload_bytes", offsetof(Header, payloadBytes)) + Field("flags", offsetof(Header, flags)) + Field("sequence", offsetof(Header, sequence)) + Field("frame_id", offsetof(Header, frameId)) + "}";
+    out += ",\"Hello\":{" + Field("min_version", offsetof(Hello, minVersion), true) + Field("max_version", offsetof(Hello, maxVersion)) + Field("adapter_luid", offsetof(Hello, adapterLuid)) +
+        Field("process_id", offsetof(Hello, processId)) + Field("capabilities", offsetof(Hello, capabilities)) + Field("capture_level", offsetof(Hello, captureLevel)) + Field("reserved", offsetof(Hello, reserved)) + "}";
+    out += ",\"HelloAck\":{" + Field("selected_version", offsetof(HelloAck, selectedVersion), true) + Field("status", offsetof(HelloAck, status)) + Field("adapter_luid", offsetof(HelloAck, adapterLuid)) +
+        Field("max_in_flight", offsetof(HelloAck, maxInFlight)) + Field("capabilities", offsetof(HelloAck, capabilities)) + Field("reserved", offsetof(HelloAck, reserved)) + "}";
+    out += ",\"FrameSubmit\":{" + Field("fence_value", offsetof(FrameSubmit, fenceValue), true) + Field("resource_slot", offsetof(FrameSubmit, resourceSlot)) + Field("width", offsetof(FrameSubmit, width)) +
+        Field("height", offsetof(FrameSubmit, height)) + Generation(offsetof(FrameSubmit, generations)) + Field("reserved", offsetof(FrameSubmit, reserved)) + "}";
+    out += ",\"FrameComplete\":{" + Field("fence_value", offsetof(FrameComplete, fenceValue), true) + Field("status", offsetof(FrameComplete, status)) + Field("resource_slot", offsetof(FrameComplete, resourceSlot)) +
+        Generation(offsetof(FrameComplete, generations)) + Field("reserved32", offsetof(FrameComplete, reserved32)) + Words("output_sha256", offsetof(FrameComplete, outputSha256)) + "}";
+    out += ",\"StopAck\":{" + Field("completed_frames", offsetof(StopAck, completedFrames), true) + Field("discarded_frames", offsetof(StopAck, discardedFrames)) + Field("reserved", offsetof(StopAck, reserved)) + "}";
+    out += ",\"SceneAttach\":{" + Field("section_handle", offsetof(SceneAttach, sectionHandle), true) + Field("section_bytes", offsetof(SceneAttach, sectionBytes)) + Words("sha256", offsetof(SceneAttach, sha256)) +
+        Field("scene_generation", offsetof(SceneAttach, sceneGeneration)) + Field("reserved", offsetof(SceneAttach, reserved)) + "}";
+    out += ",\"SceneAttachAck\":{" + Field("status", offsetof(SceneAttachAck, status), true) + Field("scene_generation", offsetof(SceneAttachAck, sceneGeneration)) +
+        Field("width", offsetof(SceneAttachAck, width)) + Field("height", offsetof(SceneAttachAck, height)) + "}";
+    out += "}}\n";
+    std::fputs(out.c_str(), stdout);
 }
 
 // stdin: "reset" starts a fresh session; "p2r HEX" / "r2p HEX" feeds one message. Prints one error
