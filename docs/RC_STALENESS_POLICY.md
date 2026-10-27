@@ -457,14 +457,16 @@ control and is valid only with that test. The device contract is `tests/verify_r
 `SKIP_RETURN_CODE 77`; it also writes `staleness.json`). The policy run resets at every change and matches the fresh session exactly
 (`stale_mse`, `stale_max_abs`, `stale_fraction` all 0, 516 compared values); repeats are exact.
 
-**Finding: the fixture cannot yet show stale lighting.** On this scene the provider's trained output is bit-identical for different
-lighting (intensity, light colour and ambient all give the same post-training hash, both from the renderer and from exported path
-files), even though the exported targets differ. The forced-continue control therefore differs from the fresh session only because it
-trained a second time (`stale_mse` 2.01e-8, `stale_max_abs` 1.83e-4, hash equal to the two-batch result), and `stale_fraction` is 0, so
-the negative-control gate in section 4 is not met. Enforcement at the command boundary is proven; that continuing across a light
-change visibly corrupts the output is not demonstrated, and `provider_output_lighting_independent` is reported as a measurement. Until
-the fixture is strengthened (a scene where the target changes the trained output) or the cause is found, the policy rests on the
-principle rather than on observed stale output. The ledger entry is not yet written.
+**Fixture and negative control.** Under the default light every training target of the canonical scene is exactly zero: the secondary
+hits are on surfaces that light does not reach (the primary hits are lit, so the exported artifacts and candidate hashes still change),
+so no lighting change can alter the provider's trained output. A first Stage 2 run reported that as the provider being independent of
+lighting. It is a property of the fixture, not of the provider. The contract therefore runs with a sideways light
+(`--light 1 0 0 --light-intensity 5 --rc-training-batches 2`), which makes 90 of 172 targets non-zero at the default intensity. There
+the policy run still matches the fresh session exactly, and the forced-continue control shows stale values: `stale_fraction` 1.0 (516
+of 516 values closer to the old epoch than to the fresh one), `stale_mse` 3.4e-7, `stale_max_abs` 6.6e-4. The negative-control gate in
+section 4 is met and the contract asserts it. The effect is small in absolute terms because the provider learns slowly, and it is not
+monotonic in the setting (at intensity 20 the fraction fell to 0.25 with two batches), so the settings are tuned and recorded here.
+Untested: a scene with more than one light, and the visible composite. The ledger entry is not yet written.
 
 **Stage 3 — age-bounded camera continuation (default off).**
 Add `--rc-max-sample-age N`. Only camera-only changes may continue, and only
