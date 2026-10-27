@@ -16,9 +16,9 @@ The canonical stream contains 172 valid query/training records. One training fra
 
 | Metric | Baseline | One frame | Two frames |
 |---|---:|---:|---:|
-| Target MSE | 0.00125381 | 0.00124904 | 0.00123874 |
-| Guarded composite MSE | 0.0000777365 | 0.0000774054 | 0.0000767191 |
-| Prediction hash | 4380958906282038366 | 17423046786485749504 | 13270289865275143940 |
+| Target MSE | 0.00125381 | 0.00124903 | 0.00123875 |
+| Guarded composite MSE | 0.0000777365 | 0.0000774047 | 0.0000767165 |
+| Prediction hash | 4380958906282038366 | 6631777505673899136 | 7308294312433944604 |
 
 All 516 mapped RGB values change after training. Reset returns the baseline hash exactly. The provider still writes all 36,864 fixed-capacity output floats; every value is guarded, while only the explicit 172 mappings participate in the candidate.
 
