@@ -131,6 +131,14 @@ The default CPU shadow cap remains 128 MiB. For a bounded experiment, add
 reject the larger-cap option. See [HL2 shadow-cap experiment](HL2_SHADOW_CAP_EXPERIMENT.md)
 for the measured run, rationale and qualification controls.
 
+The multi-draw window keeps 4 draws per present interval and 16 in total. `--position-limits PER_INTERVAL:TOTAL` (the proxy's
+`RRT_POSITION_LIMITS`) raises them for a frame-level geometry capture, up to 256 and 1024, with `PER_INTERVAL` not above `TOTAL`,
+in canonical decimal and only with `--position-multi-draw`. The ledger header reports the quotas the proxy applied and the
+reader enforces exactly those. The runner rejects anything else; the proxy fails closed too, so a malformed value disables
+capture instead of producing a ledger that claims other quotas. The 4096-attempt cap, the 16 MiB ledger cap and the 128 MiB
+shadow cap are unchanged: at roughly 92 bytes per index, a frame of about a dozen draws of a few thousand triangles fits in
+one or two intervals. `tests/verify_position_limits.py` covers the defaults, the valid range and 20 malformed values.
+
 A triggered capture arms on the first successful Present after the trigger and
 starts its interval numbering there. If the game is not presenting when the
 trigger lands — the usual case when the window is in the background — nothing is

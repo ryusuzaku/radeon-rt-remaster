@@ -63,6 +63,16 @@ def main():
     baseline=run_pass(bundle,'baseline',note='synthetic baseline')
     need(baseline['exit_code']==0, f'native baseline failed; inspect {bundle / "runs" / "baseline" / "report.json"}: exit={baseline["exit_code"]}')
     need(baseline['trace'] is None and not baseline['installed_by_runner'],'baseline was instrumented')
+    # Capture quotas: decimal PER_INTERVAL:TOTAL within 256 and 1024, only for the multi-draw window. With the baseline done,
+    # the only thing that can reject these calls is the limits check, so the message is asserted.
+    armed=dict(wait_trigger=True,shader_inventory=True,position_capture=True,position_frames=True,position_selection='128x96:1',position_multi_draw=True)
+    def limits_rejected(**arguments):
+        try: run_pass(bundle,'proxy',**arguments)
+        except ValueError as error: need('limits' in str(error),f'rejected for another reason: {error}'); return
+        raise AssertionError('invalid position limits accepted')
+    for invalid in ('0:16','4:0','8','8:','8:32:1',':32','08:32','8:032','257:1024','4:1025','32:16','a:b','8 :32','-8:32'):
+        limits_rejected(position_limits=invalid,**armed)
+    limits_rejected(position_limits='8:32',wait_trigger=True,shader_inventory=True,position_capture=True,position_frames=True,position_selection='128x96:1')
     observed=run_pass(bundle,'proxy',start_frame=2,frames=3,scene_frame=1,note='synthetic four-quadrant scene')
     need(observed['exit_code']==0 and observed['proxy_removed'] and not destination.exists(),'proxy lifecycle failed')
     need(observed['trace']['presents']==3 and observed['trace']['fixed_draws']>0 and observed['scene_capture_exists'],'bounded observation/capture missing')
@@ -88,7 +98,7 @@ def main():
     prepare(executable,args.proxy,armed_bundle,'armed',['--scene-fixture','--frames','1000'],plan['baseline_arguments'])
     reuse_baseline(armed_bundle,bundle)
     with ThreadPoolExecutor(max_workers=1) as pool:
-        future=pool.submit(run_pass,armed_bundle,'proxy',frames=3,wait_trigger=True,shader_inventory=True,position_capture=True,position_frames=True,position_selection='128x96:1',position_multi_draw=True,position_render_state=True,position_clear_evidence=True,position_write_evidence=True,position_surface_scope=True,position_color_replay=True,position_material_inputs=True,position_pixel_material=True,position_texture_inputs=True,position_texture_assets=True,position_compressed_textures=True,position_texture_uploads=True,position_dirty_textures=True,position_surface_uploads=True,shadow_mib=256)
+        future=pool.submit(run_pass,armed_bundle,'proxy',frames=3,wait_trigger=True,shader_inventory=True,position_capture=True,position_frames=True,position_selection='128x96:1',position_multi_draw=True,position_render_state=True,position_clear_evidence=True,position_write_evidence=True,position_surface_scope=True,position_color_replay=True,position_material_inputs=True,position_pixel_material=True,position_texture_inputs=True,position_texture_assets=True,position_compressed_textures=True,position_texture_uploads=True,position_dirty_textures=True,position_surface_uploads=True,shadow_mib=256,position_limits='8:32')
         armed_report=armed_bundle/'runs'/'proxy'/'report.json'
         deadline=time.monotonic()+15
         while time.monotonic()<deadline and not future.done():
@@ -109,6 +119,7 @@ def main():
     from inspect_position_capture import inspect as inspect_position
     position=inspect_position(triggered['position_capture_file'])
     need(triggered['shadow_mib']==256 and position['retained']['shadow_cap_bytes']==256*1024*1024,'experimental shadow cap not passed to child')
+    need(triggered['position_limits']=='8:32' and position['limits']=={'per_interval':8,'total':32},'raised capture quotas were not passed to the proxy and reported in the ledger header')
     need(position['version']==18 and position['frame_sampling'] and triggered['position_frame_sampling'] and triggered['position_selection']=='128x96:1' and triggered['position_multi_draw'] and triggered['position_render_state'] and triggered['position_clear_evidence'] and triggered['position_write_evidence'] and triggered['position_surface_scope'] and triggered['position_color_replay'] and triggered['position_material_inputs'] and triggered['position_pixel_material'] and triggered['position_texture_inputs'] and triggered['position_texture_assets'] and triggered['position_compressed_textures'] and triggered['position_texture_uploads'] and triggered['position_dirty_textures'] and triggered['position_surface_uploads'],'runner did not enable surface uploads')
     need(Path(triggered['texture_asset_directory']).is_dir() and not list(Path(triggered['texture_asset_directory']).iterdir()),'fixed-function asset directory should be empty')
     need(position['attempts_recorded']>0 and not position['captures'],'fixed-function fixture incorrectly captured HL2 geometry')

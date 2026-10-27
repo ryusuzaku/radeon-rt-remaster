@@ -16,8 +16,10 @@ For each accepted draw the ledger holds the indexed corner positions, the exact 
 rows c4-c7 and the model rows c58-c60) and the clip and model positions the program produced
 ([position contract](HL2_POSITION_CONTRACT.md)). The tool:
 
-1. groups draws that share a device, reset epoch, present interval, target, viewport and clip rows (the same grouping the
-   [reconstruction](HL2_GROUPED_POSITION_REPLAY.md) tools use) and converts one group, by default the largest;
+1. groups draws that share a device, reset epoch, present interval, target, viewport, render state and camera, and converts one
+   group, by default the largest. The camera is the derived view-projection (clip rows times the inverse model, equal within a
+   relative 1e-4), not the raw clip rows, so draws with different model matrices that were captured under one view share a scene
+   with per-draw world matrices;
 2. requires c0 to be the affine `(0, 1)` preparation, so the prepared position is `(x, y, z, 1)`, and a non-singular model
    matrix;
 3. uses each draw's model rows as its world matrix and derives one view-projection from `clip rows x inverse(model)`,

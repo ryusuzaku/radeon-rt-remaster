@@ -98,8 +98,11 @@ struct Context {
     bool colorReplay{},materialInputs{},pixelMaterial{},textureInputs{},externalTextures{},compressedTextures{},textureUploads{},dirtyTextures{},surfaceUploads{},surfaceLocks{},sceneMetadata{};std::uint64_t textureEpoch{};
     std::uint64_t assetBytes{};UINT assetFileCount{};std::unordered_map<std::string,std::size_t> assetFiles;
     std::uint64_t writeSerial{};std::array<WriteEvent,64> writes{};
-    UINT CaptureLimit() const{return multiDraw?16:4;}
-    UINT IntervalLimit() const{return multiDraw?4:1;}
+    // Quotas of the bounded multi-draw window; RRT_POSITION_LIMITS=PER_INTERVAL:TOTAL raises them within these ceilings.
+    static constexpr UINT MaxIntervalLimit=256,MaxCaptureLimit=1024;
+    UINT intervalLimit{4},captureLimit{16};
+    UINT CaptureLimit() const{return multiDraw?captureLimit:4;}
+    UINT IntervalLimit() const{return multiDraw?intervalLimit:1;}
     // Highest enabled level wins. The parser above guarantees the ladder is
     // contiguous, so a highest-first scan is both correct and the single place to
     // edit when a level is added. Ordered highest-first deliberately.
@@ -144,6 +147,14 @@ struct Context {
         }
         n=GetEnvironmentVariableW(L"RRT_POSITION_MULTI_DRAW",p,32768);if(n){if(n!=1||p[0]!=L'1'||!(targetWidth||anyTarget)){done=true;return;}multiDraw=true;}
         if(anyTarget&&!multiDraw){done=true;return;} // unfiltered selection belongs to the bounded multi-draw window
+        n=GetEnvironmentVariableW(L"RRT_POSITION_LIMITS",p,32768);if(n){
+            // "PER_INTERVAL:TOTAL" in canonical decimal. Anything else disables capture rather than guessing.
+            if(!multiDraw||n>=32768){done=true;return;}
+            UINT interval=0,total=0;const wchar_t* cursor=p;
+            auto number=[&](UINT& value,UINT maximum){if(*cursor<L'0'||*cursor>L'9')return false;while(*cursor>=L'0'&&*cursor<=L'9'){value=value*10+(*cursor++-L'0');if(value>maximum)return false;}return value>0;};
+            if(!number(interval,MaxIntervalLimit)||*cursor++!=L':'||!number(total,MaxCaptureLimit)||*cursor||interval>total||std::to_wstring(interval)+L":"+std::to_wstring(total)!=p){done=true;return;}
+            intervalLimit=interval;captureLimit=total;
+        }
         n=GetEnvironmentVariableW(L"RRT_POSITION_RENDER_STATE",p,32768);if(n){if(n!=1||p[0]!=L'1'||!multiDraw){done=true;return;}renderState=true;}
         n=GetEnvironmentVariableW(L"RRT_POSITION_CLEAR_EVIDENCE",p,32768);if(n){if(n!=1||p[0]!=L'1'||!renderState){done=true;return;}clearEvidence=true;}
         n=GetEnvironmentVariableW(L"RRT_POSITION_WRITE_EVIDENCE",p,32768);if(n){if(n!=1||p[0]!=L'1'||!clearEvidence){done=true;return;}writeEvidence=true;}
@@ -176,7 +187,7 @@ struct Context {
         triggered=true;auto header=frameSampling?"{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":3,\"session\":\""+session+"\",\"sampling\":\"one-per-present-interval\"}\n":std::string("{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":2}\n");
         if(targetWidth)header="{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":4,\"session\":\""+session+"\",\"sampling\":\"one-per-present-interval\",\"selection\":{\"target_width\":"+std::to_string(targetWidth)+",\"target_height\":"+std::to_string(targetHeight)+",\"min_primitives\":"+std::to_string(minPrimitives)+"}}\n";
         if(multiDraw){auto selection=anyTarget?std::string("{\"any_target\":true,\"min_primitives\":")+std::to_string(minPrimitives)+"}":std::string("{\"target_width\":")+std::to_string(targetWidth)+",\"target_height\":"+std::to_string(targetHeight)+",\"min_primitives\":"+std::to_string(minPrimitives)+"}";
-            header="{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":"+std::to_string(static_cast<int>(Level()))+",\"session\":\""+session+"\",\"sampling\":\"bounded-per-present-interval\",\"limits\":{\"per_interval\":4,\"total\":16},\"selection\":"+selection+"}\n";}
+            header="{\"kind\":\"header\",\"schema\":\"rrt-position-capture\",\"version\":"+std::to_string(static_cast<int>(Level()))+",\"session\":\""+session+"\",\"sampling\":\"bounded-per-present-interval\",\"limits\":{\"per_interval\":"+std::to_string(IntervalLimit())+",\"total\":"+std::to_string(CaptureLimit())+"},\"selection\":"+selection+"}\n";}
         if(surfaceUploads)header.insert(header.size()-2,",\"selection_rejections\":\"first4-per-target-reason-up-to64-keys-plus-every64th-attempt\"");
         if(surfaceUploads)header.insert(header.size()-2,",\"shader_rejections\":\"first4-per-target-reason-up-to64-keys-plus-every64th-attempt\"");
         // The proxy captures D3D9 fixed-function state, so the declared values
