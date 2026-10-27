@@ -87,6 +87,10 @@ jobs:
       - name: Position scene
         run: python3.12 tests/test_position_scene.py
 
+      # The position-ledger to scene converter: synthetic records, its reprojection gate and its refusals.
+      - name: Position to scene converter
+        run: python3.12 tests/test_position_to_scene.py
+
       # Scene header v2 metadata and the ledger's v20 scene object must default
       # v1 captures to the documented values rather than guessing.
       - name: Scene metadata
