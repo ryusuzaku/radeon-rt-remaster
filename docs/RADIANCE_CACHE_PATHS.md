@@ -24,7 +24,7 @@ Misses and inactive pixels never receive a cache prediction.
 
 The canonical fixture produces 172 genuine queries/training records. A repeated export is byte-identical, and ordinary pixel and signal artifacts are byte-identical with and without path export. Malformed files, semantic mutations, unsupported rendering modes/options, collisions and overwrite attempts fail closed.
 
-The same artifact now runs through the signed Radiance Cache 0.9.0 provider inside the existing isolated persistent context. Baseline inference hash is `4380958906282038366`; one 172-sample training batch changes all 516 mapped RGB predictions and produces hash `17423046786485749504`. Target MSE improves from `0.00125381` to `0.00124904`, while guarded query-composite MSE improves from `7.77365e-5` to `7.74054e-5`. Reset restores the baseline byte-for-byte.
+The same artifact now runs through the signed Radiance Cache 0.9.0 provider inside the existing isolated persistent context. Baseline inference hash is `4380958906282038366`; one 172-sample training batch changes all 516 mapped RGB predictions and produces hash `6631777505673899136`. Target MSE improves from `0.00125381` to `0.00124903`, while guarded query-composite MSE improves from `7.77365e-5` to `7.74047e-5`. Reset restores the baseline byte-for-byte.
 
 The preview WMMA provider writes the full fixed-capacity output even with occupancy 172. All 36,864 output floats are therefore still guarded for finite, nonnegative writes, while only the 172 explicitly mapped entries participate in target/composite metrics. Padding can never affect the candidate image.
 

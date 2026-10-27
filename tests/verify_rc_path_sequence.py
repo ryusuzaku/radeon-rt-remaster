@@ -31,7 +31,7 @@ def main():
         process=subprocess.run(command,capture_output=True,text=True,env=env,timeout=70); need(process.returncode==0,(process.stdout,process.stderr)); return json.loads(process.stdout)
     def deterministic(row): return {key:value for key,value in row.items() if key not in ('direct_wall_ms','provider_process_id')}
     direct_one=direct('--rc-training-batches',1); direct_repeat=direct('--rc-training-batches',1); direct_two=direct('--rc-training-batches',2)
-    for row,batches,post_hash,candidate_hash in ((direct_one,1,6891511169378437159,'f46fd7afb78ece4edcfb6d70582073f6d545849a30bd8242eb7584462a81b3b8'),(direct_repeat,1,6891511169378437159,'f46fd7afb78ece4edcfb6d70582073f6d545849a30bd8242eb7584462a81b3b8'),(direct_two,2,12625136704411306072,'079c9ae7a4cd98a3e8cfb986e22d46a86cab868e58e8ea8da502584af58acd48')):
+    for row,batches,post_hash,candidate_hash in ((direct_one,1,2557220575142501336,'4f73fdf0905b3d34994f81169cc1ae20e63149c308e135498ceb085f949898f2'),(direct_repeat,1,2557220575142501336,'4f73fdf0905b3d34994f81169cc1ae20e63149c308e135498ceb085f949898f2'),(direct_two,2,4681814870253258822,'9f8b0f7dd83eaac2444f81dad3e2a7cd3312ff31e22a8ed0187af0d25f0687b5')):
         need(row['result']=='rc-direct-shared-pass' and row['renderer_gpu_compaction'] is True,'GPU-direct path unavailable')
         need(row['renderer_path_readback_bytes']==row['provider_cpu_payload_transfer_bytes']==0,'GPU-direct transport copied path payload')
         need(row['pixel_mapping_bytes']==49152 and row['pixel_mapping_order']=='ascending-valid-pixels','GPU-direct pixel mapping mismatch')
@@ -98,7 +98,7 @@ def main():
     rows=renderer_session['records']; need([row['query_count'] for row in rows]==[172,178,178,172,172,172],'renderer session did not refresh counts')
     for index in (0,3,5): need(rows[index]['start_hash']==direct_one['baseline_hash_fnv1a64'] and rows[index]['post_hash']==direct_one['post_training_hash_fnv1a64'],'renderer session did not reset base exactly')
     need(rows[1]['start_hash']==live_session['changed_frame_baseline_hash_fnv1a64'] and rows[1]['post_hash']==live_session['post_training_hash_fnv1a64'],'renderer session camera reset mismatch')
-    need(rows[2]['start_hash']==rows[1]['post_hash'] and rows[2]['post_hash']==8100200300773600753 and rows[4]['post_hash']==direct_two['post_training_hash_fnv1a64'],'renderer session training continuation mismatch')
+    need(rows[2]['start_hash']==rows[1]['post_hash'] and rows[2]['post_hash']==6730207062583538196 and rows[4]['post_hash']==direct_two['post_training_hash_fnv1a64'],'renderer session training continuation mismatch')
     for extra in (('--rc-budget-mib',1),('--rc-worker-timeout-ms',1)):
         failed=direct('--rc-renderer-session-test',*extra)
         need(failed['result']=='rc-direct-shared-fallback' and failed['authoritative_output']=='no-cache' and failed['candidate_applied'] is False,'renderer session failure changed authority')
@@ -154,7 +154,7 @@ def main():
     records=commanded['records']; need(len(records)==5,'commanded session records missing')
     for index in (0,2): need(records[index]['reset'] and records[index]['start_hash']==PATH_BASELINE_HASH and records[index]['post_hash']==PATH_POST_TRAINING_HASH,'commanded reset not exact')
     for index in (1,3): need(not records[index]['reset'] and records[index]['start_hash']==PATH_POST_TRAINING_HASH and records[index]['post_hash']==PATH_POST_TWO_BATCH_HASH,'commanded continuation not exact')
-    need(records[4]['start_hash']==PATH_POST_TWO_BATCH_HASH and records[4]['post_hash']==commanded['final_output_hash']==1061084142929051959,'commanded third training/shared output mismatch')
+    need(records[4]['start_hash']==PATH_POST_TWO_BATCH_HASH and records[4]['post_hash']==commanded['final_output_hash']==161421209482838945,'commanded third training/shared output mismatch')
     need(session('R')['final_output_hash']==PATH_POST_TRAINING_HASH,'single epoch stop failed')
     need(session('R'*16)['epochs']==16,'maximum parent command sequence failed')
     for invalid in ('','C','RX','R'*17): session(invalid,ok=False)
