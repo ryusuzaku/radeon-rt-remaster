@@ -14,6 +14,11 @@ add_library(rrt_scene STATIC src/scene/scene.cpp)
 target_compile_definitions(rrt_scene PUBLIC UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_link_libraries(rrt_scene PUBLIC bcrypt)
 
+# Proxy/renderer transport protocol (docs/TRANSPORT_PROTOCOL.md). Header-only and free of Windows
+# dependencies, so it builds, with its layout static_asserts, in every configuration and architecture.
+add_executable(rrt_transport_check src/transport/transport_check.cpp)
+target_include_directories(rrt_transport_check PRIVATE src/transport)
+
 option(RRT_RENDERER_ONLY "Build standalone scene renderers without a game proxy/harness" OFF)
 if(NOT RRT_RENDERER_ONLY)
 add_library(radeon_d3d9_proxy SHARED
@@ -152,6 +157,8 @@ if(RRT_FSR_RC_SDK)
 endif()
 if(BUILD_TESTING)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+add_test(NAME transport_layout COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_transport_layout.py --check $<TARGET_FILE:rrt_transport_check>)
+set_tests_properties(transport_layout PROPERTIES TIMEOUT 60)
 include(cmake/EvidenceTests.cmake)
 if(TARGET rrt_rr_probe)
     add_executable(rrt_rr_settings_contract tests/verify_rr_settings_native.cpp)
@@ -264,6 +271,8 @@ set_tests_properties(codegen_freshness PROPERTIES TIMEOUT 120)
 # The capture-version ladder is the project's central artifact contract and is
 # described in three places (C++ enum/fold, the JSON schema, the Python reader).
 # Nothing else checks that they agree.
+add_test(NAME transport_contract COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_transport_contract.py)
+set_tests_properties(transport_contract PROPERTIES TIMEOUT 60)
 add_test(NAME capture_version_contract COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_capture_version_contract.py)
 set_tests_properties(capture_version_contract PROPERTIES TIMEOUT 60)
 # The repository is public, so a doc that points at an unpublished file sends

@@ -1,0 +1,115 @@
+{
+  "schema": "rrt-transport",
+  "version": 1,
+  "description": "Wire protocol between the 32-bit D3D9 proxy and the 64-bit renderer process (docs/PHASE6_TRANSPORT_DECISION.md, option B). Little-endian, fixed-width fields only, no pointers or size_t, every field naturally aligned so the layout is identical in x86 and x64. Bulk data never travels in a message: it lives in shared default-heap D3D12 resources and ownership moves by fence value. Adding or changing a message means updating this file, src/transport/transport.h and tools/transport_io.py; tests/verify_transport_contract.py fails if they disagree and the transport_layout ctest compares the C++ implementation with the Python one on golden vectors.",
+  "source_of_truth": {
+    "cpp": "src/transport/transport.h (Header, message structs, static_asserts, Validator)",
+    "python": "tools/transport_io.py (codec and Validator built from this file)",
+    "document": "docs/TRANSPORT_PROTOCOL.md"
+  },
+  "endianness": "little",
+  "magic": 1347703378,
+  "magic_ascii": "RRTP",
+  "supported_versions": [1],
+  "max_message_bytes": 4096,
+  "max_in_flight": 2,
+  "header": {
+    "size": 32,
+    "fields": [
+      {"name": "magic", "type": "u32", "offset": 0},
+      {"name": "version", "type": "u16", "offset": 4},
+      {"name": "type", "type": "u16", "offset": 6},
+      {"name": "payload_bytes", "type": "u32", "offset": 8},
+      {"name": "flags", "type": "u32", "offset": 12},
+      {"name": "sequence", "type": "u64", "offset": 16},
+      {"name": "frame_id", "type": "u64", "offset": 24}
+    ]
+  },
+  "header_flags": {
+    "SUPERSEDE_PENDING": {"bit": 0, "valid_for": ["FrameSubmit"], "meaning": "latest-wins: the pending frame, if any, is discarded in favour of this one"}
+  },
+  "messages": [
+    {
+      "name": "Hello", "type": 1, "direction": "proxy->renderer", "payload_size": 32, "frame_id": "zero",
+      "fields": [
+        {"name": "min_version", "type": "u32", "offset": 0},
+        {"name": "max_version", "type": "u32", "offset": 4},
+        {"name": "adapter_luid", "type": "u64", "offset": 8},
+        {"name": "process_id", "type": "u32", "offset": 16},
+        {"name": "capabilities", "type": "u32", "offset": 20},
+        {"name": "capture_level", "type": "u32", "offset": 24},
+        {"name": "reserved", "type": "u32", "offset": 28}
+      ]
+    },
+    {
+      "name": "HelloAck", "type": 2, "direction": "renderer->proxy", "payload_size": 32, "frame_id": "zero",
+      "fields": [
+        {"name": "selected_version", "type": "u32", "offset": 0},
+        {"name": "status", "type": "u32", "offset": 4},
+        {"name": "adapter_luid", "type": "u64", "offset": 8},
+        {"name": "max_in_flight", "type": "u32", "offset": 16},
+        {"name": "capabilities", "type": "u32", "offset": 20},
+        {"name": "reserved", "type": "u64", "offset": 24}
+      ]
+    },
+    {
+      "name": "FrameSubmit", "type": 3, "direction": "proxy->renderer", "payload_size": 48, "frame_id": "nonzero, strictly increasing",
+      "fields": [
+        {"name": "fence_value", "type": "u64", "offset": 0},
+        {"name": "resource_slot", "type": "u32", "offset": 8},
+        {"name": "width", "type": "u32", "offset": 12},
+        {"name": "height", "type": "u32", "offset": 16},
+        {"name": "scene_generation", "type": "u32", "offset": 20},
+        {"name": "camera_generation", "type": "u32", "offset": 24},
+        {"name": "lighting_generation", "type": "u32", "offset": 28},
+        {"name": "material_generation", "type": "u32", "offset": 32},
+        {"name": "settings_generation", "type": "u32", "offset": 36},
+        {"name": "reserved", "type": "u64", "offset": 40}
+      ]
+    },
+    {
+      "name": "FrameComplete", "type": 4, "direction": "renderer->proxy", "payload_size": 48, "frame_id": "echoes an outstanding FrameSubmit",
+      "fields": [
+        {"name": "fence_value", "type": "u64", "offset": 0},
+        {"name": "status", "type": "u32", "offset": 8},
+        {"name": "resource_slot", "type": "u32", "offset": 12},
+        {"name": "scene_generation", "type": "u32", "offset": 16},
+        {"name": "camera_generation", "type": "u32", "offset": 20},
+        {"name": "lighting_generation", "type": "u32", "offset": 24},
+        {"name": "material_generation", "type": "u32", "offset": 28},
+        {"name": "settings_generation", "type": "u32", "offset": 32},
+        {"name": "reserved32", "type": "u32", "offset": 36},
+        {"name": "reserved", "type": "u64", "offset": 40}
+      ]
+    },
+    {
+      "name": "Stop", "type": 5, "direction": "proxy->renderer", "payload_size": 0, "frame_id": "zero",
+      "fields": []
+    },
+    {
+      "name": "StopAck", "type": 6, "direction": "renderer->proxy", "payload_size": 16, "frame_id": "zero",
+      "fields": [
+        {"name": "completed_frames", "type": "u32", "offset": 0},
+        {"name": "discarded_frames", "type": "u32", "offset": 4},
+        {"name": "reserved", "type": "u64", "offset": 8}
+      ]
+    }
+  ],
+  "hello_ack_status": {"ok": 0, "version_mismatch": 1, "adapter_mismatch": 2, "busy": 3},
+  "frame_complete_status": {"ready": 0, "discarded": 1, "failed": 2, "device_removed": 3},
+  "errors": [
+    "ok", "short_header", "bad_magic", "bad_version", "unknown_type", "oversized", "payload_size_mismatch",
+    "bad_flags", "reserved_nonzero", "wrong_direction", "out_of_sequence", "unexpected_state",
+    "bad_frame_id", "too_many_in_flight", "unknown_frame", "generation_mismatch", "bad_field"
+  ],
+  "session_rules": [
+    "Each direction numbers its messages 1, 2, 3, ... with no gaps; any other sequence is out_of_sequence.",
+    "The first proxy message must be Hello and the first renderer message must be HelloAck.",
+    "Version negotiation selects the highest version in both ranges. No overlap, or an adapter LUID that differs from the renderer's, is answered with HelloAck status version_mismatch or adapter_mismatch and the session is closed.",
+    "FrameSubmit is valid only after an ok HelloAck. frame_id is nonzero and strictly increasing. width and height are 1..16384 and resource_slot is below 8.",
+    "At most max_in_flight frames are outstanding. A FrameSubmit beyond that is too_many_in_flight unless it carries SUPERSEDE_PENDING, which discards the pending frame and keeps one active and one pending.",
+    "FrameComplete must name an outstanding frame, echo its five generations and resource_slot exactly, and carry fence_value no lower than the submitted one.",
+    "Stop ends the session: only StopAck may follow, and only after every outstanding frame has been completed or discarded.",
+    "Reserved fields and unused flag bits must be zero."
+  ]
+}
