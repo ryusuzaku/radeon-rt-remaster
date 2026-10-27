@@ -82,6 +82,9 @@ Hash Digest(const void* data,std::size_t size);
 void Identify(Draw& draw);
 std::string Hex(const Hash& hash);
 void Validate(const Scene& scene);
+// Encode produces the exact bytes Save writes, trailing checksum included; WriteNew refuses to overwrite.
+std::vector<std::uint8_t> Encode(const Scene& scene);
+void WriteNew(const std::vector<std::uint8_t>& bytes,const std::filesystem::path& path);
 void Save(const Scene& scene,const std::filesystem::path& path);
 Scene Load(const std::filesystem::path& path,Hash* sourceDigest=nullptr);
 // Same validation as Load for bytes already in memory (the whole file, trailing checksum included).

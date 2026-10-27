@@ -3,9 +3,10 @@
 Status: **option B adopted for implementation 2026-10-27; the decision stays
 proposed until the exit gate below holds.** The original page of 2026-10-23 was
 documentation only. Stages 1 and 2 of the test plan are now written: the protocol
-contract and transport parity on fixtures through a test host (see
-[Transport protocol](TRANSPORT_PROTOCOL.md)); the proxy itself does not use the
-protocol yet. Stages 3 to 6 are not started.
+contract, transport parity on fixtures through a test host, and an opt-in client
+inside the proxy for the one-shot scene capture, with the raster-baseline
+comparison (see [Transport protocol](TRANSPORT_PROTOCOL.md)). Continuous capture
+and presentation are not implemented. Stages 3 to 6 are not started.
 
 [Phase 6](../PHASE_PLAN.md#phase-6--runtime-composition-and-presentation) asks for
 one transport model before live composition starts: an in-process shared renderer,

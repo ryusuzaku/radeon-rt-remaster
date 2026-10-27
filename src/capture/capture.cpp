@@ -1,5 +1,6 @@
 #include "capture.h"
 #include "../trace/trace.h"
+#include "../transport/client_win.h"
 #include <wrl/client.h>
 #include <algorithm>
 #include <atomic>
@@ -117,6 +118,67 @@ void ReadState(IDirect3DDevice9* d,scene::Draw& out) {
     if(desc.Format==D3DFMT_X8R8G8B8) for(std::size_t i=3;i<out.texture.size();i+=4) out.texture[i]=255;
 }
 }
+// Opt-in proxy/renderer transport (docs/TRANSPORT_PROTOCOL.md, Phase 6 stage 2 slice B). Nothing here runs unless
+// RRT_TRANSPORT_RENDERER names an x64 rrt_dxr.exe. The selected frame's scene is encoded once; the render thread only
+// copies it into a worker, which launches the renderer, drives a session and writes a result file. The game's D3D calls
+// and pixels are never touched, every failure is contained here, and the worker is the only thing that waits.
+namespace transport_hook {
+namespace client=rrt::transport::client;
+struct Job { std::vector<std::uint8_t> bytes; client::Config config; std::wstring resultPath; };
+struct State { HANDLE thread{}; std::atomic<bool> cancel{false}; DWORD timeoutMs{30000}; };
+State& Shared() { static auto* state=new State; return *state; }
+std::wstring Variable(const wchar_t* name) {
+    wchar_t value[32768]{}; const auto n=GetEnvironmentVariableW(name,value,32768); return n&&n<32768?value:L"";
+}
+std::vector<std::wstring> Words(const std::wstring& text) {
+    std::vector<std::wstring> words; std::wstring word;
+    for(const wchar_t c:text) { if(c==L' '||c==L'	') { if(!word.empty()) words.push_back(word); word.clear(); } else word+=c; }
+    if(!word.empty()) words.push_back(word); return words;
+}
+bool Enabled() noexcept { try { return !Variable(L"RRT_TRANSPORT_RENDERER").empty(); } catch(...) { return false; } }
+void WriteResult(const std::wstring& path,const std::string& json) noexcept {
+    if(path.empty()) return;
+    HANDLE file=CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
+    if(file==INVALID_HANDLE_VALUE) { OutputDebugStringW(L"RRT: transport result not written (existing file or unavailable path).\n"); return; }
+    DWORD written{}; WriteFile(file,json.data(),static_cast<DWORD>(json.size()),&written,nullptr); CloseHandle(file);
+}
+DWORD WINAPI Worker(void* argument) {
+    std::unique_ptr<Job> job(static_cast<Job*>(argument));
+    try {
+        const auto outcome=client::RunSession(job->config,job->bytes);
+        job->bytes.clear(); job->bytes.shrink_to_fit();
+        WriteResult(job->resultPath,outcome.json+"\n");
+        Event(0,outcome.ok?"TransportDone":"TransportFailed",outcome.ok?S_OK:E_FAIL);
+    } catch(...) {}
+    return 0;
+}
+// Called with the capture lock held on the render thread; returns as soon as the worker is started.
+void Start(IDirect3DDevice9* device,std::vector<std::uint8_t> bytes,std::uint32_t frame) noexcept {
+    try {
+        auto& shared=Shared(); if(shared.thread) return;
+        auto job=std::make_unique<Job>(); job->bytes=std::move(bytes);
+        const std::filesystem::path renderer=Variable(L"RRT_TRANSPORT_RENDERER");
+        if(!renderer.is_absolute()||!std::filesystem::is_regular_file(renderer)) {
+            WriteResult(Variable(L"RRT_TRANSPORT_RESULT"),"{\"result\":\"transport-session-error\",\"error\":\"RRT_TRANSPORT_RENDERER must be an absolute path to an existing rrt_dxr.exe\"}\n");
+            Event(0,"TransportFailed",E_INVALIDARG); return;
+        }
+        job->config.renderer=renderer.wstring();
+        const auto arguments=Variable(L"RRT_TRANSPORT_ARGS"); job->config.rendererArgs=Words(arguments.empty()?L"--mode gi --samples 1":arguments);
+        const auto timeout=Variable(L"RRT_TRANSPORT_TIMEOUT_MS");
+        if(!timeout.empty()) { wchar_t* end{}; const auto v=wcstoul(timeout.c_str(),&end,10); if(!*end&&v>=1000&&v<=600000) shared.timeoutMs=v; }
+        job->config.timeoutMs=shared.timeoutMs; job->config.sceneGeneration=frame+1; job->config.cancel=&shared.cancel;
+        job->config.killAfterHello=Variable(L"RRT_TRANSPORT_TEST_KILL")==L"1";
+        job->resultPath=Variable(L"RRT_TRANSPORT_RESULT");
+        D3DDEVICE_CREATION_PARAMETERS parameters{}; device->GetCreationParameters(&parameters); job->config.adapterOrdinal=parameters.AdapterOrdinal;
+        ComPtr<IDirect3D9> d3d; ComPtr<IDirect3D9Ex> ex;
+        if(SUCCEEDED(device->GetDirect3D(&d3d))&&SUCCEEDED(d3d.As(&ex))) { LUID luid{}; if(SUCCEEDED(ex->GetAdapterLUID(parameters.AdapterOrdinal,&luid))) job->config.adapterLuid=(std::uint64_t(std::uint32_t(luid.HighPart))<<32)|luid.LowPart; }
+        Event(0,"TransportStarted",S_OK);
+        Job* raw=job.release(); shared.thread=CreateThread(nullptr,0,Worker,raw,0,nullptr);
+        if(!shared.thread) { std::unique_ptr<Job> reclaimed(raw); Event(0,"TransportFailed",E_FAIL); }
+    } catch(...) {}
+}
+}
+
 bool Enabled() noexcept { try { auto& c=State(); std::lock_guard lock(c.mutex); return !c.path.empty()&&!c.done; } catch(...) { return false; } }
 void Invalidate(IDirect3DResource9* resource) noexcept {
     if(!Enabled()) return;
@@ -269,11 +331,22 @@ void Present(IDirect3DDevice9* device,const RECT* source,const RECT* destination
             } catch(scene::Reason r) { c.Reject(r); } catch(...) { c.Reject(scene::Reason::readback); }
             c.done=true; if(!c.scene.cleared) c.Reject(scene::Reason::clear);
             if(!c.scene.width) { c.scene.width=1; c.scene.height=1; }
-            try { scene::Save(c.scene,c.path); Event(0,"SceneSaved",S_OK); }
+            try {
+                auto bytes=scene::Encode(c.scene); scene::WriteNew(bytes,c.path); Event(0,"SceneSaved",S_OK);
+                if(transport_hook::Enabled()&&c.scene.rejected.empty()&&!c.scene.draws.empty()) transport_hook::Start(device,std::move(bytes),c.frame);
+            }
             catch(...) { Event(0,"SceneSaveFailed",E_FAIL); OutputDebugStringW(L"RRT: scene save failed; existing files are never overwritten.\n"); }
             c.scene.draws.clear();
         }
         ++c.frame;
+    } catch(...) {}
+}
+void TransportFinish() noexcept {
+    try {
+        auto& shared=transport_hook::Shared(); if(!shared.thread) return;
+        // A healthy session ends by itself; abandon it only after the longest it can legitimately take.
+        if(WaitForSingleObject(shared.thread,shared.timeoutMs*4+10000)!=WAIT_OBJECT_0) { shared.cancel=true; WaitForSingleObject(shared.thread,shared.timeoutMs+5000); }
+        CloseHandle(shared.thread); shared.thread=nullptr;
     } catch(...) {}
 }
 void Present(IDirect3DSwapChain9* swapchain,const RECT* source,const RECT* destination,HWND window,const RGNDATA* dirty,DWORD flags,HRESULT result) noexcept {
