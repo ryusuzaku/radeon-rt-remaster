@@ -26,7 +26,7 @@ def main():
     need(layout['little_endian'] is True, 'host is not little-endian; the wire format is')
     need(layout['pointer_bytes'] in (4, 8), 'unexpected pointer size')
     schema = t.SCHEMA
-    need(layout['magic'] == schema['magic'] and layout['max_message_bytes'] == schema['max_message_bytes'] and layout['max_in_flight'] == schema['max_in_flight'], 'compiled constants differ from the schema')
+    need(layout['magic'] == schema['magic'] and layout['max_message_bytes'] == schema['max_message_bytes'] and layout['max_in_flight'] == schema['max_in_flight'] and layout['max_scene_bytes'] == schema['max_scene_bytes'], 'compiled constants differ from the schema')
     need(layout['sizes']['Header'] == schema['header']['size'], 'Header size')
     need(layout['offsets']['Header'] == {f['name']: f['offset'] for f in schema['header']['fields']}, 'Header offsets')
     for message in schema['messages']:

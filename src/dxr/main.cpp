@@ -67,7 +67,7 @@ struct Options {
     UINT adapter{},mode{},samples{1},seed{1},cutSerial{}; bool temporal{},gdi{},presentationTest{},asyncTest{},asyncCloseTest{},noFramePacing{},pacingTest{}; std::wstring temporalTest;
     float light[3]{-.4f,.6f,-1.f};
     std::filesystem::path materialPath,rrInputs,rcPaths,rcProbe,rcSdkBin; bool lightingTest{},varianceFilter{},rcStream{},rcPresentCandidate{},rcPresentationTest{},rcLiveSessionTest{};
-    UINT rcTrainingBatches{1},rcBudgetMiB{32},rcWorkerTimeoutMs{60000},rcPersistentEpochs{1}; std::wstring rcSchedulerTest; bool rcResourceTest{},rcPoolTest{},rcGpuPoolTest{},rcRendererSessionTest{},rcStalenessTest{},rcStalenessForceContinue{};
+    UINT rcTrainingBatches{1},rcBudgetMiB{32},rcWorkerTimeoutMs{60000},rcPersistentEpochs{1}; std::wstring rcSchedulerTest; bool rcResourceTest{},rcPoolTest{},rcGpuPoolTest{},rcRendererSessionTest{},rcStalenessTest{},rcStalenessForceContinue{},transportServe{}; HANDLE transportIn{},transportOut{}; DWORD transportIdleMs{30000};
     std::filesystem::path rrRecord; float rrStep[3]{}; UINT rrResetFrame{UINT32_MAX}; bool rrStepSet{};
     // Internal render extent as a percentage of the captured target extent.
     // 100 keeps every historical output byte-identical; below that the frame is
@@ -840,6 +840,7 @@ void VerifyLighting(Renderer& renderer,const Options& options,const std::vector<
     }
 }
 }
+#include "transport_serve.h"
 int wmain(int argc,wchar_t** argv) {
     try {
         Options options;
@@ -882,6 +883,11 @@ int wmain(int argc,wchar_t** argv) {
             else if(arg==L"--rc-renderer-session-test") options.rcRendererSessionTest=true;
             else if(arg==L"--rc-staleness-test") options.rcStalenessTest=true;
             else if(arg==L"--rc-staleness-force-continue") options.rcStalenessForceContinue=true;
+            else if(arg==L"--transport-serve" && i+2<argc) {
+                wchar_t* end{}; options.transportIn=reinterpret_cast<HANDLE>(static_cast<std::uintptr_t>(wcstoull(argv[++i],&end,10))); Require(*end==0,"invalid transport input handle");
+                options.transportOut=reinterpret_cast<HANDLE>(static_cast<std::uintptr_t>(wcstoull(argv[++i],&end,10))); Require(*end==0,"invalid transport output handle"); options.transportServe=true;
+            }
+            else if(arg==L"--transport-idle-ms" && i+1<argc) { wchar_t* end{}; const auto value=wcstoul(argv[++i],&end,10); Require(*end==0&&value>=1&&value<=600000,"transport idle timeout must be 1..600000 ms"); options.transportIdleMs=value; }
             else if(arg==L"--rc-resource-test") options.rcResourceTest=true;
             else if(arg==L"--rc-pool-test") { options.rcResourceTest=true; options.rcPoolTest=true; }
             else if(arg==L"--rc-gpu-pool-test") { options.rcResourceTest=true; options.rcPoolTest=true; options.rcGpuPoolTest=true; }
@@ -958,6 +964,7 @@ int wmain(int argc,wchar_t** argv) {
                 static_cast<unsigned long long>(before),static_cast<unsigned long long>(gpu.allocated));
             return 0;
         }
+        if(options.transportServe) return transport_serve::Run(options);
         Require(!options.scene.empty(),"scene path required"); rrt::scene::Hash sceneDigest{}; auto scene=rrt::scene::Load(options.scene,&sceneDigest); Admit(scene);
         Require(!options.rrRecord.empty() || (!options.rrStepSet&&options.rrResetFrame==UINT32_MAX),"RR trajectory options require --rr-record");
         if(!options.rrRecord.empty()) {

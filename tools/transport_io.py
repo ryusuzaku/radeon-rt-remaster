@@ -30,6 +30,8 @@ MAX_SLOTS = 8
 ERRORS = tuple(SCHEMA['errors'])
 HELLO_ACK_STATUS = SCHEMA['hello_ack_status']
 FRAME_COMPLETE_STATUS = SCHEMA['frame_complete_status']
+SCENE_ATTACH_STATUS = SCHEMA['scene_attach_status']
+MAX_SCENE_BYTES = SCHEMA['max_scene_bytes']
 MESSAGES = {m['name']: m for m in SCHEMA['messages']}
 BY_TYPE = {m['type']: m for m in SCHEMA['messages']}
 DIRECTION = {'proxy->renderer': P2R, 'renderer->proxy': R2P}
@@ -100,6 +102,8 @@ class Session:
         self.selected = 0
         self.closed = False
         self.stopping = False
+        self.pending_attach = None  # scene_generation of an unanswered SceneAttach
+        self.attached = None  # scene_generation of the attached scene
         self.last_frame = 0
         self.outstanding = []  # oldest first: dicts with frame_id, fence_value, resource_slot and generations
         self.completed = 0
@@ -167,8 +171,38 @@ class Session:
         self.ack_status = f['status']
         return 'ok'
 
+    def _on_SceneAttach(self, header, f):
+        if not self.ready or self.stopping or self.outstanding or self.pending_attach is not None:
+            return 'unexpected_state'
+        if header['frame_id'] != 0:
+            return 'bad_frame_id'
+        if f['section_handle'] == 0 or not 1 <= f['section_bytes'] <= MAX_SCENE_BYTES:
+            return 'bad_field'
+        if f['reserved'] != 0:
+            return 'reserved_nonzero'
+        self.pending_attach = f['scene_generation']
+        return 'ok'
+
+    def _on_SceneAttachAck(self, header, f):
+        if not self.ready or self.pending_attach is None:
+            return 'unexpected_state'
+        if header['frame_id'] != 0:
+            return 'bad_frame_id'
+        if f['scene_generation'] != self.pending_attach:
+            return 'generation_mismatch'
+        if f['status'] not in SCENE_ATTACH_STATUS.values():
+            return 'bad_field'
+        if f['status'] == SCENE_ATTACH_STATUS['ok']:
+            if not (1 <= f['width'] <= MAX_DIMENSION and 1 <= f['height'] <= MAX_DIMENSION):
+                return 'bad_field'
+            self.attached = f['scene_generation']
+        elif f['width'] != 0 or f['height'] != 0:
+            return 'bad_field'
+        self.pending_attach = None
+        return 'ok'
+
     def _on_FrameSubmit(self, header, f):
-        if not self.ready or self.stopping:
+        if not self.ready or self.stopping or self.attached is None or self.pending_attach is not None:
             return 'unexpected_state'
         if header['frame_id'] == 0 or header['frame_id'] <= self.last_frame:
             return 'bad_frame_id'
@@ -176,6 +210,8 @@ class Session:
             return 'bad_field'
         if f['reserved'] != 0:
             return 'reserved_nonzero'
+        if f['scene_generation'] != self.attached:
+            return 'generation_mismatch'
         supersede = bool(header['flags'] & FLAG_SUPERSEDE_PENDING)
         if len(self.outstanding) >= MAX_IN_FLIGHT and not supersede:
             return 'too_many_in_flight'
@@ -194,13 +230,15 @@ class Session:
         entry = next((e for e in self.outstanding if e['frame_id'] == header['frame_id']), None)
         if entry is None:
             return 'unknown_frame'
-        if f['reserved32'] != 0 or f['reserved'] != 0:
+        if f['reserved32'] != 0:
             return 'reserved_nonzero'
         if f['status'] not in FRAME_COMPLETE_STATUS.values():
             return 'bad_field'
         if f['resource_slot'] != entry['resource_slot'] or any(f[g] != entry[g] for g in GENERATIONS):
             return 'generation_mismatch'
         if f['fence_value'] < entry['fence_value']:
+            return 'bad_field'
+        if f['status'] != FRAME_COMPLETE_STATUS['ready'] and any(f[f'output_sha256_{i}'] for i in range(4)):
             return 'bad_field'
         self.outstanding.remove(entry)
         if f['status'] == FRAME_COMPLETE_STATUS['discarded']:
@@ -218,7 +256,7 @@ class Session:
         return 'ok'
 
     def _on_StopAck(self, header, f):
-        if not self.stopping or self.outstanding:
+        if not self.stopping or self.outstanding or self.pending_attach is not None:
             return 'unexpected_state'
         if header['frame_id'] != 0:
             return 'bad_frame_id'

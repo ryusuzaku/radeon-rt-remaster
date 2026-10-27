@@ -106,6 +106,10 @@ Scene Load(const std::filesystem::path& path,Hash* sourceDigest) {
     std::ifstream f(path,std::ios::binary|std::ios::ate); Require(f.good(),"cannot open scene");
     auto length=f.tellg(); Require(length>=76 && length<=MaxBytes,"invalid scene file size");
     std::vector<std::uint8_t> bytes(static_cast<std::size_t>(length)); f.seekg(0); f.read(reinterpret_cast<char*>(bytes.data()),bytes.size()); Require(f.good(),"scene read failed");
+    return Decode(bytes,sourceDigest);
+}
+Scene Decode(std::vector<std::uint8_t> bytes,Hash* sourceDigest) {
+    Require(bytes.size()>=76 && bytes.size()<=MaxBytes,"invalid scene file size");
     Hash checksum{}; memcpy(checksum.data(),bytes.data()+bytes.size()-32,32);
     Require(checksum==Digest(bytes.data(),bytes.size()-32),"scene checksum mismatch"); bytes.resize(bytes.size()-32);
     Reader r{bytes}; char magic[8]; r.Get(magic,8); Require(memcmp(magic,"RRTSCN1\0",8)==0,"invalid scene magic");
