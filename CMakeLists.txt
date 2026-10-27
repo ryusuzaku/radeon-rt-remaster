@@ -363,6 +363,9 @@ add_test(NAME mod_replay COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DI
 add_test(NAME mod_replay_ex COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_mods.py --sample $<TARGET_FILE:d3d9_smoke_sample> --replay $<TARGET_FILE:rrt_replay> --ex)
 set_tests_properties(mod_replay mod_replay_ex PROPERTIES TIMEOUT 120)
 add_test(NAME proxy_equivalence COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_runtime.py --sample $<TARGET_FILE:d3d9_smoke_sample>)
+# The proxy's multi-draw quotas: defaults, RRT_POSITION_LIMITS, and failing closed on malformed values.
+add_test(NAME position_limits COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_position_limits.py --sample $<TARGET_FILE:d3d9_smoke_sample>)
+set_tests_properties(position_limits PROPERTIES TIMEOUT 180)
 add_test(NAME game_pass_workflow COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_game_pass.py --sample $<TARGET_FILE:d3d9_smoke_sample> --proxy $<TARGET_FILE:radeon_d3d9_proxy> --replay $<TARGET_FILE:rrt_replay>)
 set_tests_properties(game_pass_workflow PROPERTIES TIMEOUT 120)
 add_test(NAME workbench COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_workbench.py --fixture $<TARGET_FILE:d3d9_smoke_sample> --proxy $<TARGET_FILE:radeon_d3d9_proxy>)

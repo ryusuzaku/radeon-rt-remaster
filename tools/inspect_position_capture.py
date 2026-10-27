@@ -51,8 +51,9 @@ def inspect_bytes(data,include_records=False,assets=None):
                     session=row.get('session');need(isinstance(session,str) and len(session)==32 and all(c in '0123456789abcdef' for c in session),'session identity')
                     expected.update(session=session,sampling='bounded-per-present-interval' if version>=5 else 'one-per-present-interval')
                 if version>=5:
-                    limits=row.get('limits');need(type(limits) is dict and set(limits)=={'per_interval','total'} and type(limits['per_interval']) is int and type(limits['total']) is int and limits=={'per_interval':4,'total':16},'sampling limits')
-                    expected['limits']=limits;total_limit=16;interval_limit=4
+                    limits=row.get('limits');need(type(limits) is dict and set(limits)=={'per_interval','total'} and type(limits['per_interval']) is int and type(limits['total']) is int and 1<=limits['per_interval']<=256 and limits['per_interval']<=limits['total']<=1024,'sampling limits')
+                    # The proxy's defaults are 4 and 16; RRT_POSITION_LIMITS raises them within these ceilings.
+                    expected['limits']=limits;total_limit=limits['total'];interval_limit=limits['per_interval']
                 if version>=4:
                     selection=row.get('selection')
                     need(isinstance(selection,dict),'selection policy')

@@ -87,17 +87,46 @@ def constants_of(row):
     return values
 
 
-def group_key(row):
-    timing = row.get('timing') or {}
-    return json.dumps([row.get('device'), timing.get('reset_epoch'), timing.get('present_interval'), row.get('target'), row['viewport'],
-                       [list(c) for c in constants_of(row)[1:5]], row.get('render_state')], sort_keys=True, separators=(',', ':'))
+GROUP_TOLERANCE = 1e-4
 
 
-def groups_of(rows):
-    """Ledger records grouped by device, reset epoch, present interval, target, viewport and clip rows, in first-seen order."""
-    groups = {}
-    for row in rows: groups.setdefault(group_key(row), []).append(row)
-    return list(groups.values())
+def derived_view_projection(row):
+    """clip rows x inverse(model) as a 4x4, or None when the draw is not affine-prepared or its model is singular."""
+    c = constants_of(row)
+    if not (c[0][0] == 0 and c[0][1] == 1): return None
+    inv = inverse([list(r) for r in c[5:8]] + [[0.0, 0.0, 0.0, 1.0]])
+    return None if inv is None else matmul([list(r) for r in c[1:5]], inv)
+
+
+def same_camera(a, b, tolerance=GROUP_TOLERANCE):
+    if a is None or b is None: return False
+    scale = max(1.0, max(abs(x) for r in a for x in r))
+    return max(abs(a[i][j] - b[i][j]) for i in range(4) for j in range(4)) <= tolerance * scale
+
+
+def groups_of(rows, tolerance=GROUP_TOLERANCE):
+    """Ledger records grouped into scenes: same device, reset epoch, present interval, target, viewport and render state, and the
+    same camera. The camera is the derived view-projection (clip rows x inverse model), so draws with different model matrices share
+    a scene when they share the view that was captured; a draw the derivation cannot handle is grouped by its raw clip rows and
+    refused later with a reason. Groups come back in the order their first draw appears."""
+    buckets = {}
+    for position, row in enumerate(rows):
+        timing = row.get('timing') or {}
+        key = json.dumps([row.get('device'), timing.get('reset_epoch'), timing.get('present_interval'), row.get('target'), row['viewport'], row.get('render_state')],
+                         sort_keys=True, separators=(',', ':'))
+        buckets.setdefault(key, []).append((position, row))
+    groups = []
+    for members in buckets.values():
+        clusters = []  # [camera or raw clip rows, first position, rows]
+        for position, row in members:
+            camera = derived_view_projection(row); raw = [list(r) for r in constants_of(row)[1:5]]
+            for cluster in clusters:
+                if (camera is not None and cluster[3] is not None and same_camera(cluster[0], camera, tolerance)) or (camera is None and cluster[3] is None and cluster[0] == raw):
+                    cluster[2].append(row); break
+            else:
+                clusters.append([camera if camera is not None else raw, position, [row], camera])
+        groups.extend((first, rows_) for _, first, rows_, _ in clusters)
+    return [rows_ for _, rows_ in sorted(groups, key=lambda g: g[0])]
 
 
 def corners(row):

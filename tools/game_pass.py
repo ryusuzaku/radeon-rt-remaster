@@ -191,7 +191,7 @@ def capture_environment_name(level):
     return 'RRT_POSITION_' + level[len('position_'):].upper()
 
 
-def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64*1024*1024, scene_frame=None, note='', wait_trigger=False, shader_inventory=False, position_capture=False, position_frames=False, position_selection=None, position_multi_draw=False, position_render_state=False, position_clear_evidence=False, position_write_evidence=False, position_surface_scope=False, position_color_replay=False, position_material_inputs=False, position_pixel_material=False, position_texture_inputs=False, position_texture_assets=False, position_compressed_textures=False, position_texture_uploads=False, position_dirty_textures=False, position_surface_uploads=False, position_surface_locks=False, position_scene_metadata=False, shadow_mib=128):
+def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64*1024*1024, scene_frame=None, note='', wait_trigger=False, shader_inventory=False, position_capture=False, position_frames=False, position_selection=None, position_limits=None, position_multi_draw=False, position_render_state=False, position_clear_evidence=False, position_write_evidence=False, position_surface_scope=False, position_color_replay=False, position_material_inputs=False, position_pixel_material=False, position_texture_inputs=False, position_texture_assets=False, position_compressed_textures=False, position_texture_uploads=False, position_dirty_textures=False, position_surface_uploads=False, position_surface_locks=False, position_scene_metadata=False, shadow_mib=128):
     need(mode in ('baseline','proxy','disabled'), 'unknown pass mode')
     directory = Path(directory).resolve()
     plan = load_plan(directory)
@@ -219,6 +219,11 @@ def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64
         if dimensions!='any':
             width,height=map(int,dimensions.split('x'));need(width<=16384 and height<=16384,'position selection bounds')
         need(int(minimum)<=4096,'position selection bounds')
+    if position_limits is not None:
+        need(position_capture and position_multi_draw and isinstance(position_limits,str) and len(position_limits)<=16 and re.fullmatch(r'[1-9][0-9]*:[1-9][0-9]*',position_limits),
+             'position limits need position capture, multi-draw and PER_INTERVAL:TOTAL in decimal')
+        interval,total=map(int,position_limits.split(':'))
+        need(interval<=256 and total<=1024 and interval<=total,'position limits bounds: PER_INTERVAL 1..256, TOTAL at most 1024, PER_INTERVAL not above TOTAL')
     destination = Path(plan['destination'])
     need(not os.path.lexists(destination), 'existing d3d9.dll blocks this run; nothing overwritten')
     if mode != 'baseline':
@@ -256,6 +261,9 @@ def run_pass(directory, mode, name=None, start_frame=0, frames=300, max_bytes=64
             if position_selection is not None:
                 environment['RRT_POSITION_SELECTION']=position_selection
                 report['position_selection']=position_selection
+            if position_limits is not None:
+                environment['RRT_POSITION_LIMITS']=position_limits
+                report['position_limits']=position_limits
             for level in CAPTURE_LEVELS:
                 if flags[level['name']]:
                     environment[capture_environment_name(level['name'])]='1'
@@ -397,6 +405,7 @@ def main():
     launch.add_argument('--position-capture', action='store_true')
     launch.add_argument('--shadow-mib', type=int, choices=(128,256), default=128, help='CPU shadow cap; 256 is an opt-in position-capture experiment')
     launch.add_argument('--position-frames', action='store_true', help='one accepted position draw per successful-Present interval (v3)')
+    launch.add_argument('--position-limits', metavar='PER_INTERVAL:TOTAL', help='raise the multi-draw quotas (defaults 4:16; at most 256:1024); needs --position-multi-draw')
     launch.add_argument('--position-selection', metavar='WIDTHxHEIGHT:MIN_TRIANGLES|any:MIN_TRIANGLES', help='explicit target-size filter, or any:MIN to accept any render-target extent (v4; requires --position-frames, and --position-multi-draw for any:MIN)')
     for level in CAPTURE_LEVELS:
         launch.add_argument('--'+level['name'].replace('_','-'), action='store_true', help=level['help'])
@@ -421,7 +430,7 @@ def main():
                               max_bytes=args.max_bytes, scene_frame=args.scene_frame, note=args.note,
                               wait_trigger=args.wait_trigger, shader_inventory=args.shader_inventory,
                               position_capture=args.position_capture, position_frames=args.position_frames, shadow_mib=args.shadow_mib,
-                              position_selection=args.position_selection,
+                              position_selection=args.position_selection, position_limits=args.position_limits,
                               **{level['name']: getattr(args, level['name']) for level in CAPTURE_LEVELS})
         elif args.command == 'trigger':
             report=trigger_capture(args.directory,args.name)

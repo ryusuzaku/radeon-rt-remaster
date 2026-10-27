@@ -118,6 +118,30 @@ def test_grouping_and_extent():
     assert (native['width'], native['height']) == (640, 480), 'a small capture is not enlarged'
 
 
+def test_grouping_by_derived_camera():
+    # Draws with different model matrices have different raw clip rows but the same captured view: one scene, per-draw worlds.
+    models = [model_matrix(0.4, (100.0, -50.0, 20.0)), model_matrix(-0.7, (-300.0, 10.0, 5.0)), model_matrix(1.9, (0.0, 0.0, -80.0))]
+    rows = [row(10 + i, QUAD, INDICES, m) for i, m in enumerate(models)]
+    assert len({r['constants'][32:288] for r in rows}) == 3, 'the raw clip rows differ, so the old grouping would split these'
+    groups = p.groups_of(rows)
+    assert [len(g) for g in groups] == [3]
+    scene, provenance = p.build_scene(groups[0])
+    p.check_admissible(scene)
+    assert len({tuple(d['world']) for d in scene['draws']}) == 3 and len({tuple(d['projection']) for d in scene['draws']}) == 1
+    assert provenance['shared_camera_spread'] < 1e-3 and provenance['max_relative_clip_error'] < 1e-5, provenance
+    # A different view in the same interval stays apart, and so does a draw the derivation cannot handle.
+    other = [[1.0, 0, 0, 0], [0, 1.0, 0, 0], [0, 0, 1.0, 0], [0, 0, 1.0, 10.0]]
+    mixed = rows + [row(20, QUAD, INDICES, models[0], view_projection=other), row(21, QUAD, INDICES, models[0], c0=(0.0, 2.0, 2.0, 0.5))]
+    sizes = [len(g) for g in p.groups_of(mixed)]
+    assert sizes == [3, 1, 1], sizes
+    assert [g[0]['ordinal'] for g in p.groups_of(mixed)] == [10, 20, 21], 'groups keep first-appearance order'
+    # Near-identical cameras (float32 noise) are one group; a visibly different camera is not.
+    noisy = [[v * (1 + 1e-7) for v in r] for r in VIEW_PROJECTION]
+    assert len(p.groups_of([row(1, QUAD, INDICES, MODEL), row(2, QUAD, INDICES, MODEL, view_projection=noisy)])) == 1
+    shifted = [r[:] for r in VIEW_PROJECTION]; shifted[0][3] += 5.0
+    assert len(p.groups_of([row(1, QUAD, INDICES, MODEL), row(2, QUAD, INDICES, MODEL, view_projection=shifted)])) == 2
+
+
 def test_outputs_are_exclusive_and_checked():
     scene, provenance = p.build_scene([row(1, QUAD, INDICES, MODEL)])
     with tempfile.TemporaryDirectory() as folder:
