@@ -509,6 +509,7 @@ struct Renderer {
 #include "rr_record.h"
 #include "rc_paths.h"
 #include "rc_admission.h"
+#include "rc_generation.h"
 #include "rc_direct.h"
 
 std::string VerifyRcResourceLifetime(Renderer& renderer,const Options& options,const rrt::scene::Hash& sceneDigest) {
@@ -732,8 +733,9 @@ void Show(std::vector<UINT>& pixels,Renderer& renderer,Options& options) {
 }
 #include "rc_admission.h"
 std::string RunRcScheduledPresentation(Renderer& renderer,const Options& options,const rrt::scene::Hash& sceneDigest) {
-    VerifyRcFrameAdmission();
-    RcFrameAdmission admission; RcFrameAdmission::Identity identity{1,1,1,1,1};
+    VerifyRcFrameAdmission(); VerifyRcGenerations();
+    const auto generations=RcGenerationsFor(renderer.frame,options,sceneDigest);
+    RcFrameAdmission admission; RcFrameAdmission::Identity identity{generations.scene,1,generations.lighting,generations.material,generations.settings};
     admission.RequestFrame(identity); const auto active=admission.Begin();
     const auto width=renderer.scene.width,height=renderer.scene.height;
     WNDCLASSW c{}; c.lpfnWndProc=Procedure; c.hInstance=GetModuleHandleW(nullptr); c.lpszClassName=L"RRTRcScheduledPresentation"; Check(RegisterClassW(&c)?S_OK:E_FAIL,"RC presentation class");

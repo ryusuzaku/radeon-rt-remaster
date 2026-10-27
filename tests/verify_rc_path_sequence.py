@@ -94,6 +94,7 @@ def main():
     need(renderer_session['admitted_epochs']==5 and renderer_session['discarded_epochs']==renderer_session['coalesced_requests']==1 and renderer_session['pending_requests']==0,'renderer session failed to consume latest queued input')
     need(renderer_session['renderer_input_submissions']==6 and renderer_session['per_epoch_gpu_allocations']==0 and renderer_session['prediction_readback_bytes']==884736,'renderer session resources/readback mismatch')
     need(renderer_session['child_reaped'] and renderer_session['stop_acknowledged'] and renderer_session['candidate_applied'] is False and renderer_session['authoritative_output']=='no-cache','renderer session lifecycle/authority mismatch')
+    need(set(renderer_session['generations'])=={'scene','lighting','material','settings'} and renderer_session['hard_generation_changes']==1,'renderer session generation diagnostics mismatch')
     rows=renderer_session['records']; need([row['query_count'] for row in rows]==[172,178,178,172,172,172],'renderer session did not refresh counts')
     for index in (0,3,5): need(rows[index]['start_hash']==direct_one['baseline_hash_fnv1a64'] and rows[index]['post_hash']==direct_one['post_training_hash_fnv1a64'],'renderer session did not reset base exactly')
     need(rows[1]['start_hash']==live_session['changed_frame_baseline_hash_fnv1a64'] and rows[1]['post_hash']==live_session['post_training_hash_fnv1a64'],'renderer session camera reset mismatch')

@@ -67,6 +67,11 @@ ROW_REASONS = {
     'none': 'Existing behaviour',
 }
 
+# Material generation input when no sidecar is present: the RC path export rejects
+# sidecars, so the digest input is this fixed tag. src/dxr/rc_generation.h uses
+# the same bytes.
+MATERIAL_NONE_TAG = b'rrt-rc-material:none'
+
 GENERATION_BITS = 16
 AGE_BITS = 16
 GENERATION_WRAP = 1 << GENERATION_BITS

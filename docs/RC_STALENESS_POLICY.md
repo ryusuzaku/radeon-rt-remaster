@@ -421,6 +421,24 @@ maximum observed age and the number of rejected stale entries. Do not change
 compositing. The canonical scenarios have constant generations and no stale
 entries, so their hashes must remain identical.
 
+**Stage 1 status: written, not yet validated on a device.**
+[`src/dxr/rc_generation.h`](../src/dxr/rc_generation.h) derives the four hard
+generations from the frame's lighting and settings fields and from the scene
+digest, and replaces the constant `{1,1,1,1,1}` identities in the scheduled
+presentation and the renderer session. The values are only compared for
+equality, exactly like the constants, so behaviour and every hash must be
+unchanged. The renderer-session report gains `generations` and
+`hard_generation_changes` (expected `1`, the scripted settings bump). The C++
+derivation is pinned to the Python model by known answers: `VerifyRcGenerations()`
+checks them on the device and `tests/verify_rc_staleness_contract.py` requires
+the header to carry the same numbers. The maximum-age and rejected-stale-entry
+fields are deferred: per-entry ages do not exist until Stage 2 needs them, and
+reporting a constant zero would claim a measurement that is not made. The
+material generation uses a fixed tag when there is no sidecar and the sidecar
+path otherwise, a placeholder until a content digest exists. To validate, run
+the RC path sequence contract on the RX 9070 XT and confirm the existing hashes
+are unchanged.
+
 **Stage 2 — enforcement (opt-in RC mode only).**
 Reject `continue` when any generation differs, and fail closed with `reset`.
 This changes only the bug case. The existing camera, settings and reset

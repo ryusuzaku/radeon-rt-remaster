@@ -3,12 +3,13 @@
 
 template<class Regenerate>
 std::string RunRcRendererSession(Renderer& renderer,const Options& options,const std::vector<std::wstring>& args,
-    const std::vector<HANDLE>& inherited,ID3D12Fence* fence,ID3D12Resource* predictions,RcTransientBuffers& buffers,Regenerate regenerate) {
+    const std::vector<HANDLE>& inherited,ID3D12Fence* fence,ID3D12Resource* predictions,RcTransientBuffers& buffers,Regenerate regenerate,const RcGenerations& generations) {
     constexpr UINT Epochs=6; constexpr UINT64 OutputBytes=128*96*12;
     auto readback=buffers.Buffer(OutputBytes,D3D12_HEAP_TYPE_READBACK,D3D12_RESOURCE_STATE_COPY_DEST);
     const UINT64 allocated=renderer.gpu.allocated;
     RcIsolatedSession session(args,inherited,options.rcProbe.c_str());
-    RcFrameAdmission admission; RcFrameAdmission::Identity base{1,1,1,1,1},latest=base;
+    VerifyRcGenerations();
+    RcFrameAdmission admission; RcFrameAdmission::Identity base{generations.scene,1,generations.lighting,generations.material,generations.settings},latest=base;
     Options requested=options; admission.RequestFrame(base);
     std::array<RcFrameAdmission::Request,Epochs> requests{};
     std::array<uint64_t,Epochs> outputHashes{}; std::array<bool,Epochs> admitted{};
@@ -46,6 +47,11 @@ std::string RunRcRendererSession(Renderer& renderer,const Options& options,const
     const auto child=session.Finish(options.rcWorkerTimeoutMs);
     Require(child.reaped&&!child.timedOut&&!child.overflow&&!child.exitCode&&child.error.empty(),"RC renderer session child failed");
     Require(admission.coalesced==1&&admission.discarded==1&&!admission.queued&&!admission.busy,"RC renderer session queue accounting mismatch");
+    // Diagnostic only: count epochs whose admitted identity moved a hard generation
+    // (camera is excluded). The scripted session bumps settings once.
+    UINT hardGenerationChanges=0;
+    for(UINT epoch=1;epoch<Epochs;++epoch) { const auto& a=requests[epoch-1].identity; const auto& b=requests[epoch].identity;
+        if(a.scene!=b.scene||a.lighting!=b.lighting||a.material!=b.material||a.settings!=b.settings) ++hardGenerationChanges; }
     std::istringstream input(child.output); std::ostringstream records;
     std::array<uint64_t,Epochs> starts{},posts{}; UINT resets=0,accepted=0;
     for(UINT epoch=0;epoch<Epochs;++epoch) {
@@ -65,6 +71,8 @@ std::string RunRcRendererSession(Renderer& renderer,const Options& options,const
     report << "{\"result\":\"rc-renderer-session-pass\",\"provider_processes\":1,\"provider_contexts\":1,\"epochs\":" << Epochs << ",\"provider_dispatches\":" << dispatches
         << ",\"reset_epochs\":" << resets << ",\"admitted_epochs\":" << accepted << ",\"coalesced_requests\":" << admission.coalesced << ",\"discarded_epochs\":" << admission.discarded
         << ",\"pending_requests\":0,\"renderer_input_submissions\":" << Epochs << ",\"per_epoch_gpu_allocations\":0,\"shared_resources\":5,\"shared_fences\":1,\"child_reaped\":true,\"stop_acknowledged\":true"
-        << ",\"candidate_applied\":false,\"authoritative_output\":\"no-cache\",\"prediction_readback_bytes\":" << Epochs*OutputBytes << ",\"records\":[" << records.str() << "]}";
+        << ",\"candidate_applied\":false,\"authoritative_output\":\"no-cache\",\"prediction_readback_bytes\":" << Epochs*OutputBytes
+        << ",\"generations\":{\"scene\":" << generations.scene << ",\"lighting\":" << generations.lighting << ",\"material\":" << generations.material << ",\"settings\":" << generations.settings
+        << "},\"hard_generation_changes\":" << hardGenerationChanges << ",\"records\":[" << records.str() << "]}";
     return report.str();
 }
