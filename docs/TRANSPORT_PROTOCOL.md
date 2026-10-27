@@ -140,8 +140,9 @@ frames 0, 1, 6 and 7 (extents 256x192 and 320x240) through the proxy and asserts
 ## What this does not establish
 
 The proxy client covers only the one-shot fixed-function scene capture (`.rrscene`). A shader-based game such as Half-Life 2
-writes position-capture artifacts instead, and turning those into a renderable scene is a separate piece of work, so no real
-title has been rendered through this path. There is no continuous bounded capture, no per-frame generations, no `Reset`/resize
+writes position-capture ledgers instead. [Position ledger to scene](POSITION_TO_SCENE.md) converts a ledger group offline into a
+geometry-only scene that the renderer draws and the transport host carries, but the proxy itself does not run it, so no
+real title has been rendered through the live proxy path. There is no continuous bounded capture, no per-frame generations, no `Reset`/resize
 handling and no presentation of the renderer's output: the proxy only observes. The scene crosses in shared memory; shared D3D12 resources, fence ownership across processes for pixels, the fault-injection
 cases beyond the four refusals above, `Reset`/resize lifecycle, ten-cycle attach/detach counts and pacing are stages 3
 to 6 of the [test plan](PHASE6_TRANSPORT_DECISION.md#test-plan). The pure-Python contract and the `transport_layout` test

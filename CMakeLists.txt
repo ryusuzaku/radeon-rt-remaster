@@ -275,6 +275,8 @@ if(NOT RRT_RENDERER_ONLY)
   add_test(NAME trace_reader COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_trace_reader.py)
   add_test(NAME position_scene COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_position_scene.py)
 add_test(NAME scene_metadata COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_scene_metadata.py)
+add_test(NAME position_to_scene COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_position_to_scene.py)
+set_tests_properties(position_to_scene PROPERTIES TIMEOUT 60)
 set_tests_properties(scene_metadata PROPERTIES TIMEOUT 60)
 # The checked-in generated forwards must stay current with their generator;
 # nothing else verifies them, so a hand edit or schema change would ship silently.
@@ -343,6 +345,11 @@ rrt_add_evidence_test(recorded_position_oracle RRT_HL2_POSITION_CAPTURE ${Python
 set_tests_properties(recorded_position_oracle PROPERTIES TIMEOUT 180)
 rrt_add_evidence_test(position_reconstruction RRT_HL2_POSITION_CAPTURE ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_position_reconstruction.py --capture "${RRT_HL2_POSITION_CAPTURE}")
 rrt_add_evidence_test(capture_position_scene RRT_HL2_POSITION_CAPTURE ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_capture_position_scene.py --capture "${RRT_HL2_POSITION_CAPTURE}")
+# A real HL2 position ledger converted to a scene, drawn by rrt_dxr and carried by the transport. The ledger is local
+# game evidence; the x64 renderer comes from the x64 tree (-DRRT_X64_DXR=<its rrt_dxr.exe>).
+set(RRT_HL2_POSITION_SCENE_CAPTURE "${CMAKE_CURRENT_SOURCE_DIR}/build/game-passes/hl2-multidraw-20260907/runs/multidraw/position-capture.jsonl" CACHE FILEPATH "Local HL2 position ledger with accepted draws for the scene conversion check")
+rrt_add_evidence_test(position_scene_local RRT_HL2_POSITION_SCENE_CAPTURE ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_position_scene_local.py --ledger "${RRT_HL2_POSITION_SCENE_CAPTURE}" --dxr "${RRT_X64_DXR}" --host $<TARGET_FILE:rrt_transport_host>)
+set_tests_properties(position_scene_local PROPERTIES TIMEOUT 300)
 add_test(NAME mod_validation COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_mods.py)
 # The mod manifest's normal-map conventions, documented default and reserved
 # auxiliary-texture slot are stated in the schema, the validator and the
