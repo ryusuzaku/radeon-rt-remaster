@@ -8,10 +8,11 @@ negative control (`--rc-staleness-force-continue`) forces a Continue across the
 lighting change, which the gate would otherwise refuse, and proves the metric
 and the forcing work.
 
-The provider output on this fixture does not depend on the lighting change, so
-the negative control cannot yet show lighting-specific stale values
-(`stale_fraction` stays zero). The contract records that as a measured fact and
-does not claim stale lighting is demonstrated; see docs/RC_STALENESS_POLICY.md.
+The fixture matters. Under the default light every training target of the
+canonical scene is zero (the secondary hits are unlit), so no lighting change can
+alter the trained output. A sideways light (`--light 1 0 0`) lights those
+surfaces, and a stronger intensity with two training batches makes the forced
+continue visibly stale; see docs/RC_STALENESS_POLICY.md.
 """
 import argparse
 import json
@@ -21,6 +22,8 @@ import subprocess
 import sys
 import tempfile
 
+# Sideways light so the secondary hits are lit and the training targets are non-zero.
+FIXTURE_ARGS=('--light','1','0','0','--light-intensity','5','--rc-training-batches','2')
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools')); sys.path.insert(0,str(ROOT/'tests'))
 from rc_staleness import decide,ACTION_RESET,ACTION_CONTINUE
@@ -39,7 +42,7 @@ def main():
     folder=Path(tempfile.mkdtemp(prefix='rc-staleness-',dir=args.probe.parent)); env={k:v for k,v in os.environ.items() if not k.startswith('RRT_')}
     scene=folder/'fixture.rrscene'; scene.write_bytes(encode_scene(fixture()))
     def run(*extra):
-        command=[str(args.dxr),str(scene),'--mode','gi','--samples','1','--rc-shared-probe',str(args.probe),'--rc-sdk-bin',str(args.sdk_bin),'--rc-staleness-test','--debug',*extra]
+        command=[str(args.dxr),str(scene),'--mode','gi','--samples','1','--rc-shared-probe',str(args.probe),'--rc-sdk-bin',str(args.sdk_bin),'--rc-staleness-test','--debug',*FIXTURE_ARGS,*extra]
         process=subprocess.run(command,capture_output=True,text=True,env=env,timeout=70); need(process.returncode==0,(process.stdout,process.stderr)); return json.loads(process.stdout)
     policy=run(); policy_repeat=run(); control=run('--rc-staleness-force-continue'); control_repeat=run('--rc-staleness-force-continue')
     need(policy_repeat==policy and control_repeat==control,'staleness report is not repeat-exact')
@@ -47,7 +50,7 @@ def main():
     if args.out: args.out.mkdir(parents=True,exist_ok=True); (args.out/'staleness.json').write_text(json.dumps(dict(policy=policy,negative_control=control),indent=2)+'\n',encoding='utf-8')
     for row,mode in ((policy,'policy'),(control,'negative-control')):
         need(row['result']=='rc-staleness-session-pass' and row['mode']==mode,'staleness session did not pass')
-        need(row['provider_processes']==row['provider_contexts']==1 and row['epochs']==4 and row['provider_dispatches']==12,'staleness session lifecycle mismatch')
+        need(row['provider_processes']==row['provider_contexts']==1 and row['epochs']==4 and row['provider_dispatches']==16,'staleness session lifecycle mismatch')
         need(row['shared_resources']==5 and row['shared_fences']==1 and row['child_reaped'] is True and row['stop_acknowledged'] is True,'staleness containment mismatch')
         need(row['per_epoch_gpu_allocations']==0,'staleness session allocated per-epoch resources')
         need(row['candidate_applied'] is False and row['authoritative_output']=='no-cache','staleness session changed the claim boundary')
@@ -63,6 +66,7 @@ def main():
     need(expected==[ACTION_RESET]*3,'reference model no longer resets across the scenario')
     # Policy gate: reset at every identity change, exact match with the fresh session.
     need([r['reset'] for r in policy['records']]==[True]*4 and not any(r['forced_continue'] for r in policy['records']),'policy did not reset at every change')
+    need(policy['provider_output_lighting_independent'] is False,'fixture does not make the provider output depend on lighting')
     need(policy['records'][1]['changed_generations']==1 and policy['enforced_resets']==1 and policy['generation_violations']==0,'policy lighting enforcement mismatch')
     need(policy['stale_mse']==0 and policy['stale_max_abs']==0 and policy['stale_fraction']==0 and policy['stale_values']==0,'policy produced stale values')
     need(policy['records'][1]['post_hash']==policy['records'][2]['post_hash']==policy['records'][3]['post_hash'],'policy epoch differs from a fresh session')
@@ -71,10 +75,11 @@ def main():
     need(control['records'][1]['changed_generations']==1 and control['generation_violations']==1 and control['enforced_resets']==0,'negative control violation accounting mismatch')
     need(control['records'][1]['start_hash']==control['records'][0]['post_hash'],'negative control did not continue from the trained state')
     need(control['records'][1]['post_hash']!=policy['records'][1]['post_hash'] and control['stale_mse']>0 and control['stale_max_abs']>0,'negative control did not differ from the policy run')
+    need(control['stale_fraction']>0 and control['stale_values']>0,'negative control shows no stale lighting values: the fixture is too weak')
     need(control['records'][2]['post_hash']==policy['records'][2]['post_hash'],'fresh session differs between modes')
     print(json.dumps(dict(result='pass',stale_fraction_policy=policy['stale_fraction'],stale_mse_control=control['stale_mse'],stale_max_abs_control=control['stale_max_abs'],
         stale_fraction_control=control['stale_fraction'],provider_output_lighting_independent=control['provider_output_lighting_independent'],
-        fixture_discriminates_lighting=control['stale_fraction']>0,artifacts=str(folder))))
+        stale_values_control=control['stale_values'],artifacts=str(folder))))
     return 0
 
 
