@@ -3,6 +3,7 @@
 #include <mutex>
 #include "observers.h"
 #include "../trace/trace.h"
+#include "../capture/capture.h"
 
 namespace {
 HMODULE NativeRuntime() noexcept {
@@ -47,7 +48,7 @@ extern "C" HRESULT WINAPI Direct3DCreate9Ex(UINT version, IDirect3D9Ex** output)
     }
     return result;
 }
-extern "C" void WINAPI RRTFinishTrace() { if(!Disabled()) rrt::FinishTrace(); }
+extern "C" void WINAPI RRTFinishTrace() { if(!Disabled()) { rrt::capture::TransportFinish(); rrt::FinishTrace(); } }
 extern "C" UINT WINAPI RRTProxyVersion() { return 1; }
 extern "C" int WINAPI D3DPERF_BeginEvent(D3DCOLOR color,LPCWSTR name) {
     auto fn=Resolve<decltype(&D3DPERF_BeginEvent)>("D3DPERF_BeginEvent"); return fn?fn(color,name):-1;

@@ -86,7 +86,7 @@ void Validate(const Scene& s) {
     }
     for(auto& r:s.rejected) Require(static_cast<unsigned>(r.reason)>=1 && static_cast<unsigned>(r.reason)<=10,"invalid rejection reason");
 }
-void Save(const Scene& s,const std::filesystem::path& path) {
+std::vector<std::uint8_t> Encode(const Scene& s) {
     Validate(s); Bytes b; b.Put("RRTSCN1\0",8); b.Pod(Version); b.Pod(s.frame); b.Pod(s.width); b.Pod(s.height); b.Pod(s.clearColor);
     b.Pod(s.attempted); b.Pod(std::uint32_t(s.cleared)); b.Pod(std::uint32_t(s.draws.size())); b.Pod(std::uint32_t(s.rejected.size()));
     b.Pod(s.metadata.units); b.Pod(s.metadata.scale); b.Pod(s.metadata.upAxis); b.Pod(s.metadata.handedness);
@@ -97,11 +97,15 @@ void Save(const Scene& s,const std::filesystem::path& path) {
         b.Put(d.vertices.data(),d.vertices.size()*sizeof(Vertex)); b.Put(d.indices.data(),d.indices.size()*4); b.Put(d.texture.data(),d.texture.size());
     }
     const auto checksum=Digest(b.data.data(),b.data.size()); b.Pod(checksum);
+    return std::move(b.data);
+}
+void WriteNew(const std::vector<std::uint8_t>& bytes,const std::filesystem::path& path) {
     HANDLE file=CreateFileW(path.c_str(),GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
     Require(file!=INVALID_HANDLE_VALUE,"cannot create scene (existing file or unavailable path)");
-    DWORD written{}; const bool ok=WriteFile(file,b.data.data(),static_cast<DWORD>(b.data.size()),&written,nullptr) && written==b.data.size();
+    DWORD written{}; const bool ok=WriteFile(file,bytes.data(),static_cast<DWORD>(bytes.size()),&written,nullptr) && written==bytes.size();
     CloseHandle(file); Require(ok,"scene write failed (incomplete file retained)");
 }
+void Save(const Scene& s,const std::filesystem::path& path) { WriteNew(Encode(s),path); }
 Scene Load(const std::filesystem::path& path,Hash* sourceDigest) {
     std::ifstream f(path,std::ios::binary|std::ios::ate); Require(f.good(),"cannot open scene");
     auto length=f.tellg(); Require(length>=76 && length<=MaxBytes,"invalid scene file size");

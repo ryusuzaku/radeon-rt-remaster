@@ -16,6 +16,8 @@ void Commit(std::unique_ptr<scene::Draw> draw,HRESULT result) noexcept;
 void Clear(IDirect3DDevice9* device,DWORD count,DWORD flags,D3DCOLOR color,HRESULT result) noexcept;
 void Unsupported(IDirect3DDevice9* device,HRESULT result) noexcept;
 void Reset(IDirect3DDevice9* device,HRESULT result) noexcept;
+// Joins the opt-in transport worker (bounded). Called from the RRTFinishTrace export, never from DllMain.
+void TransportFinish() noexcept;
 void Present(IDirect3DDevice9* device,const RECT* source,const RECT* destination,HWND window,const RGNDATA* dirty,DWORD flags,HRESULT result) noexcept;
 void Present(IDirect3DSwapChain9* swapchain,const RECT* source,const RECT* destination,HWND window,const RGNDATA* dirty,DWORD flags,HRESULT result) noexcept;
 }

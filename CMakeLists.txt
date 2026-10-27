@@ -20,7 +20,7 @@ add_executable(rrt_transport_check src/transport/transport_check.cpp)
 target_include_directories(rrt_transport_check PRIVATE src/transport)
 # The proxy's stand-in for transport tests: launches the x64 renderer in --transport-serve mode.
 add_executable(rrt_transport_host src/transport/transport_host.cpp)
-target_link_libraries(rrt_transport_host PRIVATE rrt_scene dxgi)
+target_link_libraries(rrt_transport_host PRIVATE rrt_scene)
 
 option(RRT_RENDERER_ONLY "Build standalone scene renderers without a game proxy/harness" OFF)
 if(NOT RRT_RENDERER_ONLY)
@@ -361,6 +361,13 @@ set_tests_properties(game_pass_workflow PROPERTIES TIMEOUT 120)
 add_test(NAME workbench COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_workbench.py --fixture $<TARGET_FILE:d3d9_smoke_sample> --proxy $<TARGET_FILE:radeon_d3d9_proxy>)
 set_tests_properties(workbench PROPERTIES TIMEOUT 300)
 add_test(NAME proxy_equivalence_ex COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_runtime.py --sample $<TARGET_FILE:d3d9_smoke_sample> --ex)
+# Phase 6 stage 2, slice B: the opt-in transport client inside the real proxy. It needs the x64 renderer from
+# the x64 tree: configure with -DRRT_X64_DXR=<path to that tree's rrt_dxr.exe>.
+if(RRT_X64_DXR)
+    add_test(NAME transport_proxy_parity COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_transport_proxy.py --sample $<TARGET_FILE:d3d9_smoke_sample> --dxr "${RRT_X64_DXR}")
+    add_test(NAME transport_proxy_parity_ex COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_transport_proxy.py --sample $<TARGET_FILE:d3d9_smoke_sample> --dxr "${RRT_X64_DXR}" --ex)
+    set_tests_properties(transport_proxy_parity transport_proxy_parity_ex PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
+endif()
 add_test(NAME scene_replay COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_scene.py --sample $<TARGET_FILE:d3d9_smoke_sample> --replay $<TARGET_FILE:rrt_replay>)
 add_test(NAME scene_replay_ex COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_scene.py --sample $<TARGET_FILE:d3d9_smoke_sample> --replay $<TARGET_FILE:rrt_replay> --ex)
 set_tests_properties(scene_replay scene_replay_ex PROPERTIES TIMEOUT 120)

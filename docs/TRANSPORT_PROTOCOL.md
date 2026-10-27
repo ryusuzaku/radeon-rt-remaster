@@ -1,8 +1,9 @@
 # Proxy/renderer transport protocol
 
 Status: **stages 1 and 2 of [Phase 6](PHASE6_TRANSPORT_DECISION.md#test-plan).** Stage 1 is the protocol contract. Stage 2
-adds a renderer serve mode and a test host that plays the proxy's part, and proves transport parity on fixtures. The real
-proxy does not use the protocol yet, so no game-facing behaviour changes.
+adds a renderer serve mode and a test host that plays the proxy's part, and proves transport parity on fixtures, then an
+opt-in client inside the real proxy for the one-shot scene capture. Nothing changes for a game unless the opt-in
+environment variable below is set.
 
 This is the wire protocol for option B of the [transport decision](PHASE6_TRANSPORT_DECISION.md): a thin 32-bit
 D3D9 proxy talking to a 64-bit renderer process. A message carries identities and fence values, never pixels or scene
@@ -98,11 +99,50 @@ Measured on 2026-10-27 (RX 9070 XT, driver 32.0.32015.7029): all eight pairs of 
 x64 Debug or Release renderer, pass. A frame costs about 30 ms for these 128x96 fixtures, which is the renderer's own
 time; no latency or pacing claim is made (stage 5).
 
+## Slice B: the opt-in client inside the proxy
+
+The test host and the proxy share one client, `src/transport/client_win.h` (Win32 and standard library only; DXGI is
+loaded lazily to resolve the adapter LUID, so nothing links d3d or dxgi). `RunSession()` never throws and every wait has a
+deadline. The proxy uses it from `capture::Present`, on the selected frame of the one-shot scene capture:
+
+1. the frame's scene is encoded once (`scene::Encode`) and written to `RRT_SCENE_FILE` as before;
+2. only if `RRT_TRANSPORT_RENDERER` is set and the scene is complete, the encoded bytes are handed to a worker thread and
+   `Present` returns; the render thread does nothing else;
+3. the worker copies the bytes into an inherited section, launches the renderer under a kill-on-close job, drives the
+   session, writes the result file (create-new, never overwrite) and records `TransportStarted` and `TransportDone` or
+   `TransportFailed` trace events;
+4. `RRTFinishTrace` joins the worker (bounded: four times the exchange timeout plus ten seconds, then it cancels). No
+   thread or process is created at `DllMain`.
+
+| Variable | Meaning |
+|---|---|
+| `RRT_TRANSPORT_RENDERER` | absolute path to the x64 `rrt_dxr.exe`; the opt-in. Unset means nothing happens |
+| `RRT_TRANSPORT_ARGS` | the renderer's render settings, split on spaces; default `--mode gi --samples 1` |
+| `RRT_TRANSPORT_RESULT` | file that receives the session's JSON report |
+| `RRT_TRANSPORT_TIMEOUT_MS` | per-exchange deadline, 1000 to 600000, default 30000 |
+| `RRT_TRANSPORT_TEST_KILL` | `1` kills the renderer right after the handshake (test only) |
+
+Adapter identity: on D3D9Ex devices the LUID comes from `GetAdapterLUID`; on classic devices the adapter ordinal is mapped
+through DXGI, which can pick a different adapter than D3D9 on a multi-GPU machine (a mismatch is refused by the renderer, not
+silently accepted).
+
+`tests/verify_transport_proxy.py` (`transport_proxy_parity` and `transport_proxy_parity_ex`, configured with
+`-DRRT_X64_DXR=<x64 rrt_dxr.exe>`; interactive desktop and a DXR GPU, skips with 77 otherwise) runs the smoke fixture for
+frames 0, 1, 6 and 7 (extents 256x192 and 320x240) through the proxy and asserts:
+
+- the game's pixels equal the `--runtime system` baseline exactly with the transport on, and also when it fails;
+- the digest the renderer returns equals a standalone `rrt_dxr` render of the scene file the proxy wrote;
+- the renderer is reaped and its process gone when the game exits;
+- a missing renderer, a renderer that rejects its arguments and a renderer killed mid-session are each reported in the result
+  file and leave the game's pixels untouched;
+- with no opt-in, or with `RRT_PROXY_DISABLE=1`, no result file appears.
+
 ## What this does not establish
 
-The real proxy does not speak this protocol: no capture, no D3D9 `Present`/`Reset` handling and no raster fallback are
-involved, so the "raster path still matches the no-proxy baseline" half of stage 2 is untouched and untested here. The
-scene crosses in shared memory; shared D3D12 resources, fence ownership across processes for pixels, the fault-injection
+The proxy client covers only the one-shot fixed-function scene capture (`.rrscene`). A shader-based game such as Half-Life 2
+writes position-capture artifacts instead, and turning those into a renderable scene is a separate piece of work, so no real
+title has been rendered through this path. There is no continuous bounded capture, no per-frame generations, no `Reset`/resize
+handling and no presentation of the renderer's output: the proxy only observes. The scene crosses in shared memory; shared D3D12 resources, fence ownership across processes for pixels, the fault-injection
 cases beyond the four refusals above, `Reset`/resize lifecycle, ten-cycle attach/detach counts and pacing are stages 3
 to 6 of the [test plan](PHASE6_TRANSPORT_DECISION.md#test-plan). The pure-Python contract and the `transport_layout` test
 cover the schema and session rules; the handle-count result is for the host side only.

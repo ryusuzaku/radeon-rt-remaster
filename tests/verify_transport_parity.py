@@ -67,7 +67,7 @@ def main():
 
     def stable(report):  # everything that is not a timing or a per-run count of live handles
         return {k: ([{kk: vv for kk, vv in f.items() if kk != 'wall_ms'} for f in v] if k == 'frames' else v) for k, v in report.items()
-                if k not in ('host_handles_before', 'host_handles_after', 'host_handles_each', 'host_handles_baseline')}
+                if k not in ('host_handles_before', 'host_handles_after', 'host_handles_each', 'host_handles_baseline', 'renderer_pid')}
 
     results = {}
     for scene_name, scene in scenes.items():
@@ -75,7 +75,7 @@ def main():
         for setting_name, extra in SETTINGS:
             want = standalone(scene, extra); report = host(scene, extra, ['--frames', '2'])
             label = f'{scene_name}/{setting_name}'
-            need(report['result'] == 'transport-host-pass' and report['ack_status'] == 0 and report['scene_status'] == 0, f'{label}: session did not pass: {report}')
+            need(report['result'] == 'transport-session-pass' and report['ack_status'] == 0 and report['scene_status'] == 0, f'{label}: session did not pass: {report}')
             need(report['host_pointer_bytes'] in (4, 8) and report['protocol_version'] == 1, f'{label}: host identity')
             frames = report['frames']; need(len(frames) == 2 and all(f['status'] == 0 for f in frames), f'{label}: frames')
             need(all(f['output_sha256'] == want for f in frames), f'{label}: transport frames {[f["output_sha256"] for f in frames]} != standalone {want}')
@@ -90,19 +90,19 @@ def main():
 
     fixture_scene = scenes['fixture']; gi = SETTINGS[0][1]
     refused = host(fixture_scene, gi, ['--corrupt-digest'])
-    need(refused['result'] == 'transport-host-scene-refused' and refused['scene_status'] == 1 and refused['frames'] == [] and refused['stopped'] is True, f'bad digest was not refused: {refused}')
+    need(refused['result'] == 'transport-session-scene-refused' and refused['scene_status'] == 1 and refused['frames'] == [] and refused['stopped'] is True, f'bad digest was not refused: {refused}')
     need(refused['child_reaped'] is True and refused['renderer_exit_code'] == 0, 'bad digest left the renderer unclean')
     version = host(fixture_scene, gi, ['--min-version', '2', '--max-version', '3'])
-    need(version['result'] == 'transport-host-refused' and version['ack_status'] == 1 and version['child_reaped'] is True and version['renderer_exit_code'] == 0, f'version mismatch: {version}')
+    need(version['result'] == 'transport-session-refused' and version['ack_status'] == 1 and version['child_reaped'] is True and version['renderer_exit_code'] == 0, f'version mismatch: {version}')
     need(json.loads(version['renderer_stdout'])['result'] == 'transport-serve-refused', 'renderer did not report the refusal')
     luid = host(fixture_scene, gi, ['--wrong-luid'])
-    need(luid['result'] == 'transport-host-refused' and luid['ack_status'] == 2 and luid['child_reaped'] is True and luid['renderer_exit_code'] == 0, f'adapter mismatch: {luid}')
+    need(luid['result'] == 'transport-session-refused' and luid['ack_status'] == 2 and luid['child_reaped'] is True and luid['renderer_exit_code'] == 0, f'adapter mismatch: {luid}')
     garbage = host(fixture_scene, gi, ['--inject-garbage'])
-    need(garbage['result'] == 'transport-host-injected' and garbage['child_reaped'] is True and garbage['renderer_exit_code'] == 3, f'malformed header: {garbage}')
+    need(garbage['result'] == 'transport-session-injected' and garbage['child_reaped'] is True and garbage['renderer_exit_code'] == 3, f'malformed header: {garbage}')
     need(json.loads(garbage['renderer_stdout'])['error'] == 'bad_magic', 'renderer did not name the violation')
     cycles = host(fixture_scene, gi, ['--repeat', '6'])
     each = cycles['host_handles_each']
-    need(cycles['result'] == 'transport-host-pass' and len(each) == 6, f'repeated sessions: {cycles}')
+    need(cycles['result'] == 'transport-session-pass' and len(each) == 6, f'repeated sessions: {cycles}')
     need(all(h == each[1] for h in each[1:]) and each[1] <= cycles['host_handles_baseline'] + 8, f'host handle count grows per session: baseline {cycles["host_handles_baseline"]}, then {each}')
     results['handles'] = dict(baseline=cycles['host_handles_baseline'], after_each_session=each)
     results['refusals'] = dict(bad_digest=refused['scene_status'], version_mismatch=version['ack_status'], adapter_mismatch=luid['ack_status'], malformed_exit_code=garbage['renderer_exit_code'])
