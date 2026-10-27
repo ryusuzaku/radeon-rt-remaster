@@ -67,7 +67,7 @@ struct Options {
     UINT adapter{},mode{},samples{1},seed{1},cutSerial{}; bool temporal{},gdi{},presentationTest{},asyncTest{},asyncCloseTest{},noFramePacing{},pacingTest{}; std::wstring temporalTest;
     float light[3]{-.4f,.6f,-1.f};
     std::filesystem::path materialPath,rrInputs,rcPaths,rcProbe,rcSdkBin; bool lightingTest{},varianceFilter{},rcStream{},rcPresentCandidate{},rcPresentationTest{},rcLiveSessionTest{};
-    UINT rcTrainingBatches{1},rcBudgetMiB{32},rcWorkerTimeoutMs{60000},rcPersistentEpochs{1}; std::wstring rcSchedulerTest; bool rcResourceTest{},rcPoolTest{},rcGpuPoolTest{},rcRendererSessionTest{};
+    UINT rcTrainingBatches{1},rcBudgetMiB{32},rcWorkerTimeoutMs{60000},rcPersistentEpochs{1}; std::wstring rcSchedulerTest; bool rcResourceTest{},rcPoolTest{},rcGpuPoolTest{},rcRendererSessionTest{},rcStalenessTest{},rcStalenessForceContinue{};
     std::filesystem::path rrRecord; float rrStep[3]{}; UINT rrResetFrame{UINT32_MAX}; bool rrStepSet{};
     // Internal render extent as a percentage of the captured target extent.
     // 100 keeps every historical output byte-identical; below that the frame is
@@ -510,6 +510,7 @@ struct Renderer {
 #include "rc_paths.h"
 #include "rc_admission.h"
 #include "rc_generation.h"
+#include "rc_staleness.h"
 #include "rc_direct.h"
 
 std::string VerifyRcResourceLifetime(Renderer& renderer,const Options& options,const rrt::scene::Hash& sceneDigest) {
@@ -879,6 +880,8 @@ int wmain(int argc,wchar_t** argv) {
             else if(arg==L"--rc-presentation-test") { options.rcPresentationTest=true; options.rcPresentCandidate=true; }
             else if(arg==L"--rc-live-session-test") options.rcLiveSessionTest=true;
             else if(arg==L"--rc-renderer-session-test") options.rcRendererSessionTest=true;
+            else if(arg==L"--rc-staleness-test") options.rcStalenessTest=true;
+            else if(arg==L"--rc-staleness-force-continue") options.rcStalenessForceContinue=true;
             else if(arg==L"--rc-resource-test") options.rcResourceTest=true;
             else if(arg==L"--rc-pool-test") { options.rcResourceTest=true; options.rcPoolTest=true; }
             else if(arg==L"--rc-gpu-pool-test") { options.rcResourceTest=true; options.rcPoolTest=true; options.rcGpuPoolTest=true; }
@@ -983,6 +986,8 @@ int wmain(int argc,wchar_t** argv) {
         Require(!options.rcPresentCandidate||rcDirect,"RC candidate presentation requires RC direct mode");
         Require(!options.rcPresentationTest||rcDirect,"RC native presentation test requires RC direct mode");
         Require(!options.rcRendererSessionTest||(rcDirect&&!options.rcPresentationTest&&!options.rcLiveSessionTest&&!options.rcResourceTest&&!options.rcPresentCandidate&&options.rcPersistentEpochs==1),"RC renderer session test requires direct diagnostic mode and default epochs, without other RC tests");
+        Require(!options.rcStalenessTest||(rcDirect&&!options.rcRendererSessionTest&&!options.rcPresentationTest&&!options.rcLiveSessionTest&&!options.rcResourceTest&&!options.rcPresentCandidate&&options.rcPersistentEpochs==1),"RC staleness test requires direct diagnostic mode and default epochs, without other RC tests");
+        Require(!options.rcStalenessForceContinue||options.rcStalenessTest,"RC forced-continue negative control requires --rc-staleness-test");
         Require(!options.rcResourceTest||(rcDirect&&!options.rcPresentationTest&&!options.rcLiveSessionTest&&options.rcPersistentEpochs==1&&options.rcBudgetMiB==32),"RC resource test requires direct mode with default epochs and budget, without presentation/live tests");
         Require(!options.rcLiveSessionTest||(rcDirect&&options.rcPersistentEpochs==1),"RC live session test requires RC direct mode and default persistent epochs");
         Require(!rcDirect||(sizeof(void*)==8&&options.rcProbe.is_absolute()&&std::filesystem::is_regular_file(options.rcProbe)&&options.rcSdkBin.is_absolute()&&std::filesystem::is_directory(options.rcSdkBin)),"RC direct requires absolute x64 probe and SDK directories");
