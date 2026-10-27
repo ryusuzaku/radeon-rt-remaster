@@ -71,7 +71,9 @@ RcGenerations RcGenerationsFor(const Frame& frame,const Options& options,const r
     RcGenerations g;
     RcLightingInputs lighting{}; std::memcpy(lighting.light,frame.light,sizeof(lighting.light)); lighting.sunRadius=frame.sunRadius;
     std::memcpy(lighting.lightColor,frame.lightColor,sizeof(lighting.lightColor)); lighting.intensity=frame.intensity; lighting.ambient=frame.ambient; lighting.shadows=frame.shadows;
-    const RcSettingsInputs settings{frame.seed,frame.flags,options.renderPercent,options.denoise,options.temporal};
+    // Only the persistent setting bits (denoise, temporal, light tint, variance filter); the other
+    // frame flag bits are per-dispatch state such as a forced reset.
+    const RcSettingsInputs settings{frame.seed,frame.flags&53u,options.renderPercent,options.denoise,options.temporal};
     g.scene=RcDigestGeneration(sceneDigest.data(),sceneDigest.size());
     if(options.materialPath.empty()) { static const char none[]="rrt-rc-material:none"; g.material=RcDigestGeneration(none,sizeof(none)-1); }
     else { const std::string tag="rrt-rc-material:path:"+options.materialPath.string(); g.material=RcDigestGeneration(tag.data(),tag.size()); }

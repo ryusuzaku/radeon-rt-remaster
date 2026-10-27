@@ -18,7 +18,8 @@ std::string RunRcRendererSession(Renderer& renderer,const Options& options,const
         requests[epoch]=admission.Begin();
         if(epoch) { renderer.Configure(requested,true); renderer.RenderTo(1); regenerate(renderer.frame); }
         const auto noCache=renderer.ReadPixels();
-        const auto command=requests[epoch].reset?RcEpochProtocol::Reset:RcEpochProtocol::Continue;
+        const auto decision=RcStalenessGate::Enforce(admission,requests[epoch]); Require(!decision.refused&&decision.command==(requests[epoch].reset?RcEpochProtocol::Reset:RcEpochProtocol::Continue),"RC staleness gate disagreed with admission");
+        const auto command=decision.command;
         Check(renderer.gpu.queue->Signal(fence,RcEpochProtocol::Signal(epoch,command)),"RC renderer session command");
         if(!epoch) {
             // Queue input without touching worker-owned GPU resources. Only the

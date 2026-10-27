@@ -17,6 +17,12 @@ struct RcFrameAdmission {
     uint64_t serial{},coalesced{},discarded{};
     bool busy{},queued{},closed{},haveCompleted{};
 
+    // The single staleness decision (docs/RC_STALENESS_POLICY.md; mirrors
+    // tools/rc_staleness.decide with camera_continuation off): any hard generation
+    // change, any camera change, or no completed epoch requires a reset.
+    static bool MustReset(bool haveCompleted,const Identity& completed,const Identity& next) {
+        return !haveCompleted||!(next==completed);
+    }
     void RequestFrame(Identity identity) {
         Require(!closed,"RC admission closed");
         latest=identity;
@@ -27,7 +33,7 @@ struct RcFrameAdmission {
     }
     Request Begin() {
         Require(!closed&&!busy&&queued,"RC admission cannot start epoch");
-        active=pending; active.reset=!haveCompleted||!(active.identity==completedIdentity);
+        active=pending; active.reset=MustReset(haveCompleted,completedIdentity,active.identity);
         queued=false; busy=true; return active;
     }
     bool Complete(uint64_t token,bool successful) {

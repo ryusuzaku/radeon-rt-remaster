@@ -445,6 +445,27 @@ This changes only the bug case. The existing camera, settings and reset
 scenarios must still produce the same hashes, because their generations are
 constant within each scenario.
 
+**Stage 2 status: implemented and validated on a device (2026-10-27, RX 9070 XT, driver 32.0.32015.7029).**
+`RcFrameAdmission::MustReset` is now the single decision (any identity change, including camera, or no completed epoch resets) and
+[`src/dxr/rc_staleness.h`](../src/dxr/rc_staleness.h) re-derives it at the command boundary through `RcStalenessGate::Enforce`: a
+Continue is never signalled across a scene, lighting, material, settings or camera change, and a disagreeing admission is refused
+(fail closed). `VerifyRcStalenessGate()` checks the table on the device. The existing renderer session routes its commands through
+the gate and its hashes are unchanged. The test-only `--rc-staleness-test` runs the stale-lighting scenario in one provider context
+([`src/dxr/rc_staleness_session.h`](../src/dxr/rc_staleness_session.h)): epoch 0 trains at the default light, epoch 1 changes only
+the light intensity, epochs 2 and 3 repeat that light under new camera revisions. `--rc-staleness-force-continue` is the negative
+control and is valid only with that test. The device contract is `tests/verify_rc_staleness_device.py` (`rc_staleness_device`,
+`SKIP_RETURN_CODE 77`; it also writes `staleness.json`). The policy run resets at every change and matches the fresh session exactly
+(`stale_mse`, `stale_max_abs`, `stale_fraction` all 0, 516 compared values); repeats are exact.
+
+**Finding: the fixture cannot yet show stale lighting.** On this scene the provider's trained output is bit-identical for different
+lighting (intensity, light colour and ambient all give the same post-training hash, both from the renderer and from exported path
+files), even though the exported targets differ. The forced-continue control therefore differs from the fresh session only because it
+trained a second time (`stale_mse` 2.01e-8, `stale_max_abs` 1.83e-4, hash equal to the two-batch result), and `stale_fraction` is 0, so
+the negative-control gate in section 4 is not met. Enforcement at the command boundary is proven; that continuing across a light
+change visibly corrupts the output is not demonstrated, and `provider_output_lighting_independent` is reported as a measurement. Until
+the fixture is strengthened (a scene where the target changes the trained output) or the cause is found, the policy rests on the
+principle rather than on observed stale output. The ledger entry is not yet written.
+
 **Stage 3 — age-bounded camera continuation (default off).**
 Add `--rc-max-sample-age N`. Only camera-only changes may continue, and only
 when every composited entry is within the age bound. This is the first mode
