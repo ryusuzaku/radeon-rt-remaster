@@ -81,10 +81,27 @@ record as `program identity`.
 - `position_to_scene` gains a synthetic second-program check: a mixed scene, a recorded flex value that differs from the evaluated
   one failing the gate, and the c0.y refusal.
 
+## Measured in game (2026-11-10)
+
+Pass `build/game-passes/hl2-flex-20261110`, run `frame` (local), with the same options as the earlier frame capture
+(`any:3`, multi-draw, quotas `256:1024`, triggered on a loaded save) and the proxy built from this change.
+
+- The ledger reached its 16 MiB byte cap after 8 presents and 675 attempts: 244 captured draws (196 of this program, 48 of the
+  first), 333 `unsupported_shader`, 97 under the primitive minimum, **no evidence failures**. The static-prop buffers were observed:
+  every draw of this program in every frame passed the `uninitialized_bytes` check.
+- Per complete frame: 18,739 attempted triangles, of which 5,608 were captured (29.9%), against 38 in the earlier capture of the
+  same view. This program contributed 5,570, exactly the share the earlier inventory analysis predicted.
+- The reader accepts the ledger. `position_to_scene.py` converts the first frame into one scene of 33 draws (6 of the first program,
+  27 of this one) under one camera: 5,608 triangles, clip error 6.2e-6, shared-camera spread 0. `rrt_dxr` admits it: 16.8% of pixels
+  show geometry in albedo, and railings, overhead pipes and hanging lights are recognisable. The frame sent through the transport
+  (x86 host, x64 renderer) has the same digest as the standalone render.
+- The ledger's byte cap, not the quotas, now ends the capture: each draw of this program carries 16 flex bytes per corner. That is
+  eight frames, more than enough for one view.
+
 ## What this does not establish
 
-- That the title's static-prop buffers are observed. They are probably filled at level load; the proxy shadows from process start
-  within the 128 MiB budget, but only a game capture shows how many draws pass the `uninitialized_bytes` check.
+- That every title or level fills its static-prop buffers while the proxy observes. In this save they were; a buffer filled before
+  the proxy loaded would be refused as `uninitialized_bytes`, never guessed.
 - Anything about the normal, tangent, texture-coordinate, fog or colour outputs, or the pixel programs these draws use.
 - World-space meaning, units or handedness of the model position, which stay unverified as for the first program.
 - The 3348-byte program (48.8% of the frame) is skinned and remains refused.
