@@ -277,6 +277,8 @@ if(NOT RRT_RENDERER_ONLY)
 add_test(NAME scene_metadata COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_scene_metadata.py)
 add_test(NAME position_to_scene COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_position_to_scene.py)
 set_tests_properties(position_to_scene PROPERTIES TIMEOUT 60)
+add_test(NAME position_conditioning COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_position_conditioning.py)
+set_tests_properties(position_conditioning PROPERTIES TIMEOUT 60)
 set_tests_properties(scene_metadata PROPERTIES TIMEOUT 60)
 # The checked-in generated forwards must stay current with their generator;
 # nothing else verifies them, so a hand edit or schema change would ship silently.

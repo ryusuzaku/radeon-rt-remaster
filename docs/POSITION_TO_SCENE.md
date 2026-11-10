@@ -51,7 +51,8 @@ the failure. No GPU is involved.
   even a complete capture of the admitted program is a fraction of a frame. The 42 vertex programs a title uses, skinning
   among them, are a separate piece of work.
 - **The existing ledgers are tiny.** The multidraw pass has 16 draws in four render groups of four draws and 48 triangles each.
-  A recognisable frame needs a new capture session with larger limits.
+  A capture with quotas 256:1024 was made on 2026-11-10 and accepted only six draws (38 triangles) per frame, so the limits are
+  not the constraint; see [the frame capture result](HL2_FRAME_CAPTURE_RESULT.md).
 - **No live path.** The proxy's HL2 capture writes position ledgers, not scenes. Using this from the proxy would mean
   porting the conversion to C++.
 

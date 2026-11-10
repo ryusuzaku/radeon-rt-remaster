@@ -172,7 +172,7 @@ The inventory holds 23 vertex families and 26 pixel families. Three were examine
 
 | Bytes | Draws | What it is |
 |---:|---:|---|
-| 1420 | 729 | Skinned. Indexed `cModel[53]`, `cFlexScale`, compressed-normal decode (`def c1, -128, -64, 0.0159`), base and detail texture-coordinate transforms, writes `oT4.xyz = normalize(modelPos)`. |
+| 1420 | 729 | ~~Skinned.~~ **Corrected 2026-11-10: not skinned.** Declares `cModel[53]` but reads only `cModel[0]` (c58-c60), with no relative addressing; adds a stream-2 flex offset (`v4 * cFlexScale.x`), compressed-normal decode (`def c1, -128, -64, 0.0159`), base and detail texture-coordinate transforms, writes `oT4.xyz = normalize(modelPos)`. See [the frame capture result](HL2_FRAME_CAPTURE_RESULT.md). |
 | 228 | 208 | `oPos = cModelViewProj * v0`, four `dp4`s, rows `c4..c7`, and **no pixel shader bound at all**. |
 | 1172, 3348, 1116 | 590 | Not examined. |
 
@@ -181,7 +181,9 @@ Two consequences worth stating plainly:
 - The 228-byte family is trivial to evaluate on the CPU, but it writes no model
   position and binds no pixel shader. Admitting it would yield position evidence
   without material evidence, which is not what the material goal needs.
-- The 1420-byte family is the dominant one and is a skinning problem: bone-indexed
+- (Corrected 2026-11-10: the bone indexing below is wrong; the program reads one model matrix. It still needs its own
+  evaluator, and the skinned program is the 3348-byte one. See [the frame capture result](HL2_FRAME_CAPTURE_RESULT.md).)
+  The 1420-byte family is the dominant one and is a skinning problem: bone-indexed
   matrices, normal decompression, two texture-coordinate transforms. It is not a
   digest-and-row-table change like the pixel program was. `src/shader/position.cpp`
   evaluates one program's arithmetic exactly; admitting this family means writing a

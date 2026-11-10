@@ -35,6 +35,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ubuntu-latest became Ubuntu 26.04 (image 20261028), which ships no python3.12.
+      # Install it explicitly so the interpreter does not change with the runner image.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Show the interpreter
         run: python3.12 --version
 
@@ -90,6 +96,10 @@ jobs:
       # The position-ledger to scene converter: synthetic records, its reprojection gate and its refusals.
       - name: Position to scene converter
         run: python3.12 tests/test_position_to_scene.py
+
+      # The reader's position check must accept float32 cancellation and still refuse wrong constants.
+      - name: Position conditioning
+        run: python3.12 tests/test_position_conditioning.py
 
       # Scene header v2 metadata and the ledger's v20 scene object must default
       # v1 captures to the documented values rather than guessing.
