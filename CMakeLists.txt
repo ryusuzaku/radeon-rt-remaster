@@ -328,6 +328,9 @@ set_tests_properties(hl2_position PROPERTIES TIMEOUT 120)
 # The second admitted vertex program (docs/HL2_FLEX_POSITION_CONTRACT.md): native oracle, proxy capture and reader negatives.
 rrt_add_evidence_test(hl2_flex_position RRT_HL2_POSITION_INVENTORY ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_hl2_flex_position.py --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy> --inventory "${RRT_HL2_POSITION_INVENTORY}")
 set_tests_properties(hl2_flex_position PROPERTIES TIMEOUT 300)
+# The third, skinned vertex program (docs/HL2_SKINNED_POSITION_CONTRACT.md): native oracle, proxy capture and reader negatives.
+rrt_add_evidence_test(hl2_skin_position RRT_HL2_POSITION_INVENTORY ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_hl2_skin_position.py --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy> --inventory "${RRT_HL2_POSITION_INVENTORY}")
+set_tests_properties(hl2_skin_position PROPERTIES TIMEOUT 300)
 # The second admitted pixel program is captured game bytecode: it lives only in the
 # local inventory, never in the repository. The capture supplies a real draw whose
 # accepted-program reconstruction clears the gate; the test skips without both.

@@ -3,7 +3,9 @@
 The position ledgers carry, per accepted draw, the indexed corner positions, the vertex program's constants (c0, the
 clip rows c4-c7, the model rows c58-c60) and the clip/model positions the program produced. Draws of the second admitted
 program (docs/HL2_FLEX_POSITION_CONTRACT.md) carry nine rows instead (c0, c3, the view-projection c8-c11 and the model rows
-c58-c60) and a stream-2 flex value per corner, which is folded into the vertex as `p + flex * c3.x`. This tool turns one
+c58-c60) and a stream-2 flex value per corner, which is folded into the vertex as `p + flex * c3.x`. Draws of the third, skinned
+program (docs/HL2_SKINNED_POSITION_CONTRACT.md) blend three bones per vertex, so no single world matrix exists: their vertices
+are the model positions the reader has verified, with an identity world, and the camera is c8-c11. This tool turns one
 group of draws that share a camera into a v2 scene the DXR renderer admits, so a real title's geometry can go through
 the transport. What it does and does not claim:
 
@@ -91,9 +93,18 @@ def is_flex(row):
     return row.get('constant_rows') == FLEX_ROWS
 
 
+SKIN_ROWS = [0, 3, 8, 9, 10, 11]
+
+
+def is_skin(row):
+    """A draw of the third, skinned program; as with is_flex, the reader only lets this row list appear on that program."""
+    return row.get('constant_rows') == SKIN_ROWS
+
+
 def constants_of(row):
     values = list(struct.iter_unpack('<4f', bytes.fromhex(row['constants'])))
-    if is_flex(row): need(len(values) == 9, 'a flex draw needs its nine captured constant registers')
+    if is_skin(row): need(len(values) == 6, 'a skinned draw needs its six captured constant registers')
+    elif is_flex(row): need(len(values) == 9, 'a flex draw needs its nine captured constant registers')
     else: need(len(values) == 8, 'a draw needs the eight captured constant registers')
     return values
 
@@ -105,6 +116,9 @@ def camera_of(row):
     program: it applies cViewProj (c8-c11) to (model position, c0.y) itself, so the view-projection is given and c0.y must be one.
     """
     c = constants_of(row)
+    if is_skin(row):
+        need(c[0][1] == 1, f'draw {row["ordinal"]}: c0.y is not one, so the w of the model position is not one')
+        return [[float(i == j) for j in range(4)] for i in range(4)], [list(r) for r in c[2:6]]
     if is_flex(row):
         need(c[0][1] == 1, f'draw {row["ordinal"]}: c0.y is not one, so the w of the model position is not one')
         return [list(r) for r in c[6:9]] + [[0.0, 0.0, 0.0, 1.0]], [list(r) for r in c[2:6]]
@@ -144,7 +158,7 @@ def groups_of(rows, tolerance=GROUP_TOLERANCE):
     for members in buckets.values():
         clusters = []  # [camera or raw clip rows, first position, rows]
         for position, row in members:
-            camera = derived_view_projection(row); raw = [list(r) for r in constants_of(row)[2:6] if is_flex(row)] or [list(r) for r in constants_of(row)[1:5]]
+            camera = derived_view_projection(row); raw = [list(r) for r in constants_of(row)[2:6] if is_flex(row) or is_skin(row)] or [list(r) for r in constants_of(row)[1:5]]
             for cluster in clusters:
                 if (camera is not None and cluster[3] is not None and same_camera(cluster[0], camera, tolerance)) or (camera is None and cluster[3] is None and cluster[0] == raw):
                     cluster[2].append(row); break
@@ -160,7 +174,9 @@ def corners(row):
     positions = list(struct.iter_unpack('<3f', bytes.fromhex(row['positions'])))
     evaluated = list(struct.iter_unpack('<8f', bytes.fromhex(row['evaluated'])))
     need(len(positions) == n and len(evaluated) == n, 'position and evaluated records must have one entry per index')
-    if is_flex(row):  # the program's first step, r1.xyz = v0 + v4 * c3.x, done once here so the scene stores the drawn vertex
+    if is_skin(row):  # per-vertex blended bones: the vertex is the model position itself, under an identity world
+        positions = [tuple(e[4:7]) for e in evaluated]
+    elif is_flex(row):  # the program's first step, r1.xyz = v0 + v4 * c3.x, done once here so the scene stores the drawn vertex
         flexes = list(struct.iter_unpack('<4f', bytes.fromhex(row['flex']['values']))); need(len(flexes) == n, 'a flex draw needs one flex value per index')
         scale = constants_of(row)[1][0]
         positions = [tuple(f32(p[j] + f[j] * scale) for j in range(3)) for p, f in zip(positions, flexes)]
@@ -213,7 +229,7 @@ def build_scene(rows, max_extent=1280):
     scene = dict(frame=int(timing.get('present_interval') or 0), width=width, height=height, clear_color=CLEAR_COLOR, attempted=len(draws), cleared=True,
                  complete=True, rejected=[], draws=draws)
     provenance = dict(
-        draw_ordinals=[row['ordinal'] for row, _ in prepared], programs=dict(pinned=sum(not is_flex(r) for r, _ in prepared), flex=sum(is_flex(r) for r, _ in prepared)), triangles=triangles, vertices=sum(len(d['vertices']) for d in draws), source_viewport=list(viewport[:4]),
+        draw_ordinals=[row['ordinal'] for row, _ in prepared], programs=dict(pinned=sum(not is_flex(r) and not is_skin(r) for r, _ in prepared), flex=sum(is_flex(r) for r, _ in prepared), skin=sum(is_skin(r) for r, _ in prepared)), triangles=triangles, vertices=sum(len(d['vertices']) for d in draws), source_viewport=list(viewport[:4]),
         scene_extent=[width, height], extent_scale=scale, shared_camera_spread=spread, max_relative_clip_error=clip_error, max_relative_model_error=model_error,
         target=rows[0].get('target'), present_interval=timing.get('present_interval'), reset_epoch=timing.get('reset_epoch'),
         material='uniform 1x1 grey texture, white vertex colours, zero UVs: geometry only, nothing about the game\'s materials was captured',

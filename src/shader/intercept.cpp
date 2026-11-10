@@ -49,7 +49,7 @@ struct Shadow final:IUnknown {
     ULONG STDMETHODCALLTYPE Release() override{auto n=--refs;if(!n)delete this;return n;}
     ~Shadow(){const auto released=bytes.size()*2;Retained().fetch_sub(released);RetainedBuffers().fetch_sub(released);}
 };
-struct Knowledge {std::array<bool,61> constants{};std::array<bool,31> pixelConstants{};bool recording{},reserved{};std::uint64_t resetEpoch{},revision{},interval{},drawSequence{},clearSerial{},bindingSerial{};UINT samples{};std::string lastClear="null",lastClearScope="null";};
+struct Knowledge {std::array<bool,256> constants{};std::array<bool,31> pixelConstants{};bool recording{},reserved{};std::uint64_t resetEpoch{},revision{},interval{},drawSequence{},clearSerial{},bindingSerial{};UINT samples{};std::string lastClear="null",lastClearScope="null";};
 struct WriteEvent {WriterPending call;HRESULT hr{};std::uint64_t serial{},clearSerial{};std::int64_t ordinal=-1;};
 // Capture ledger versions. The ladder is ordered and cumulative: each level adds
 // evidence to the one below it, and the environment parser enforces that a level
@@ -331,7 +331,7 @@ void Lock(IDirect3DResource9* r,UINT offset,UINT length,void* pointer,DWORD flag
 }
 void BeforeUnlock(IDirect3DResource9* r) noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);if(!c.Active())return;auto s=Get(r);if(s&&s->pending){memcpy(s->bytes.data()+s->offset,s->pointer,s->length);s->pointer=nullptr;}}catch(...){Invalidate(r);}}
 void AfterUnlock(IDirect3DResource9* r,HRESULT hr) noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);if(!c.Active())return;auto s=Get(r);if(!s)return;if(FAILED(hr)){Invalidate(r);return;}if(s->pending && !s->pointer){++s->revision;std::fill(s->known.begin()+s->offset,s->known.begin()+s->offset+s->length,1);s->pending=false;}}catch(...){Invalidate(r);}}
-void Constants(std::uint64_t id,UINT start,UINT count,HRESULT hr) noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);if(!c.Active()||FAILED(hr))return;auto& d=Device(c,id);if(!d.recording){++d.revision;for(UINT i=0;i<61;++i)if(i>=start && std::uint64_t(i)<std::uint64_t(start)+count)d.constants[i]=true;}}catch(...) {}}
+void Constants(std::uint64_t id,UINT start,UINT count,HRESULT hr) noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);if(!c.Active()||FAILED(hr))return;auto& d=Device(c,id);if(!d.recording){++d.revision;for(UINT i=0;i<256;++i)if(i>=start && std::uint64_t(i)<std::uint64_t(start)+count)d.constants[i]=true;}}catch(...) {}}
 void PixelConstants(std::uint64_t id,UINT start,UINT count,HRESULT hr) noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);if(!c.Active()||!c.pixelMaterial||FAILED(hr))return;auto& d=Device(c,id);if(!d.recording){++d.revision;for(UINT i=0;i<31;++i)if(i>=start&&std::uint64_t(i)<std::uint64_t(start)+count)d.pixelConstants[i]=true;}}catch(...) {}}
 void Boundary(std::uint64_t id,int kind,HRESULT hr) noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);if(!c.Active()||FAILED(hr))return;auto& d=Device(c,id);++d.revision;if(kind==0){++d.resetEpoch;d.interval=0;d.drawSequence=0;d.reserved=false;d.samples=0;}d.constants.fill(false);d.pixelConstants.fill(false);d.recording=kind==1;}catch(...) {}}
 bool FrameSampling() noexcept {try{auto& c=State();std::lock_guard lock(c.mutex);return c.Active()&&c.positionMode&&c.frameSampling;}catch(...){return false;}}

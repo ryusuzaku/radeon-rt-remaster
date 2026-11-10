@@ -165,7 +165,7 @@ void MaterialFixture(bool paired=false){
         for(const char* probe:probes){ComPtr<IDirect3DPixelShader9> pixel=pairedPixel;if(!paired||std::wstring(mode)==L"wrongshader"){auto ps=compile(probe,"ps_2_0");Check(d->CreatePixelShader(static_cast<const DWORD*>(ps->GetBufferPointer()),&pixel));}Check(d->SetPixelShader(pixel.Get()));
             auto render=[&](bool evaluated){Check(d->Clear(0,nullptr,D3DCLEAR_TARGET,0,1,0));Check(d->SetVertexShader(evaluated?pass.Get():native.Get()));Check(d->SetVertexDeclaration(evaluated?cd.Get():nd.Get()));
                 if(!evaluated){Check(d->SetStreamSource(0,vb.Get(),0,48));Check(d->SetIndices(ib.Get()));
-                    std::vector<std::uint8_t> vbytes(sizeof(points)),vknown(sizeof(points),1),ibytes(6),iknown(6,1);memcpy(vbytes.data(),points.data(),sizeof(points));memcpy(ibytes.data(),indices.data(),6);std::array<bool,61> known;known.fill(true);
+                    std::vector<std::uint8_t> vbytes(sizeof(points)),vknown(sizeof(points),1),ibytes(6),iknown(6,1);memcpy(vbytes.data(),points.data(),sizeof(points));memcpy(ibytes.data(),indices.data(),6);std::array<bool,256> known;known.fill(true);
                     Evidence ve{vb.Get(),vbytes,vknown},ie{ib.Get(),ibytes,iknown};Draw draw{0,0,3,0,1};if(std::wstring(mode)==L"unsupportedvs")Reject([&]{position::Capture(d,draw,ve,ie,known,true);});else Need(!position::Capture(d,draw,ve,ie,known,true).empty(),"material capture");
                     for(unsigned missing:{24u,28u,36u,43u}){vknown[missing]=0;Reject([&]{position::Capture(d,draw,ve,ie,known,true);});vknown[missing]=1;}
                     for(unsigned missing:{12u,16u}){known[missing]=false;Reject([&]{position::Capture(d,draw,ve,ie,known,true);});known[missing]=true;}

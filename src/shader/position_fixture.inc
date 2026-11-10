@@ -92,7 +92,7 @@ void PositionFixture(bool recorded=false) {
             if(!ib)Check(d->CreateIndexBuffer(mode==L"reuse"?4096:static_cast<UINT>(indices.size()*2),0,D3DFMT_INDEX16,D3DPOOL_MANAGED,&ib,nullptr));Check(ib->Lock(0,static_cast<UINT>(indices.size()*2),&ptr,0));memcpy(ptr,indices.data(),indices.size()*2);Check(ib->Unlock());
             if(mode==L"reuse"){retainedVB=vb;retainedIB=ib;}
             Check(d->SetStreamSource(0,vb.Get(),offset,stride));Check(d->SetIndices(ib.Get()));
-            if(!cpu){std::vector<std::uint8_t> mask(storage.size(),1),imask(indices.size()*2,1);std::array<bool,61> known;known.fill(true);
+            if(!cpu){std::vector<std::uint8_t> mask(storage.size(),1),imask(indices.size()*2,1);std::array<bool,256> known;known.fill(true);
                 Evidence ve{vb.Get(),storage,mask},ie{ib.Get(),{reinterpret_cast<const std::uint8_t*>(indices.data()),indices.size()*2},imask};Draw draw{static_cast<INT>(base),0,pointCount,1,pointCount/3};
                 Need(!position::Capture(d,draw,ve,ie,known).empty(),"standalone position capture");
                 mask[offset+base*stride]=0;Reject([&]{position::Capture(d,draw,ve,ie,known);});mask[offset+base*stride]=1;

@@ -69,7 +69,7 @@ void FlexPositionFixture() {
             ComPtr<IDirect3DIndexBuffer9> ib;Check(d->CreateIndexBuffer(static_cast<UINT>(indices.size()*2),0,D3DFMT_INDEX16,D3DPOOL_MANAGED,&ib,nullptr));Check(ib->Lock(0,0,&ptr,0));memcpy(ptr,indices.data(),indices.size()*2);Check(ib->Unlock());
             Check(d->SetStreamSource(0,vb.Get(),offset,stride));Check(d->SetIndices(ib.Get()));
             if(!cpu){Check(d->SetStreamSource(1,colors.Get(),0,4));Check(d->SetStreamSource(2,fb.Get(),flexOffset,flexStride));
-                std::vector<std::uint8_t> mask(storage.size(),1),imask(indices.size()*2,1),fmask(flexStorage.size(),1);std::array<bool,61> known;known.fill(true);
+                std::vector<std::uint8_t> mask(storage.size(),1),imask(indices.size()*2,1),fmask(flexStorage.size(),1);std::array<bool,256> known;known.fill(true);
                 Evidence ve{vb.Get(),storage,mask},ie{ib.Get(),{reinterpret_cast<const std::uint8_t*>(indices.data()),indices.size()*2},imask},fe{fb.Get(),flexStorage,fmask};
                 Draw draw{static_cast<INT>(base),0,pointCount,1,pointCount/3};
                 auto record=position::Capture(d,draw,ve,ie,known,false,&fe);Need(record.find("\"flex\":{")!=std::string::npos&&record.find("\"constant_rows\":[0,3,8,9,10,11,58,59,60]")!=std::string::npos,"standalone flex capture");
