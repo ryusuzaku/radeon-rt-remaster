@@ -35,6 +35,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ubuntu-latest became Ubuntu 26.04 (image 20261028), which ships no python3.12.
+      # Install it explicitly so the interpreter does not change with the runner image.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Show the interpreter
         run: python3.12 --version
 
