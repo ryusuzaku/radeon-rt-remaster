@@ -18,7 +18,20 @@ from position_texture_diagnostic import validate as validate_texture_diagnostic
 from scene_io import DEFAULT_METADATA, UNITS, UP_AXES, HANDEDNESS
 
 DIGEST='0c16f3b5a2ba1f9f33162727e7eda81e02d599e20d95743f05a3daab846798d2'
+F32_ROUNDING=8*2.0**-24
 COMPOSITION_STATES=set('z_enable z_write z_func alpha_test alpha_ref alpha_func blend_enable src_blend dst_blend blend_op separate_alpha src_blend_alpha dst_blend_alpha blend_op_alpha blend_factor color_write cull fill scissor_enable stencil_enable srgb_write depth_bias slope_depth_bias'.split())
+def position_matches(constants,position,result):
+    """True when `result` (seven clip/model outputs and the 1.0 pad) is what the admitted vertex program yields for `position`.
+
+    The reference is computed in double precision; the proxy evaluates in float32. Where the four products of a row cancel
+    (a map-sized position against a near-plane row), float32 rounding is bounded by the products' magnitudes, not by the
+    small result, so the allowance adds F32_ROUNDING times that magnitude to the relative 2e-4. For a well-conditioned
+    value that is about 5e-7 of it, so a wrong constant or position still fails.
+    """
+    a,b=constants[:2];q=[position[0]*b+a,position[1]*b+a,position[2]*b+a,position[0]*a+b]
+    calculated=[sum(q[j]*constants[i*4+j] for j in range(4)) for i in range(1,8)]+[1.0]
+    magnitude=[sum(abs(q[j]*constants[i*4+j]) for j in range(4)) for i in range(1,8)]+[0.0]
+    return all(abs(x-y)<=2e-4*(1+abs(y))+F32_ROUNDING*m for x,y,m in zip(result,calculated,magnitude))
 def need(ok,message):
     if not ok: raise ValueError(message)
 def inspect(path,include_records=False):
@@ -222,9 +235,7 @@ def inspect_bytes(data,include_records=False,assets=None):
                 need(row['minimum']<=index<row['minimum']+row['vertices'],'declared index range')
                 vertex=index+row['base'];need(vertex>=0 and row['offset']+vertex*row['stride']+12<=row['vb_size'],'vertex buffer range')
                 need(all(map(math.isfinite,(*p,*result))),'nonfinite vertex/output')
-                a,b=constants[:2];q=[p[0]*b+a,p[1]*b+a,p[2]*b+a,p[0]*a+b]
-                calculated=[sum(q[j]*constants[i*4+j] for j in range(4)) for i in range(1,8)]+[1.0]
-                need(all(abs(x-y)/(1+abs(y))<=2e-4 for x,y in zip(result,calculated)),'position calculation mismatch')
+                need(position_matches(constants,p,result),'position calculation mismatch')
             if version>=11:validate_material(row)
             if version>=12:validate_pixel_material(row)
             if version>=13:validate_texture_inputs(row,assets,version>=14,version>=15,version>=16,version>=17,version>=18)
