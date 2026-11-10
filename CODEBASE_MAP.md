@@ -884,11 +884,14 @@ another, which is its own kind of resolution dependence.
 2026-10-20, after the second pixel program was admitted and the recovered inventory
 was classified: 93.1% of 2,734 inventoried draws are refused by the vertex program,
 6.9% are admitted now, and **no draw is refused only by the pixel program**. The
-inventory holds 23 vertex families. The dominant one (1420 bytes, 729 draws) is
-skinned — indexed `cModel[53]`, `cFlexScale`, compressed-normal decode, two
-texture-coordinate transforms — so admitting it means a second CPU evaluator shaped
+inventory holds 23 vertex families. The dominant one (1420 bytes, 729 draws,
+`a84edfd2`) was recorded here as skinned; **corrected 2026-11-10, it is not**: it
+reads only `cModel[0]`, adds a stream-2 flex offset scaled by `cFlexScale.x`, and
+uses no relative addressing. Admitting it still means a second CPU evaluator shaped
 like `src/shader/position.cpp`, and the capture's position claims depend on that
-evaluator being right. The trivial family (228 bytes, 208 draws,
+evaluator being right. In the 2026-11-10 gameplay frame it draws 34.4% of the
+triangles and the admitted program 0.3%; the skinned program is the 3348-byte one
+(48.8%). See [the frame capture result](docs/HL2_FRAME_CAPTURE_RESULT.md). The trivial family (228 bytes, 208 draws,
 `oPos = cModelViewProj * v0`) evaluates easily but binds no pixel shader and emits
 no model position, so it yields position evidence without material evidence.
 Per-family admission is a treadmill at 23 families; a generic path needs a

@@ -47,8 +47,35 @@ the relative 2e-4. That is about 5e-7 of a well-conditioned value. `tests/test_p
 also in the Linux CI job) reproduces the shape with synthetic numbers, requires the old rule to refuse it, and requires a
 constant off by one part in a thousand, a moved position or an error four allowances wide to be refused still.
 
+## Which vertex programs draw the frame
+
+The run also wrote a shader inventory (2,701 draws, byte limit). Inventory and ledger count draws from different starts; the
+offset that maps every captured draw to the admitted program and no `unsupported_shader` draw to it is 25 (or -67, one 92-draw
+frame earlier). Both give the same table because the frames repeat: the inventory is identical from one frame to the next for
+all 2,609 comparable draws, and the 44 complete ledger frames differ in a single refused draw (18 or 16 triangles). One frame is
+92 indexed draws, 19,004 triangles, 16,212 of them to the 1920 x 1080 target, from 23 vertex programs:
+
+| Vertex program | Bytes | Draws | Triangles to 1920 x 1080 | Share | Position path |
+|---|---:|---:|---:|---:|---|
+| `c3c0fcaa` | 3348 | 6 | 7,912 | 48.8% | skinned: `mova a0`, three bone-indexed `cModel[a0]` rows; blend weights and indices in the declaration |
+| `a84edfd2` | 1420 | 27 | 5,570 | 34.4% | **not skinned**: `cViewProj * cModel[0] * (v0 + v4 * cFlexScale.x)`, no relative addressing |
+| `e5ece83d` | 3212 | 2 | 566 | 3.5% | blend weights and indices in the declaration (not disassembled) |
+| `26169c60` | 1172 | 7 | 506 | 3.1% | not disassembled |
+| 19 others | | 50 | 1,658 | 10.2% | the admitted `0c16f3b5` (612 bytes) is one of them, at 42 triangles (0.3%) |
+
+Seven programs declare blend weights and indices. One of them, `8ed20434`, draws 2,786 triangles, all to other targets.
+
+`a84edfd2` is the most frequent vertex program in every local HL2 inventory (18 of them, 228 to 810 draws each). It declares
+the shared `cModel[53]` table but reads only `cModel[0]` (c58-c60). Its prepared position adds `v4`, a stream-2 `position1`
+scaled by `cFlexScale.x`; stream 2 has stride 0 in all 783 draws of this inventory, so `v4` is one value per draw. Clip x, y and
+w come from `cViewProj` (c8, c9, c11) and z from c10, applied to the model-space result, which the program also writes to `oT7`.
+That is the same shape the converter already handles, with the view-projection given directly instead of derived. Admitting it
+would need its own exact CPU evaluator and the stream-2 vertex in the ledger, but not skinning. It would take the captured share
+of this frame from 0.3% to about 35% of the triangles.
+
 ## What this does not establish
 
 - No materials, UVs or textures; world-space meaning, units and handedness remain unverified.
 - One save, one view, one GPU. The six draws were not identified as game objects.
-- Vertex-program coverage is the next decision: the other programs, skinning among them, are a separate piece of work.
+- The `a84edfd2` description is from its disassembly, not from evaluating captured vertices; an evaluator still has to match
+  the program's output numerically before any claim about its positions. The triangle shares are for one view of one save.
