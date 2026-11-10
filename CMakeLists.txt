@@ -325,6 +325,9 @@ set_tests_properties(shader_disassembly PROPERTIES TIMEOUT 120)
 set(RRT_HL2_POSITION_INVENTORY "${CMAKE_CURRENT_SOURCE_DIR}/build/game-passes/hl2-inventory-20260907/runs/inventory/shader-inventory.jsonl" CACHE FILEPATH "Local HL2 inventory for exact-program position oracle")
 rrt_add_evidence_test(hl2_position RRT_HL2_POSITION_INVENTORY ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_hl2_position.py --fixture $<TARGET_FILE:rrt_shader_fixture> --inventory "${RRT_HL2_POSITION_INVENTORY}")
 set_tests_properties(hl2_position PROPERTIES TIMEOUT 120)
+# The second admitted vertex program (docs/HL2_FLEX_POSITION_CONTRACT.md): native oracle, proxy capture and reader negatives.
+rrt_add_evidence_test(hl2_flex_position RRT_HL2_POSITION_INVENTORY ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_hl2_flex_position.py --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy> --inventory "${RRT_HL2_POSITION_INVENTORY}")
+set_tests_properties(hl2_flex_position PROPERTIES TIMEOUT 300)
 # The second admitted pixel program is captured game bytecode: it lives only in the
 # local inventory, never in the repository. The capture supplies a real draw whose
 # accepted-program reconstruction clears the gate; the test skips without both.

@@ -14,6 +14,20 @@ Result Evaluate(std::array<float,3> p,const Constants& c){
     auto dot=[&](Vec row){float sum=0;for(unsigned j=0;j<4;++j)sum+=q[j]*row[j];if(!std::isfinite(sum))throw std::runtime_error("position overflow");return sum;};
     Result result{};for(unsigned i=0;i<4;++i)result.clip[i]=dot(c.rows[i+1]);for(unsigned i=0;i<3;++i)result.model[i]=dot(c.rows[i+5]);result.model[3]=1;return result;
 }
+void AdmitFlex(std::span<const std::uint8_t> code){
+    constexpr scene::Hash expected={0xa8,0x4e,0xdf,0xd2,0x88,0x43,0xf7,0xc8,0xae,0xac,0x78,0xbc,0xb4,0x8c,0x03,0x18,0x43,0x26,0xc0,0x07,0x59,0x3e,0x8d,0x49,0xe9,0x97,0x77,0xc8,0xcf,0x1f,0x11,0xdc};
+    if(code.size()!=FlexProgramBytes||scene::Digest(code.data(),code.size())!=expected)throw std::runtime_error("position program not admitted");
+}
+Result EvaluateFlex(std::array<float,3> p,std::array<float,3> flex,const FlexConstants& c){
+    for(auto value:p)if(!std::isfinite(value))throw std::runtime_error("nonfinite position");
+    for(auto value:flex)if(!std::isfinite(value))throw std::runtime_error("nonfinite position");
+    for(unsigned i=0;i<9;++i){if(!c.known[i])throw std::runtime_error("unknown position constant");for(auto v:c.rows[i])if(!std::isfinite(v))throw std::runtime_error("nonfinite constant");}
+    // Row order follows FlexRegisters: 0=c0, 1=c3, 2..5=c8..c11, 6..8=c58..c60. Each step is one float32 operation, as in the program.
+    auto dot=[](const Vec& a,const Vec& row){float sum=0;for(unsigned j=0;j<4;++j)sum+=a[j]*row[j];if(!std::isfinite(sum))throw std::runtime_error("position overflow");return sum;};
+    const float scale=c.rows[1][0];Vec r1{};for(unsigned i=0;i<3;++i){r1[i]=flex[i]*scale+p[i];if(!std::isfinite(r1[i]))throw std::runtime_error("position overflow");}r1[3]=1;
+    Vec r0{dot(r1,c.rows[6]),dot(r1,c.rows[7]),dot(r1,c.rows[8]),c.rows[0][1]};
+    Result result{};for(unsigned i=0;i<4;++i)result.clip[i]=dot(r0,c.rows[2+i]);for(unsigned i=0;i<3;++i)result.model[i]=r0[i];result.model[3]=1;return result;
+}
 MaterialResult EvaluateMaterial(std::array<float,3> p,std::array<float,4> uv,std::uint32_t color,const Constants& c,const std::array<Vec,2>& extra){
     Evaluate(p,c);for(float v:uv)if(!std::isfinite(v))throw std::runtime_error("nonfinite material input");
     for(auto row:extra)for(float v:row)if(!std::isfinite(v))throw std::runtime_error("nonfinite constant");

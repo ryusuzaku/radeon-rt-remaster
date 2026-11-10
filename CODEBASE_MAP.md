@@ -891,7 +891,9 @@ uses no relative addressing. Admitting it still means a second CPU evaluator sha
 like `src/shader/position.cpp`, and the capture's position claims depend on that
 evaluator being right. In the 2026-11-10 gameplay frame it draws 34.4% of the
 triangles and the admitted program 0.3%; the skinned program is the 3348-byte one
-(48.8%). See [the frame capture result](docs/HL2_FRAME_CAPTURE_RESULT.md). The trivial family (228 bytes, 208 draws,
+(48.8%). See [the frame capture result](docs/HL2_FRAME_CAPTURE_RESULT.md). The 1420-byte
+program is now admitted, position-only, as a second per-program evaluator:
+[its contract](docs/HL2_FLEX_POSITION_CONTRACT.md). The trivial family (228 bytes, 208 draws,
 `oPos = cModelViewProj * v0`) evaluates easily but binds no pixel shader and emits
 no model position, so it yields position evidence without material evidence.
 Per-family admission is a treadmill at 23 families; a generic path needs a
