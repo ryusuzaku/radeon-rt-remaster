@@ -86,9 +86,24 @@ ledger cap is unchanged.
 - `position_to_scene` gains a synthetic skinned check: a mixed scene, identity world and model-position vertices, a recorded clip
   position the gate refuses, and the c0.y refusal.
 
+## Measured in game (2026-11-10)
+
+Pass `build/game-passes/hl2-skin-20261110`, run `frame` (local), with the same options as the two earlier frame captures and the
+proxy built from this change.
+
+- The ledger reached its 16 MiB byte cap after 3 presents and 255 attempts: 116 captured draws (17 skinned, 81 static-prop, 18 of
+  the first program), 109 `unsupported_shader`, 29 under the primitive minimum, **no evidence failures**. Every skinned draw passed:
+  its bone registers were set and its buffers written while the proxy observed.
+- Per complete frame: 18,745 attempted triangles, of which **13,520 were captured (72.1%)**: 7,912 skinned, exactly the share the
+  inventory analysis predicted, 5,570 static-prop and 38 from the first program. The two earlier captures of this view got 38 and
+  5,608.
+- The reader accepts the ledger. The first frame converts into one scene of 39 draws (6, 27 and 6 of the three programs) under one
+  camera: clip error 8.5e-6, shared-camera spread 0. `rrt_dxr` admits it, with geometry on 19.2% of pixels in albedo. A character
+  standing on the walkway is drawn from skinned geometry in place among the static props. The transported frame's digest equals
+  the standalone render.
+
 ## What this does not establish
 
-- How many of the title's skinned draws pass in game: their bone registers must be set while the proxy observes, and their
-  buffers written then.
+- That every skinned draw in every scene passes: in this save, all did.
 - What the model space of a skinned draw means: like the other programs, the model position's world-space meaning is unverified.
 - Normals, lighting, texture coordinates or materials of these draws.
