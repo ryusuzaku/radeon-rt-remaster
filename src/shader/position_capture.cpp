@@ -10,10 +10,55 @@ namespace {
 void Need(bool ok,const char* reason){if(!ok)throw std::runtime_error(reason);}
 std::string Hex(const void* p,std::size_t n){const auto* b=static_cast<const unsigned char*>(p);const char* h="0123456789abcdef";std::string s;s.reserve(n*2);for(std::size_t i=0;i<n;++i){s+=h[b[i]>>4];s+=h[b[i]&15];}return s;}
 void Known(const Evidence& e,std::uint64_t offset,std::size_t size){Need(e.bytes.size()==e.initialized.size()&&offset<=e.bytes.size()&&size<=e.bytes.size()-offset,"buffer_range");for(std::size_t i=0;i<size;++i)Need(e.initialized[static_cast<std::size_t>(offset)+i]!=0,"uninitialized_bytes");}
+std::string Tail(const D3DVIEWPORT9& viewport,const D3DSURFACE_DESC& t,UINT offset,UINT stride,Draw draw,const Evidence& ve,const Evidence& ie,std::uint64_t start,std::size_t corners){
+    return ",\"viewport\":\""+Hex(&viewport,sizeof(viewport))+"\",\"target\":["+std::to_string(t.Width)+","+std::to_string(t.Height)+","+std::to_string(t.Format)+","+std::to_string(t.MultiSampleType)+"],\"offset\":"+std::to_string(offset)+",\"stride\":"+std::to_string(stride)+",\"base\":"+std::to_string(draw.base)+",\"minimum\":"+std::to_string(draw.minimum)+",\"vertices\":"+std::to_string(draw.vertices)+",\"start\":"+std::to_string(draw.start)+",\"primitives\":"+std::to_string(draw.primitives)+",\"vb_size\":"+std::to_string(ve.bytes.size())+",\"ib_size\":"+std::to_string(ie.bytes.size())+",\"indices\":\""+Hex(ie.bytes.data()+start,corners*2)+"\"";
 }
-std::string Capture(IDirect3DDevice9* d,Draw draw,const Evidence& ve,const Evidence& ie,const std::array<bool,61>& known,bool material){
+// The 1420-byte static-prop program (docs/HL2_FLEX_POSITION_CONTRACT.md). Position evidence only: its texture, colour and
+// lighting inputs are a different layout from the first program's, so material capture refuses it as unsupported.
+std::string CaptureFlex(IDirect3DDevice9* d,Draw draw,const Evidence& ve,const Evidence& ie,const std::array<bool,61>& known,bool material,const Evidence* flex){
+    Need(!material,"unsupported_shader");
     ComPtr<IDirect3DVertexShader9> vs;Need(SUCCEEDED(d->GetVertexShader(&vs))&&vs,"missing_shader");UINT size{};
-    Need(SUCCEEDED(vs->GetFunction(nullptr,&size))&&size==612,"unsupported_shader");std::array<DWORD,153> code{};
+    std::array<DWORD,FlexProgramBytes/4> code{};
+    Need(SUCCEEDED(vs->GetFunction(nullptr,&size))&&size==FlexProgramBytes&&SUCCEEDED(vs->GetFunction(code.data(),&size))&&size==FlexProgramBytes,"shader_query");
+    AdmitFlex({reinterpret_cast<const std::uint8_t*>(code.data()),FlexProgramBytes});
+    Need(draw.primitives&&draw.primitives<=4096&&draw.vertices&&draw.vertices<=65536,"draw_budget");
+    ComPtr<IDirect3DVertexDeclaration9> declaration;Need(SUCCEEDED(d->GetVertexDeclaration(&declaration))&&declaration,"missing_layout");
+    std::array<D3DVERTEXELEMENT9,65> elements{};UINT count=65;Need(SUCCEEDED(declaration->GetDeclaration(elements.data(),&count))&&count&&count<=65&&elements[count-1].Stream==255,"layout_query");
+    // POSITION0 is FLOAT3 at the start of stream 0, POSITION1 is FLOAT4 at the start of stream 2; each exactly once.
+    unsigned positions=0,flexes=0;for(UINT i=0;i+1<count;++i){auto e=elements[i];if(e.Usage!=D3DDECLUSAGE_POSITION)continue;
+        if(e.UsageIndex==0){Need(e.Stream==0&&e.Offset==0&&e.Type==D3DDECLTYPE_FLOAT3&&e.Method==D3DDECLMETHOD_DEFAULT,"position_layout");++positions;}
+        else if(e.UsageIndex==1){Need(e.Stream==2&&e.Offset==0&&e.Type==D3DDECLTYPE_FLOAT4&&e.Method==D3DDECLMETHOD_DEFAULT,"position_layout");++flexes;}}
+    Need(positions==1&&flexes==1,"position_layout");
+    ComPtr<IDirect3DVertexBuffer9> vb,fb;ComPtr<IDirect3DIndexBuffer9> ib;UINT offset{},stride{},frequency{},flexOffset{},flexStride{},flexFrequency{};
+    Need(SUCCEEDED(d->GetStreamSource(0,&vb,&offset,&stride))&&vb&&SUCCEEDED(d->GetIndices(&ib))&&ib&&SUCCEEDED(d->GetStreamSource(2,&fb,&flexOffset,&flexStride))&&fb&&flex,"missing_binding");
+    Need(vb.Get()==ve.resource&&ib.Get()==ie.resource&&fb.Get()==flex->resource,"resource_identity");
+    Need(SUCCEEDED(d->GetStreamSourceFreq(0,&frequency))&&frequency==1&&stride>=12&&stride<=256,"stream_layout");
+    // Stride 0 is how the title binds one flex value for the whole draw; a per-vertex stream is accepted too.
+    Need(SUCCEEDED(d->GetStreamSourceFreq(2,&flexFrequency))&&flexFrequency==1&&(flexStride==0||(flexStride>=16&&flexStride<=256)),"stream_layout");
+    D3DINDEXBUFFER_DESC desc{};Need(SUCCEEDED(ib->GetDesc(&desc))&&desc.Format==D3DFMT_INDEX16,"index_format");
+    FlexConstants constants{};
+    D3DVIEWPORT9 viewport{};ComPtr<IDirect3DSurface9> target;D3DSURFACE_DESC targetDesc{};
+    Need(SUCCEEDED(d->GetViewport(&viewport))&&SUCCEEDED(d->GetRenderTarget(0,&target))&&target&&SUCCEEDED(target->GetDesc(&targetDesc)),"target_query");
+    Need(std::isfinite(viewport.MinZ)&&std::isfinite(viewport.MaxZ),"viewport_nonfinite");
+    for(unsigned i=0;i<FlexRegisters.size();++i){Need(known[FlexRegisters[i]],"unknown_constants");Need(SUCCEEDED(d->GetVertexShaderConstantF(FlexRegisters[i],constants.rows[i].data(),1)),"constant_query");constants.known[i]=true;}
+    const std::size_t corners=std::size_t(draw.primitives)*3;const auto start=std::uint64_t(draw.start)*2;Known(ie,start,corners*2);
+    std::vector<std::array<float,3>> inputs;std::vector<std::array<float,4>> flexes4;std::vector<Result> outputs;inputs.reserve(corners);flexes4.reserve(corners);outputs.reserve(corners);
+    for(std::size_t i=0;i<corners;++i){std::uint16_t index{};memcpy(&index,ie.bytes.data()+start+i*2,2);Need(index>=draw.minimum&&std::uint64_t(index)<std::uint64_t(draw.minimum)+draw.vertices,"declared_index_range");
+        auto vertex=std::int64_t(draw.base)+index;Need(vertex>=0,"negative_vertex");auto address=std::uint64_t(offset)+std::uint64_t(vertex)*stride;Known(ve,address,12);
+        auto flexAddress=std::uint64_t(flexOffset)+std::uint64_t(vertex)*flexStride;Known(*flex,flexAddress,16);
+        std::array<float,3> input;memcpy(input.data(),ve.bytes.data()+address,12);std::array<float,4> value;memcpy(value.data(),flex->bytes.data()+flexAddress,16);
+        inputs.push_back(input);flexes4.push_back(value);outputs.push_back(EvaluateFlex(input,{value[0],value[1],value[2]},constants));}
+    std::string rows="[";for(unsigned i=0;i<FlexRegisters.size();++i)rows+=(i?",":"")+std::to_string(FlexRegisters[i]);rows+="]";
+    return "\"shader\":\""+Hex(code.data(),FlexProgramBytes)+"\",\"declaration\":\""+Hex(elements.data(),count*8)+"\",\"constants\":\""+Hex(constants.rows.data(),sizeof(constants.rows))+"\",\"constant_rows\":"+rows
+        +Tail(viewport,targetDesc,offset,stride,draw,ve,ie,start,corners)+",\"positions\":\""+Hex(inputs.data(),corners*12)+"\",\"evaluated\":\""+Hex(outputs.data(),corners*32)+"\""
+        +",\"flex\":{\"offset\":"+std::to_string(flexOffset)+",\"stride\":"+std::to_string(flexStride)+",\"vb_size\":"+std::to_string(flex->bytes.size())+",\"values\":\""+Hex(flexes4.data(),corners*16)+"\"}";
+}
+}
+std::string Capture(IDirect3DDevice9* d,Draw draw,const Evidence& ve,const Evidence& ie,const std::array<bool,61>& known,bool material,const Evidence* flex){
+    ComPtr<IDirect3DVertexShader9> vs;Need(SUCCEEDED(d->GetVertexShader(&vs))&&vs,"missing_shader");UINT size{};
+    Need(SUCCEEDED(vs->GetFunction(nullptr,&size)),"unsupported_shader");
+    if(size==FlexProgramBytes)return CaptureFlex(d,draw,ve,ie,known,material,flex);
+    Need(size==612,"unsupported_shader");std::array<DWORD,153> code{};
     Need(SUCCEEDED(vs->GetFunction(code.data(),&size))&&size==612,"shader_query");Admit({reinterpret_cast<const std::uint8_t*>(code.data()),612});
     Need(draw.primitives&&draw.primitives<=4096&&draw.vertices&&draw.vertices<=65536,"draw_budget");
     ComPtr<IDirect3DVertexDeclaration9> declaration;Need(SUCCEEDED(d->GetVertexDeclaration(&declaration))&&declaration,"missing_layout");

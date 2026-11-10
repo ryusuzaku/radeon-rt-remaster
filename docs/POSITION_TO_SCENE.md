@@ -47,9 +47,10 @@ the failure. No GPU is involved.
   texture, white vertex colours and zero UVs, so the renderer shows relit grey geometry, not the game's look.
 - **World space is the vertex program's model-output space.** The position contract calls its world-space meaning, units and
   handedness unverified, so the scene carries default metadata and the provenance sidecar says so.
-- **Only one vertex program is admitted by capture.** It covered 231 of 2,996 indexed draws in the inventory pass (7.7%), so
-  even a complete capture of the admitted program is a fraction of a frame. The 42 vertex programs a title uses, skinning
-  among them, are a separate piece of work.
+- **Two vertex programs are admitted by capture.** The first covered 231 of 2,996 indexed draws in the inventory pass (7.7%).
+  The second, the 1420-byte static-prop program, folds a stream-2 flex offset into each vertex and uses its view-projection
+  directly ([its contract](HL2_FLEX_POSITION_CONTRACT.md)); it drew 34.4% of the 2026-11-10 frame's triangles. The skinned
+  3348-byte program (48.8% of that frame) and the remaining programs are a separate piece of work.
 - **The existing ledgers are tiny.** The multidraw pass has 16 draws in four render groups of four draws and 48 triangles each.
   A capture with quotas 256:1024 was made on 2026-11-10 and accepted only six draws (38 triangles) per frame, so the limits are
   not the constraint; see [the frame capture result](HL2_FRAME_CAPTURE_RESULT.md).

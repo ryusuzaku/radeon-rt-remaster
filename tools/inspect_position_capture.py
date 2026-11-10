@@ -19,6 +19,10 @@ from scene_io import DEFAULT_METADATA, UNITS, UP_AXES, HANDEDNESS
 
 DIGEST='0c16f3b5a2ba1f9f33162727e7eda81e02d599e20d95743f05a3daab846798d2'
 F32_ROUNDING=8*2.0**-24
+# Second admitted program (docs/HL2_FLEX_POSITION_CONTRACT.md): 1420 bytes, nine constant rows, a stream-2 flex value per corner.
+FLEX_DIGEST='a84edfd28843f7c8aeac78bcb48c03184326c007593e8d49e99777c8cf1f11dc'
+FLEX_BYTES=1420
+FLEX_ROWS=[0,3,8,9,10,11,58,59,60]
 COMPOSITION_STATES=set('z_enable z_write z_func alpha_test alpha_ref alpha_func blend_enable src_blend dst_blend blend_op separate_alpha src_blend_alpha dst_blend_alpha blend_op_alpha blend_factor color_write cull fill scissor_enable stencil_enable srgb_write depth_bias slope_depth_bias'.split())
 def position_matches(constants,position,result):
     """True when `result` (seven clip/model outputs and the 1.0 pad) is what the admitted vertex program yields for `position`.
@@ -31,6 +35,21 @@ def position_matches(constants,position,result):
     a,b=constants[:2];q=[position[0]*b+a,position[1]*b+a,position[2]*b+a,position[0]*a+b]
     calculated=[sum(q[j]*constants[i*4+j] for j in range(4)) for i in range(1,8)]+[1.0]
     magnitude=[sum(abs(q[j]*constants[i*4+j]) for j in range(4)) for i in range(1,8)]+[0.0]
+    return all(abs(x-y)<=2e-4*(1+abs(y))+F32_ROUNDING*m for x,y,m in zip(result,calculated,magnitude))
+def flex_position_matches(constants,position,flex,result):
+    """True when `result` is what the second program yields: r1=(p+flex*c3.x,1), r0=(cModel[0]*r1, c0.y), clip=cViewProj*r0.
+
+    `constants` holds the nine rows in FLEX_ROWS order. The allowance is position_matches's, with the float32 magnitude
+    carried through both products: each step's rounding is bounded by the magnitudes feeding it, including the earlier
+    step's own rounding, so a cancelling clip row is judged by what float32 can actually resolve there.
+    """
+    row=lambda i:constants[i*4:i*4+4];scale=row(1)[0];c0y=row(0)[1]
+    r1=[position[j]+flex[j]*scale for j in range(3)]+[1.0];m1=[abs(position[j])+abs(flex[j]*scale) for j in range(3)]+[1.0]
+    r0=[sum(r1[j]*row(6+i)[j] for j in range(4)) for i in range(3)]+[c0y]
+    m0=[sum(abs(row(6+i)[j])*m1[j] for j in range(4)) for i in range(3)]+[abs(c0y)]
+    clip=[sum(r0[j]*row(2+k)[j] for j in range(4)) for k in range(4)]
+    mclip=[sum(abs(row(2+k)[j])*m0[j] for j in range(4)) for k in range(4)]
+    calculated=clip+r0[:3]+[1.0];magnitude=mclip+m0[:3]+[0.0]
     return all(abs(x-y)<=2e-4*(1+abs(y))+F32_ROUNDING*m for x,y,m in zip(result,calculated,magnitude))
 def need(ok,message):
     if not ok: raise ValueError(message)
@@ -210,7 +229,17 @@ def inspect_bytes(data,include_records=False,assets=None):
                 interval=(row['device'],timing['reset_epoch'],timing['present_interval'])
                 need(intervals[interval]<interval_limit,'accepted interval quota exceeded');intervals[interval]+=1
                 draw_key=(*interval,timing['indexed_draw']);need(draw_key not in draw_keys,'duplicate accepted draw timing');draw_keys.add(draw_key)
-            need(hashlib.sha256(blob(row,'shader',612)).hexdigest()==DIGEST,'program identity')
+            flex_program=isinstance(row.get('shader'),str) and len(row['shader'])==FLEX_BYTES*2
+            if flex_program:
+                need(hashlib.sha256(blob(row,'shader',FLEX_BYTES)).hexdigest()==FLEX_DIGEST,'program identity')
+                need(version<11,'the second program has no material contract')
+                need(row.get('constant_rows')==FLEX_ROWS,'flex constant rows')
+                flex=row.get('flex');need(isinstance(flex,dict) and set(flex)=={'offset','stride','vb_size','values'},'flex metadata')
+                need(all(type(flex[k]) is int and 0<=flex[k]<2**32 for k in ('offset','stride','vb_size')),'flex metadata')
+                need((flex['stride']==0 or 16<=flex['stride']<=256) and flex['vb_size']<=16*1024*1024,'flex stream layout')
+            else:
+                need(hashlib.sha256(blob(row,'shader',612)).hexdigest()==DIGEST,'program identity')
+                need('flex' not in row and 'constant_rows' not in row,'flex evidence without the second program')
             for key in ('offset','stride','minimum','vertices','start','primitives','vb_size','ib_size'):
                 need(type(row.get(key)) is int and 0<=row[key]<2**32,'integer: '+key)
             need(type(row.get('base')) is int and -(2**31)<=row['base']<2**31,'base')
@@ -220,7 +249,9 @@ def inspect_bytes(data,include_records=False,assets=None):
             elements=list(struct.iter_unpack('<HHBBBB',bytes.fromhex(declaration)))
             need(elements[-1]==(255,0,17,0,0,0),'declaration terminator')
             need([e for e in elements[:-1] if e[4:]==(0,0)]==[(0,0,2,0,0,0)],'position declaration')
-            constants=struct.unpack('<32f',blob(row,'constants',128));need(all(map(math.isfinite,constants)),'nonfinite constants')
+            if flex_program:need([e for e in elements[:-1] if e[4:]==(0,1)]==[(2,0,3,0,0,1)],'flex position declaration')
+            constants=struct.unpack('<36f',blob(row,'constants',144)) if flex_program else struct.unpack('<32f',blob(row,'constants',128))
+            need(all(map(math.isfinite,constants)),'nonfinite constants')
             viewport=struct.unpack('<4I2f',blob(row,'viewport',24));need(all(map(math.isfinite,viewport[4:])),'nonfinite viewport')
             target=row.get('target');need(isinstance(target,list) and len(target)==4 and all(type(v) is int and 0<=v<2**32 for v in target),'target metadata')
             if selection is not None:
@@ -231,15 +262,20 @@ def inspect_bytes(data,include_records=False,assets=None):
             indices=struct.unpack('<'+'H'*corners,blob(row,'indices',corners*2))
             positions=list(struct.iter_unpack('<3f',blob(row,'positions',corners*12)))
             outputs=list(struct.iter_unpack('<8f',blob(row,'evaluated',corners*32)))
-            for index,p,result in zip(indices,positions,outputs):
+            flexes=list(struct.iter_unpack('<4f',blob(flex,'values',corners*16))) if flex_program else [None]*corners
+            for index,p,result,f in zip(indices,positions,outputs,flexes):
                 need(row['minimum']<=index<row['minimum']+row['vertices'],'declared index range')
                 vertex=index+row['base'];need(vertex>=0 and row['offset']+vertex*row['stride']+12<=row['vb_size'],'vertex buffer range')
                 need(all(map(math.isfinite,(*p,*result))),'nonfinite vertex/output')
-                need(position_matches(constants,p,result),'position calculation mismatch')
+                if flex_program:
+                    need(flex['offset']+vertex*flex['stride']+16<=flex['vb_size'],'flex buffer range')
+                    need(all(map(math.isfinite,f[:3])),'nonfinite flex value')
+                    need(flex_position_matches(constants,p,f[:3],result),'position calculation mismatch')
+                else:need(position_matches(constants,p,result),'position calculation mismatch')
             if version>=11:validate_material(row)
             if version>=12:validate_pixel_material(row)
             if version>=13:validate_texture_inputs(row,assets,version>=14,version>=15,version>=16,version>=17,version>=18)
-            captured.append({'ordinal':ordinal,'corners':corners,'unique_indices':len(set(indices)),'stride':row['stride'],'vb_size':row['vb_size'],'ib_size':row['ib_size']})
+            captured.append({'ordinal':ordinal,'program':'flex' if flex_program else 'pinned','corners':corners,'unique_indices':len(set(indices)),'stride':row['stride'],'vb_size':row['vb_size'],'ib_size':row['ib_size']})
             if include_records:records.append(row)
         else:raise ValueError('record count')
     need(header,'missing header')

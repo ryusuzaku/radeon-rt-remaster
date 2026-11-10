@@ -1,7 +1,9 @@
 """Convert one render group of an HL2 position-capture ledger into a renderable .rrscene.
 
 The position ledgers carry, per accepted draw, the indexed corner positions, the vertex program's constants (c0, the
-clip rows c4-c7, the model rows c58-c60) and the clip/model positions the program produced. This tool turns one
+clip rows c4-c7, the model rows c58-c60) and the clip/model positions the program produced. Draws of the second admitted
+program (docs/HL2_FLEX_POSITION_CONTRACT.md) carry nine rows instead (c0, c3, the view-projection c8-c11 and the model rows
+c58-c60) and a stream-2 flex value per corner, which is folded into the vertex as `p + flex * c3.x`. This tool turns one
 group of draws that share a camera into a v2 scene the DXR renderer admits, so a real title's geometry can go through
 the transport. What it does and does not claim:
 
@@ -81,21 +83,44 @@ def row_vector_project(draw, point):
     return v
 
 
+FLEX_ROWS = [0, 3, 8, 9, 10, 11, 58, 59, 60]
+
+
+def is_flex(row):
+    """A draw of the second admitted program; the reader only lets this row list appear on that program's records."""
+    return row.get('constant_rows') == FLEX_ROWS
+
+
 def constants_of(row):
     values = list(struct.iter_unpack('<4f', bytes.fromhex(row['constants'])))
-    need(len(values) == 8, 'a draw needs the eight captured constant registers')
+    if is_flex(row): need(len(values) == 9, 'a flex draw needs its nine captured constant registers')
+    else: need(len(values) == 8, 'a draw needs the eight captured constant registers')
     return values
+
+
+def camera_of(row):
+    """(model 4x4, view-projection 4x4) of one record, column-vector convention, or a ConversionError naming why not.
+
+    First program: the clip rows are view-projection x model, so the view-projection is clip rows x inverse(model). Second
+    program: it applies cViewProj (c8-c11) to (model position, c0.y) itself, so the view-projection is given and c0.y must be one.
+    """
+    c = constants_of(row)
+    if is_flex(row):
+        need(c[0][1] == 1, f'draw {row["ordinal"]}: c0.y is not one, so the w of the model position is not one')
+        return [list(r) for r in c[6:9]] + [[0.0, 0.0, 0.0, 1.0]], [list(r) for r in c[2:6]]
+    need(c[0][0] == 0 and c[0][1] == 1, f'draw {row["ordinal"]}: c0 is not the affine (0, 1) preparation, so q.w is not one')
+    model = [list(r) for r in c[5:8]] + [[0.0, 0.0, 0.0, 1.0]]
+    inv = inverse(model); need(inv is not None, f'draw {row["ordinal"]}: singular model matrix')
+    return model, matmul([list(r) for r in c[1:5]], inv)
 
 
 GROUP_TOLERANCE = 1e-4
 
 
 def derived_view_projection(row):
-    """clip rows x inverse(model) as a 4x4, or None when the draw is not affine-prepared or its model is singular."""
-    c = constants_of(row)
-    if not (c[0][0] == 0 and c[0][1] == 1): return None
-    inv = inverse([list(r) for r in c[5:8]] + [[0.0, 0.0, 0.0, 1.0]])
-    return None if inv is None else matmul([list(r) for r in c[1:5]], inv)
+    """The record's view-projection as a 4x4, or None when camera_of refuses it (the refusal is reported by build_scene)."""
+    try: return camera_of(row)[1]
+    except ConversionError: return None
 
 
 def same_camera(a, b, tolerance=GROUP_TOLERANCE):
@@ -119,7 +144,7 @@ def groups_of(rows, tolerance=GROUP_TOLERANCE):
     for members in buckets.values():
         clusters = []  # [camera or raw clip rows, first position, rows]
         for position, row in members:
-            camera = derived_view_projection(row); raw = [list(r) for r in constants_of(row)[1:5]]
+            camera = derived_view_projection(row); raw = [list(r) for r in constants_of(row)[2:6] if is_flex(row)] or [list(r) for r in constants_of(row)[1:5]]
             for cluster in clusters:
                 if (camera is not None and cluster[3] is not None and same_camera(cluster[0], camera, tolerance)) or (camera is None and cluster[3] is None and cluster[0] == raw):
                     cluster[2].append(row); break
@@ -135,6 +160,10 @@ def corners(row):
     positions = list(struct.iter_unpack('<3f', bytes.fromhex(row['positions'])))
     evaluated = list(struct.iter_unpack('<8f', bytes.fromhex(row['evaluated'])))
     need(len(positions) == n and len(evaluated) == n, 'position and evaluated records must have one entry per index')
+    if is_flex(row):  # the program's first step, r1.xyz = v0 + v4 * c3.x, done once here so the scene stores the drawn vertex
+        flexes = list(struct.iter_unpack('<4f', bytes.fromhex(row['flex']['values']))); need(len(flexes) == n, 'a flex draw needs one flex value per index')
+        scale = constants_of(row)[1][0]
+        positions = [tuple(f32(p[j] + f[j] * scale) for j in range(3)) for p, f in zip(positions, flexes)]
     return indices, positions, evaluated
 
 
@@ -151,12 +180,7 @@ def build_scene(rows, max_extent=1280):
 
     prepared = []; reference = None; spread = 0.0
     for row in rows:
-        c = constants_of(row)
-        need(c[0][0] == 0 and c[0][1] == 1, f'draw {row["ordinal"]}: c0 is not the affine (0, 1) preparation, so q.w is not one')
-        model = [list(r) for r in c[5:8]] + [[0.0, 0.0, 0.0, 1.0]]
-        inv = inverse(model); need(inv is not None, f'draw {row["ordinal"]}: singular model matrix')
-        clip = [list(r) for r in c[1:5]]
-        view_projection = matmul(clip, inv)  # clip = view_projection * world, column-vector convention
+        model, view_projection = camera_of(row)  # clip = view_projection * world, column-vector convention
         if reference is None: reference = view_projection
         spread = max(spread, max(abs(view_projection[i][j] - reference[i][j]) for i in range(4) for j in range(4)))
         prepared.append((row, model))
@@ -189,7 +213,7 @@ def build_scene(rows, max_extent=1280):
     scene = dict(frame=int(timing.get('present_interval') or 0), width=width, height=height, clear_color=CLEAR_COLOR, attempted=len(draws), cleared=True,
                  complete=True, rejected=[], draws=draws)
     provenance = dict(
-        draw_ordinals=[row['ordinal'] for row, _ in prepared], triangles=triangles, vertices=sum(len(d['vertices']) for d in draws), source_viewport=list(viewport[:4]),
+        draw_ordinals=[row['ordinal'] for row, _ in prepared], programs=dict(pinned=sum(not is_flex(r) for r, _ in prepared), flex=sum(is_flex(r) for r, _ in prepared)), triangles=triangles, vertices=sum(len(d['vertices']) for d in draws), source_viewport=list(viewport[:4]),
         scene_extent=[width, height], extent_scale=scale, shared_camera_spread=spread, max_relative_clip_error=clip_error, max_relative_model_error=model_error,
         target=rows[0].get('target'), present_interval=timing.get('present_interval'), reset_epoch=timing.get('reset_epoch'),
         material='uniform 1x1 grey texture, white vertex colours, zero UVs: geometry only, nothing about the game\'s materials was captured',

@@ -142,6 +142,40 @@ def test_grouping_by_derived_camera():
     assert len(p.groups_of([row(1, QUAD, INDICES, MODEL), row(2, QUAD, INDICES, MODEL, view_projection=shifted)])) == 2
 
 
+def flex_row(ordinal, positions, indices, model, flex, scale=0.75, view_projection=VIEW_PROJECTION, c0=(0.0, 1.0, 0.0, 0.0), recorded_flex=None):
+    """A record of the second program: nine rows (c0, c3, c8-c11, c58-c60) and one flex value per corner (stride 0: the same
+    one each time). The evaluated outputs fold the flex offset in, as the program does; `recorded_flex` lets a test record a
+    different value than the one evaluated."""
+    constants = struct.pack('<36f', *c0, scale, 0.0, 0.0, 0.0, *[x for r in view_projection for x in r], *[x for r in model[:3] for x in r])
+    corners = [positions[i] for i in indices]
+    drawn = [[c[j] + flex[j] * scale for j in range(3)] for c in corners]
+    camera = p.matmul(view_projection, model)
+    evaluated = b''.join(struct.pack('<4f', *apply(camera, d)) + struct.pack('<3f', *apply(model, d)[:3]) + struct.pack('<f', 1.0) for d in drawn)
+    record = recorded_flex or flex
+    return dict(ordinal=ordinal, primitives=len(indices) // 3, indices=struct.pack('<%dH' % len(indices), *indices).hex(),
+                positions=b''.join(struct.pack('<3f', *c) for c in corners).hex(), evaluated=evaluated.hex(), constants=constants.hex(),
+                constant_rows=list(p.FLEX_ROWS), flex=dict(offset=0, stride=0, vb_size=28, values=struct.pack('<4f', *record, 1.0).hex() * len(corners)),
+                viewport=struct.pack('<4I2f', 0, 0, 5120, 1440, 0.0, 1.0).hex(), target=[5120, 1440, 21, 0], device=2,
+                timing=dict(reset_epoch=0, present_interval=7, indexed_draw=ordinal), render_state=None)
+
+
+def test_flex_program():
+    flex = (6.0, -4.0, 9.0)
+    rows = [row(30, QUAD, INDICES, MODEL), flex_row(31, QUAD, INDICES, model_matrix(-0.7, (-300.0, 10.0, 5.0)), flex)]
+    groups = p.groups_of(rows)
+    assert [len(g) for g in groups] == [2], 'a flex draw under the same view joins the first program\'s scene'
+    scene, provenance = p.build_scene(groups[0])
+    p.check_admissible(scene)
+    assert provenance['programs'] == dict(pinned=1, flex=1) and provenance['max_relative_clip_error'] < 1e-5, provenance
+    stored = scene['draws'][1]['vertices'][0][:3]
+    assert all(abs(a - (b + f * 0.75)) < 1e-4 for a, b, f in zip(stored, QUAD[0], flex)), ('the flex offset is folded into the vertex', stored)
+    # The fold is necessary: recording a zero flex value while the program used a real one must fail the gate.
+    raises(lambda: p.build_scene([flex_row(32, QUAD, INDICES, MODEL, flex, recorded_flex=(0.0, 0.0, 0.0))]), 'projected clip positions differ')
+    # A zero scale makes the flex value irrelevant, so the same mismatch is then harmless.
+    p.build_scene([flex_row(33, QUAD, INDICES, MODEL, flex, scale=0.0, recorded_flex=(0.0, 0.0, 0.0))])
+    raises(lambda: p.build_scene([flex_row(34, QUAD, INDICES, MODEL, flex, c0=(0.0, 0.5, 0.0, 0.0))]), 'c0.y is not one')
+
+
 def test_outputs_are_exclusive_and_checked():
     scene, provenance = p.build_scene([row(1, QUAD, INDICES, MODEL)])
     with tempfile.TemporaryDirectory() as folder:
@@ -162,4 +196,4 @@ def test_outputs_are_exclusive_and_checked():
 if __name__ == '__main__':
     tests = [value for name, value in sorted(globals().items()) if name.startswith('test_')]
     for test in tests: test()
-    print(f'PASS position_to_scene: {len(tests)} synthetic-ledger checks (round trip and gate, wrong convention, dedup, rejections, grouping and extent, outputs)')
+    print(f'PASS position_to_scene: {len(tests)} synthetic-ledger checks (round trip and gate, wrong convention, dedup, rejections, grouping and extent, second program, outputs)')

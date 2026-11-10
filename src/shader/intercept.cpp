@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <cstring>
+#include <optional>
 #include <bcrypt.h>
 namespace rrt::shader::hook {
 using Microsoft::WRL::ComPtr;
@@ -383,7 +384,10 @@ std::unique_ptr<Pending> BeforeDraw(std::uint64_t id,IDirect3DDevice9* d,D3DPRIM
             result->stage="buffer_binding";ComPtr<IDirect3DVertexBuffer9> vb;ComPtr<IDirect3DIndexBuffer9> ib;UINT offset{},stride{};
             Need(SUCCEEDED(d->GetStreamSource(0,&vb,&offset,&stride))&&SUCCEEDED(d->GetIndices(&ib)));
             result->stage="buffer_tracking";auto v=Get(vb.Get()),i=Get(ib.Get());Need(v&&i&&!v->pending&&!i->pending);
-            result->stage="position_material";auto data=position::Capture(d,draw,{vb.Get(),v->bytes,v->known},{ib.Get(),i->bytes,i->known},state.constants,c.materialInputs);
+            // Stream 2 carries the flex offset that only the second admitted program reads; pass its shadow when one is tracked.
+            ComPtr<IDirect3DVertexBuffer9> fb;ComPtr<Shadow> f;UINT flexOffset{},flexStride{};std::optional<Evidence> flexEvidence;
+            if(SUCCEEDED(d->GetStreamSource(2,&fb,&flexOffset,&flexStride))&&fb){f=Get(fb.Get());if(f&&!f->pending)flexEvidence=Evidence{fb.Get(),f->bytes,f->known};}
+            result->stage="position_material";auto data=position::Capture(d,draw,{vb.Get(),v->bytes,v->known},{ib.Get(),i->bytes,i->known},state.constants,c.materialInputs,flexEvidence?&*flexEvidence:nullptr);
             if(c.renderState){result->stage="composition";data+=","+Composition(d,state,c.clearEvidence);result->composition=true;result->clearSerial=state.clearSerial;result->bindingSerial=state.bindingSerial;}
             if(c.surfaceScope){result->stage="surface_scope";data+=",\"surface_scope\":{\"draw\":"+SurfaceScope(c,d)+",\"clear\":"+state.lastClearScope+"}";}
             if(c.colorReplay){result->stage="color_evidence";data+=ColorEvidence(d);}
