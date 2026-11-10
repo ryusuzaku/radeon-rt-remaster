@@ -28,6 +28,40 @@ Result EvaluateFlex(std::array<float,3> p,std::array<float,3> flex,const FlexCon
     Vec r0{dot(r1,c.rows[6]),dot(r1,c.rows[7]),dot(r1,c.rows[8]),c.rows[0][1]};
     Result result{};for(unsigned i=0;i<4;++i)result.clip[i]=dot(r0,c.rows[2+i]);for(unsigned i=0;i<3;++i)result.model[i]=r0[i];result.model[3]=1;return result;
 }
+void AdmitSkin(std::span<const std::uint8_t> code){
+    constexpr scene::Hash expected={0xc3,0xc0,0xfc,0xaa,0xb1,0x26,0xf4,0x10,0xba,0x5d,0x7e,0x63,0xfe,0x42,0x15,0xdc,0x02,0x25,0x35,0x70,0x8d,0x52,0xae,0x18,0xcc,0xfa,0x4d,0x7d,0xdb,0xff,0x4b,0xe2};
+    if(code.size()!=SkinProgramBytes||scene::Digest(code.data(),code.size())!=expected)throw std::runtime_error("position program not admitted");
+}
+namespace {
+// The program's own def c4.xy: 765 + 3/512 and 2^-15, both exact in float32.
+constexpr float IndexScale=765.005859375f,WeightScale=1.f/32768;
+float Channel(std::uint32_t color,unsigned shift){return float((color>>shift)&255)/255.f;}
+}
+std::array<unsigned,3> SkinBones(std::uint32_t indices){
+    // D3DCOLOR reaches the program as (R,G,B,A) = bytes (2,1,0,3). r2.xyz = v2.zyx * c4.x; a0.xyz = r2.yxz; mova rounds to nearest.
+    const float r2[3]={Channel(indices,0)*IndexScale,Channel(indices,8)*IndexScale,Channel(indices,16)*IndexScale};
+    std::array<unsigned,3> a0{};const float picked[3]={r2[1],r2[0],r2[2]};
+    for(unsigned i=0;i<3;++i){auto value=std::floor(picked[i]+.5f);if(!(value>=0&&value+2<PaletteRows))throw std::runtime_error("bone_range");a0[i]=static_cast<unsigned>(value);}
+    return a0;
+}
+Result EvaluateSkin(const SkinInput& in,const SkinConstants& c){
+    for(auto value:in.position)if(!std::isfinite(value))throw std::runtime_error("nonfinite position");
+    for(auto value:in.flex)if(!std::isfinite(value))throw std::runtime_error("nonfinite position");
+    for(unsigned i=0;i<c.rows.size();++i){if(!c.known[i])throw std::runtime_error("unknown position constant");for(auto v:c.rows[i])if(!std::isfinite(v))throw std::runtime_error("nonfinite constant");}
+    const auto a0=SkinBones(in.indices);
+    for(auto base:a0)for(unsigned r=0;r<3;++r){if(!c.paletteKnown[base+r])throw std::runtime_error("unknown position constant");for(auto v:c.palette[base+r])if(!std::isfinite(v))throw std::runtime_error("nonfinite constant");}
+    auto finite=[](float v){if(!std::isfinite(v))throw std::runtime_error("position overflow");return v;};
+    const float c0y=c.rows[0][1],flexScale=c.rows[1][0];
+    // r1.xy = (v1 + c0.y) * c4.y; r1.z = c0.y - (r1.y + r1.x)
+    const float wx=finite((float(in.weights[0])+c0y)*WeightScale),wy=finite((float(in.weights[1])+c0y)*WeightScale),wz=finite(c0y-(wy+wx));
+    // Each blended row: r = r1.y * B[a0.x]; r = B[a0.y] * r1.x + r; r = B[a0.z] * r1.z + r
+    auto blend=[&](unsigned row){Vec r{};for(unsigned j=0;j<4;++j){float v=wy*c.palette[a0[0]+row][j];v=c.palette[a0[1]+row][j]*wx+v;v=c.palette[a0[2]+row][j]*wz+v;r[j]=finite(v);}return r;};
+    const Vec rowX=blend(0),rowY=blend(1),rowZ=blend(2);
+    Vec r6{};for(unsigned i=0;i<3;++i)r6[i]=finite(in.flex[i]*flexScale+in.position[i]);r6[3]=1;
+    auto dot=[&](const Vec& a,const Vec& b){float sum=0;for(unsigned j=0;j<4;++j)sum+=a[j]*b[j];return finite(sum);};
+    const Vec model{dot(r6,rowX),dot(r6,rowY),dot(r6,rowZ),c0y};
+    Result result{};for(unsigned i=0;i<4;++i)result.clip[i]=dot(model,c.rows[2+i]);for(unsigned i=0;i<3;++i)result.model[i]=model[i];result.model[3]=1;return result;
+}
 MaterialResult EvaluateMaterial(std::array<float,3> p,std::array<float,4> uv,std::uint32_t color,const Constants& c,const std::array<Vec,2>& extra){
     Evaluate(p,c);for(float v:uv)if(!std::isfinite(v))throw std::runtime_error("nonfinite material input");
     for(auto row:extra)for(float v:row)if(!std::isfinite(v))throw std::runtime_error("nonfinite constant");

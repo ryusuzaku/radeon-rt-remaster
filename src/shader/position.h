@@ -20,4 +20,17 @@ constexpr std::array<unsigned,9> FlexRegisters={0,3,8,9,10,11,58,59,60};
 struct FlexConstants {std::array<Vec,9> rows;std::array<bool,9> known{};}; // in FlexRegisters order
 void AdmitFlex(std::span<const std::uint8_t> code);
 Result EvaluateFlex(std::array<float,3> input,std::array<float,3> flex,const FlexConstants& constants);
+
+// Third admitted program: the 3348-byte skinned vertex program (docs/HL2_SKINNED_POSITION_CONTRACT.md). Position path only:
+// three bones from the blend-index colour bytes, two SHORT2 weights and an implied third, blended cModel rows applied to
+// (v0 + v5 * c3.x, 1), then cViewProj (c8..c11) applied to (model, c0.y).
+constexpr std::size_t SkinProgramBytes=3348;
+constexpr std::array<unsigned,6> SkinRegisters={0,3,8,9,10,11};
+constexpr unsigned PaletteStart=58,PaletteRows=159; // cModel[53]: c58..c216
+struct SkinConstants {std::array<Vec,6> rows;std::array<bool,6> known{};std::array<Vec,PaletteRows> palette;std::array<bool,PaletteRows> paletteKnown{};};
+struct SkinInput {std::array<float,3> position,flex;std::array<std::int16_t,2> weights;std::uint32_t indices;}; // indices: raw D3DCOLOR bytes
+// The three palette offsets (multiples of three, the program's a0.xyz) a vertex reads; throws "bone_range" past cModel[52].
+std::array<unsigned,3> SkinBones(std::uint32_t indices);
+void AdmitSkin(std::span<const std::uint8_t> code);
+Result EvaluateSkin(const SkinInput& input,const SkinConstants& constants);
 }

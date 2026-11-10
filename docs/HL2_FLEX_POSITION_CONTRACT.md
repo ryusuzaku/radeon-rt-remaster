@@ -104,4 +104,4 @@ Pass `build/game-passes/hl2-flex-20261110`, run `frame` (local), with the same o
   the proxy loaded would be refused as `uninitialized_bytes`, never guessed.
 - Anything about the normal, tangent, texture-coordinate, fog or colour outputs, or the pixel programs these draws use.
 - World-space meaning, units or handedness of the model position, which stay unverified as for the first program.
-- The 3348-byte program (48.8% of the frame) is skinned and remains refused.
+- The 3348-byte program (48.8% of the frame) is skinned; it has [its own contract](HL2_SKINNED_POSITION_CONTRACT.md).

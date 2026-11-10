@@ -15,7 +15,7 @@ std::string Tail(const D3DVIEWPORT9& viewport,const D3DSURFACE_DESC& t,UINT offs
 }
 // The 1420-byte static-prop program (docs/HL2_FLEX_POSITION_CONTRACT.md). Position evidence only: its texture, colour and
 // lighting inputs are a different layout from the first program's, so material capture refuses it as unsupported.
-std::string CaptureFlex(IDirect3DDevice9* d,Draw draw,const Evidence& ve,const Evidence& ie,const std::array<bool,61>& known,bool material,const Evidence* flex){
+std::string CaptureFlex(IDirect3DDevice9* d,Draw draw,const Evidence& ve,const Evidence& ie,const std::array<bool,256>& known,bool material,const Evidence* flex){
     Need(!material,"unsupported_shader");
     ComPtr<IDirect3DVertexShader9> vs;Need(SUCCEEDED(d->GetVertexShader(&vs))&&vs,"missing_shader");UINT size{};
     std::array<DWORD,FlexProgramBytes/4> code{};
@@ -54,10 +54,67 @@ std::string CaptureFlex(IDirect3DDevice9* d,Draw draw,const Evidence& ve,const E
         +",\"flex\":{\"offset\":"+std::to_string(flexOffset)+",\"stride\":"+std::to_string(flexStride)+",\"vb_size\":"+std::to_string(flex->bytes.size())+",\"values\":\""+Hex(flexes4.data(),corners*16)+"\"}";
 }
 }
-std::string Capture(IDirect3DDevice9* d,Draw draw,const Evidence& ve,const Evidence& ie,const std::array<bool,61>& known,bool material,const Evidence* flex){
+// The 3348-byte skinned program (docs/HL2_SKINNED_POSITION_CONTRACT.md). Position evidence only, as for the flex program.
+std::string CaptureSkin(IDirect3DDevice9* d,Draw draw,const Evidence& ve,const Evidence& ie,const std::array<bool,256>& known,bool material,const Evidence* flex){
+    Need(!material,"unsupported_shader");
+    ComPtr<IDirect3DVertexShader9> vs;Need(SUCCEEDED(d->GetVertexShader(&vs))&&vs,"missing_shader");UINT size{};
+    std::array<DWORD,SkinProgramBytes/4> code{};
+    Need(SUCCEEDED(vs->GetFunction(nullptr,&size))&&size==SkinProgramBytes&&SUCCEEDED(vs->GetFunction(code.data(),&size))&&size==SkinProgramBytes,"shader_query");
+    AdmitSkin({reinterpret_cast<const std::uint8_t*>(code.data()),SkinProgramBytes});
+    Need(draw.primitives&&draw.primitives<=4096&&draw.vertices&&draw.vertices<=65536,"draw_budget");
+    ComPtr<IDirect3DVertexDeclaration9> declaration;Need(SUCCEEDED(d->GetVertexDeclaration(&declaration))&&declaration,"missing_layout");
+    std::array<D3DVERTEXELEMENT9,65> elements{};UINT count=65;Need(SUCCEEDED(declaration->GetDeclaration(elements.data(),&count))&&count&&count<=65&&elements[count-1].Stream==255,"layout_query");
+    // POSITION0 FLOAT3 at the start of stream 0, BLENDWEIGHT0 SHORT2 and BLENDINDICES0 D3DCOLOR in stream 0, POSITION1 FLOAT4 at the
+    // start of stream 2; each exactly once. The weight and index offsets are recorded rather than pinned.
+    unsigned positions=0,flexes=0,weights=0,indices=0;WORD weightOffset{},indexOffset{};
+    for(UINT i=0;i+1<count;++i){auto e=elements[i];
+        if(e.Usage==D3DDECLUSAGE_POSITION&&e.UsageIndex==0){Need(e.Stream==0&&e.Offset==0&&e.Type==D3DDECLTYPE_FLOAT3&&e.Method==D3DDECLMETHOD_DEFAULT,"position_layout");++positions;}
+        else if(e.Usage==D3DDECLUSAGE_POSITION&&e.UsageIndex==1){Need(e.Stream==2&&e.Offset==0&&e.Type==D3DDECLTYPE_FLOAT4&&e.Method==D3DDECLMETHOD_DEFAULT,"position_layout");++flexes;}
+        else if(e.Usage==D3DDECLUSAGE_BLENDWEIGHT&&e.UsageIndex==0){Need(e.Stream==0&&e.Type==D3DDECLTYPE_SHORT2&&e.Method==D3DDECLMETHOD_DEFAULT,"position_layout");weightOffset=e.Offset;++weights;}
+        else if(e.Usage==D3DDECLUSAGE_BLENDINDICES&&e.UsageIndex==0){Need(e.Stream==0&&e.Type==D3DDECLTYPE_D3DCOLOR&&e.Method==D3DDECLMETHOD_DEFAULT,"position_layout");indexOffset=e.Offset;++indices;}}
+    Need(positions==1&&flexes==1&&weights==1&&indices==1,"position_layout");
+    ComPtr<IDirect3DVertexBuffer9> vb,fb;ComPtr<IDirect3DIndexBuffer9> ib;UINT offset{},stride{},frequency{},flexOffset{},flexStride{},flexFrequency{};
+    Need(SUCCEEDED(d->GetStreamSource(0,&vb,&offset,&stride))&&vb&&SUCCEEDED(d->GetIndices(&ib))&&ib&&SUCCEEDED(d->GetStreamSource(2,&fb,&flexOffset,&flexStride))&&fb&&flex,"missing_binding");
+    Need(vb.Get()==ve.resource&&ib.Get()==ie.resource&&fb.Get()==flex->resource,"resource_identity");
+    Need(SUCCEEDED(d->GetStreamSourceFreq(0,&frequency))&&frequency==1&&stride>=12&&stride<=256&&weightOffset+4u<=stride&&indexOffset+4u<=stride,"stream_layout");
+    Need(SUCCEEDED(d->GetStreamSourceFreq(2,&flexFrequency))&&flexFrequency==1&&(flexStride==0||(flexStride>=16&&flexStride<=256)),"stream_layout");
+    D3DINDEXBUFFER_DESC desc{};Need(SUCCEEDED(ib->GetDesc(&desc))&&desc.Format==D3DFMT_INDEX16,"index_format");
+    SkinConstants constants{};
+    D3DVIEWPORT9 viewport{};ComPtr<IDirect3DSurface9> target;D3DSURFACE_DESC targetDesc{};
+    Need(SUCCEEDED(d->GetViewport(&viewport))&&SUCCEEDED(d->GetRenderTarget(0,&target))&&target&&SUCCEEDED(target->GetDesc(&targetDesc)),"target_query");
+    Need(std::isfinite(viewport.MinZ)&&std::isfinite(viewport.MaxZ),"viewport_nonfinite");
+    for(unsigned i=0;i<SkinRegisters.size();++i){Need(known[SkinRegisters[i]],"unknown_constants");Need(SUCCEEDED(d->GetVertexShaderConstantF(SkinRegisters[i],constants.rows[i].data(),1)),"constant_query");constants.known[i]=true;}
+    const std::size_t corners=std::size_t(draw.primitives)*3;const auto start=std::uint64_t(draw.start)*2;Known(ie,start,corners*2);
+    std::vector<SkinInput> inputs;inputs.reserve(corners);std::array<bool,PaletteRows> used{};
+    for(std::size_t i=0;i<corners;++i){std::uint16_t index{};memcpy(&index,ie.bytes.data()+start+i*2,2);Need(index>=draw.minimum&&std::uint64_t(index)<std::uint64_t(draw.minimum)+draw.vertices,"declared_index_range");
+        auto vertex=std::int64_t(draw.base)+index;Need(vertex>=0,"negative_vertex");auto address=std::uint64_t(offset)+std::uint64_t(vertex)*stride;
+        Known(ve,address,12);Known(ve,address+weightOffset,4);Known(ve,address+indexOffset,4);
+        auto flexAddress=std::uint64_t(flexOffset)+std::uint64_t(vertex)*flexStride;Known(*flex,flexAddress,16);
+        SkinInput input{};memcpy(input.position.data(),ve.bytes.data()+address,12);memcpy(input.weights.data(),ve.bytes.data()+address+weightOffset,4);memcpy(&input.indices,ve.bytes.data()+address+indexOffset,4);
+        std::array<float,4> value;memcpy(value.data(),flex->bytes.data()+flexAddress,16);input.flex={value[0],value[1],value[2]};
+        for(auto base:SkinBones(input.indices))used[base]=true;inputs.push_back(input);}
+    // Only the bone rows the draw's vertices read are required and recorded: three registers per referenced bone.
+    std::string bones="[";std::vector<Vec> boneRows;
+    for(unsigned base=0;base<PaletteRows;++base){if(!used[base])continue;
+        for(unsigned r=0;r<3;++r){Need(known[PaletteStart+base+r],"unknown_constants");Need(SUCCEEDED(d->GetVertexShaderConstantF(PaletteStart+base+r,constants.palette[base+r].data(),1)),"constant_query");constants.paletteKnown[base+r]=true;boneRows.push_back(constants.palette[base+r]);}
+        bones+=(bones.size()>1?",":"")+std::to_string(base);}
+    bones+="]";
+    std::vector<Result> outputs;outputs.reserve(corners);std::vector<std::array<std::uint8_t,8>> blend(corners);std::vector<std::array<float,4>> flexes4(corners);
+    for(std::size_t i=0;i<corners;++i){const auto& in=inputs[i];outputs.push_back(EvaluateSkin(in,constants));memcpy(blend[i].data(),in.weights.data(),4);memcpy(blend[i].data()+4,&in.indices,4);
+        flexes4[i]={in.flex[0],in.flex[1],in.flex[2],0};std::uint64_t vertex=std::uint64_t(std::int64_t(draw.base)+*reinterpret_cast<const std::uint16_t*>(ie.bytes.data()+start+i*2));memcpy(&flexes4[i][3],flex->bytes.data()+flexOffset+vertex*flexStride+12,4);}
+    std::string rows="[";for(unsigned i=0;i<SkinRegisters.size();++i)rows+=(i?",":"")+std::to_string(SkinRegisters[i]);rows+="]";
+    std::vector<std::array<float,3>> positionsOut(corners);for(std::size_t i=0;i<corners;++i)positionsOut[i]=inputs[i].position;
+    return "\"shader\":\""+Hex(code.data(),SkinProgramBytes)+"\",\"declaration\":\""+Hex(elements.data(),count*8)+"\",\"constants\":\""+Hex(constants.rows.data(),sizeof(constants.rows))+"\",\"constant_rows\":"+rows
+        +",\"bones\":{\"offsets\":"+bones+",\"rows\":\""+Hex(boneRows.data(),boneRows.size()*16)+"\"}"
+        +Tail(viewport,targetDesc,offset,stride,draw,ve,ie,start,corners)+",\"positions\":\""+Hex(positionsOut.data(),corners*12)+"\",\"evaluated\":\""+Hex(outputs.data(),corners*32)+"\""
+        +",\"blend\":{\"weights_offset\":"+std::to_string(weightOffset)+",\"indices_offset\":"+std::to_string(indexOffset)+",\"values\":\""+Hex(blend.data(),corners*8)+"\"}"
+        +",\"flex\":{\"offset\":"+std::to_string(flexOffset)+",\"stride\":"+std::to_string(flexStride)+",\"vb_size\":"+std::to_string(flex->bytes.size())+",\"values\":\""+Hex(flexes4.data(),corners*16)+"\"}";
+}
+std::string Capture(IDirect3DDevice9* d,Draw draw,const Evidence& ve,const Evidence& ie,const std::array<bool,256>& known,bool material,const Evidence* flex){
     ComPtr<IDirect3DVertexShader9> vs;Need(SUCCEEDED(d->GetVertexShader(&vs))&&vs,"missing_shader");UINT size{};
     Need(SUCCEEDED(vs->GetFunction(nullptr,&size)),"unsupported_shader");
     if(size==FlexProgramBytes)return CaptureFlex(d,draw,ve,ie,known,material,flex);
+    if(size==SkinProgramBytes)return CaptureSkin(d,draw,ve,ie,known,material,flex);
     Need(size==612,"unsupported_shader");std::array<DWORD,153> code{};
     Need(SUCCEEDED(vs->GetFunction(code.data(),&size))&&size==612,"shader_query");Admit({reinterpret_cast<const std::uint8_t*>(code.data()),612});
     Need(draw.primitives&&draw.primitives<=4096&&draw.vertices&&draw.vertices<=65536,"draw_budget");

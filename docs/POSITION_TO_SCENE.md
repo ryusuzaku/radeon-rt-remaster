@@ -49,8 +49,9 @@ the failure. No GPU is involved.
   handedness unverified, so the scene carries default metadata and the provenance sidecar says so.
 - **Two vertex programs are admitted by capture.** The first covered 231 of 2,996 indexed draws in the inventory pass (7.7%).
   The second, the 1420-byte static-prop program, folds a stream-2 flex offset into each vertex and uses its view-projection
-  directly ([its contract](HL2_FLEX_POSITION_CONTRACT.md)); it drew 34.4% of the 2026-11-10 frame's triangles. The skinned
-  3348-byte program (48.8% of that frame) and the remaining programs are a separate piece of work.
+  directly ([its contract](HL2_FLEX_POSITION_CONTRACT.md)); it drew 34.4% of the 2026-11-10 frame's triangles. The third, the
+  skinned 3348-byte program (48.8% of that frame), blends three bones per vertex; its vertices are the verified model positions
+  under an identity world ([its contract](HL2_SKINNED_POSITION_CONTRACT.md)). The remaining programs are a separate piece of work.
 - **The existing ledgers are tiny.** The multidraw pass has 16 draws in four render groups of four draws and 48 triangles each.
   A capture with quotas 256:1024 was made on 2026-11-10 and accepted only six draws (38 triangles) per frame, so the limits are
   not the constraint; see [the frame capture result](HL2_FRAME_CAPTURE_RESULT.md).

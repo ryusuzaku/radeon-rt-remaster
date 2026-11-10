@@ -23,6 +23,13 @@ F32_ROUNDING=8*2.0**-24
 FLEX_DIGEST='a84edfd28843f7c8aeac78bcb48c03184326c007593e8d49e99777c8cf1f11dc'
 FLEX_BYTES=1420
 FLEX_ROWS=[0,3,8,9,10,11,58,59,60]
+# Third admitted program (docs/HL2_SKINNED_POSITION_CONTRACT.md): 3348 bytes, six fixed rows plus the bone rows its vertices read.
+SKIN_DIGEST='c3c0fcaab126f410ba5d7e63fe4215dc022535708d52ae18ccfa4d7ddbff4be2'
+SKIN_BYTES=3348
+SKIN_ROWS=[0,3,8,9,10,11]
+def skin_bones(color):
+    """The palette offsets (the program's a0.xyz) a vertex reads: three times the colour's (G, B, R) bytes, as `mova` rounds them."""
+    return (3*((color>>8)&255),3*(color&255),3*((color>>16)&255))
 COMPOSITION_STATES=set('z_enable z_write z_func alpha_test alpha_ref alpha_func blend_enable src_blend dst_blend blend_op separate_alpha src_blend_alpha dst_blend_alpha blend_op_alpha blend_factor color_write cull fill scissor_enable stencil_enable srgb_write depth_bias slope_depth_bias'.split())
 def position_matches(constants,position,result):
     """True when `result` (seven clip/model outputs and the 1.0 pad) is what the admitted vertex program yields for `position`.
@@ -51,6 +58,24 @@ def flex_position_matches(constants,position,flex,result):
     mclip=[sum(abs(row(2+k)[j])*m0[j] for j in range(4)) for k in range(4)]
     calculated=clip+r0[:3]+[1.0];magnitude=mclip+m0[:3]+[0.0]
     return all(abs(x-y)<=2e-4*(1+abs(y))+F32_ROUNDING*m for x,y,m in zip(result,calculated,magnitude))
+def skin_position_matches(constants,palette,position,flex,weights,color,result):
+    """True when `result` is what the skinned program yields; `palette` maps a palette offset to its three rows.
+
+    The allowance is position_matches's, with float32 magnitudes carried through the weights, the three-bone blend and both
+    products, as for the flex program."""
+    row=lambda i:constants[i*4:i*4+4];c0y=row(0)[1];scale=row(1)[0]
+    bones=skin_bones(color)
+    wx=(weights[0]+c0y)/32768;wy=(weights[1]+c0y)/32768;wz=c0y-(wy+wx)
+    w=[wy,wx,wz];mw=[(abs(weights[1])+abs(c0y))/32768,(abs(weights[0])+abs(c0y))/32768,abs(c0y)+abs(wx)+abs(wy)]
+    blended=[[sum(w[k]*palette[bones[k]][r][j] for k in range(3)) for j in range(4)] for r in range(3)]
+    mblend=[[sum(mw[k]*abs(palette[bones[k]][r][j]) for k in range(3)) for j in range(4)] for r in range(3)]
+    r6=[position[j]+flex[j]*scale for j in range(3)]+[1.0];m6=[abs(position[j])+abs(flex[j]*scale) for j in range(3)]+[1.0]
+    model=[sum(r6[j]*blended[i][j] for j in range(4)) for i in range(3)]+[c0y]
+    mmodel=[sum(m6[j]*abs(blended[i][j])+abs(r6[j])*mblend[i][j] for j in range(4)) for i in range(3)]+[abs(c0y)]
+    clip=[sum(model[j]*row(2+k)[j] for j in range(4)) for k in range(4)]
+    mclip=[sum(abs(row(2+k)[j])*mmodel[j] for j in range(4)) for k in range(4)]
+    calculated=clip+model[:3]+[1.0];magnitude=mclip+mmodel[:3]+[0.0]
+    return all(abs(x-y)<=2e-4*(1+abs(y))+F32_ROUNDING*m for x,y,m in zip(result,calculated,magnitude))
 def need(ok,message):
     if not ok: raise ValueError(message)
 def inspect(path,include_records=False):
@@ -72,9 +97,9 @@ def inspect_bytes(data,include_records=False,assets=None):
         data=bytes.fromhex(value);need(len(data)==size,'blob bytes: '+key);return data
     with io.BytesIO(data) as stream:
         for _ in range(4099):
-            line=stream.readline(1200001)
+            line=stream.readline(4000001)
             if not line: break
-            need(len(line)<=1200000 and line.endswith(b'\n'),'record bound/truncation')
+            need(len(line)<=4000000 and line.endswith(b'\n'),'record bound/truncation')  # a 4096-triangle skinned draw is about 1.7 MB
             row=json.loads(line);need(isinstance(row,dict) and footer is None,'record ordering')
             if not header:
                 version=row.get('version');need(type(version) is int and version in (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20),'header version')
@@ -230,7 +255,21 @@ def inspect_bytes(data,include_records=False,assets=None):
                 need(intervals[interval]<interval_limit,'accepted interval quota exceeded');intervals[interval]+=1
                 draw_key=(*interval,timing['indexed_draw']);need(draw_key not in draw_keys,'duplicate accepted draw timing');draw_keys.add(draw_key)
             flex_program=isinstance(row.get('shader'),str) and len(row['shader'])==FLEX_BYTES*2
-            if flex_program:
+            skin_program=isinstance(row.get('shader'),str) and len(row['shader'])==SKIN_BYTES*2
+            if skin_program:
+                need(hashlib.sha256(blob(row,'shader',SKIN_BYTES)).hexdigest()==SKIN_DIGEST,'program identity')
+                need(version<11,'the skinned program has no material contract')
+                need(row.get('constant_rows')==SKIN_ROWS,'skinned constant rows')
+                bones=row.get('bones');need(isinstance(bones,dict) and set(bones)=={'offsets','rows'},'bone metadata')
+                offsets=bones['offsets'];need(isinstance(offsets,list) and 1<=len(offsets)<=53 and all(type(o) is int and 0<=o<=156 and o%3==0 for o in offsets) and offsets==sorted(set(offsets)),'bone offsets')
+                bone_rows=struct.unpack('<%df'%(len(offsets)*12),blob(bones,'rows',len(offsets)*48));need(all(map(math.isfinite,bone_rows)),'nonfinite bone rows')
+                palette={o:[bone_rows[(i*3+r)*4:(i*3+r)*4+4] for r in range(3)] for i,o in enumerate(offsets)}
+                blend=row.get('blend');need(isinstance(blend,dict) and set(blend)=={'weights_offset','indices_offset','values'},'blend metadata')
+                need(all(type(blend[k]) is int and 0<=blend[k]<=252 for k in ('weights_offset','indices_offset')),'blend metadata')
+                flex=row.get('flex');need(isinstance(flex,dict) and set(flex)=={'offset','stride','vb_size','values'},'flex metadata')
+                need(all(type(flex[k]) is int and 0<=flex[k]<2**32 for k in ('offset','stride','vb_size')),'flex metadata')
+                need((flex['stride']==0 or 16<=flex['stride']<=256) and flex['vb_size']<=16*1024*1024,'flex stream layout')
+            elif flex_program:
                 need(hashlib.sha256(blob(row,'shader',FLEX_BYTES)).hexdigest()==FLEX_DIGEST,'program identity')
                 need(version<11,'the second program has no material contract')
                 need(row.get('constant_rows')==FLEX_ROWS,'flex constant rows')
@@ -240,6 +279,7 @@ def inspect_bytes(data,include_records=False,assets=None):
             else:
                 need(hashlib.sha256(blob(row,'shader',612)).hexdigest()==DIGEST,'program identity')
                 need('flex' not in row and 'constant_rows' not in row,'flex evidence without the second program')
+            if not skin_program:need('bones' not in row and 'blend' not in row,'skinning evidence without the skinned program')
             for key in ('offset','stride','minimum','vertices','start','primitives','vb_size','ib_size'):
                 need(type(row.get(key)) is int and 0<=row[key]<2**32,'integer: '+key)
             need(type(row.get('base')) is int and -(2**31)<=row['base']<2**31,'base')
@@ -249,8 +289,13 @@ def inspect_bytes(data,include_records=False,assets=None):
             elements=list(struct.iter_unpack('<HHBBBB',bytes.fromhex(declaration)))
             need(elements[-1]==(255,0,17,0,0,0),'declaration terminator')
             need([e for e in elements[:-1] if e[4:]==(0,0)]==[(0,0,2,0,0,0)],'position declaration')
-            if flex_program:need([e for e in elements[:-1] if e[4:]==(0,1)]==[(2,0,3,0,0,1)],'flex position declaration')
-            constants=struct.unpack('<36f',blob(row,'constants',144)) if flex_program else struct.unpack('<32f',blob(row,'constants',128))
+            if flex_program or skin_program:need([e for e in elements[:-1] if e[4:]==(0,1)]==[(2,0,3,0,0,1)],'flex position declaration')
+            if skin_program:
+                need([e for e in elements[:-1] if e[4:]==(1,0)]==[(0,blend['weights_offset'],6,0,1,0)],'blend weight declaration')
+                need([e for e in elements[:-1] if e[4:]==(2,0)]==[(0,blend['indices_offset'],4,0,2,0)],'blend index declaration')
+                need(blend['weights_offset']+4<=row['stride'] and blend['indices_offset']+4<=row['stride'],'blend layout')
+            constants=(struct.unpack('<24f',blob(row,'constants',96)) if skin_program else struct.unpack('<36f',blob(row,'constants',144)) if flex_program
+                       else struct.unpack('<32f',blob(row,'constants',128)))
             need(all(map(math.isfinite,constants)),'nonfinite constants')
             viewport=struct.unpack('<4I2f',blob(row,'viewport',24));need(all(map(math.isfinite,viewport[4:])),'nonfinite viewport')
             target=row.get('target');need(isinstance(target,list) and len(target)==4 and all(type(v) is int and 0<=v<2**32 for v in target),'target metadata')
@@ -262,20 +307,23 @@ def inspect_bytes(data,include_records=False,assets=None):
             indices=struct.unpack('<'+'H'*corners,blob(row,'indices',corners*2))
             positions=list(struct.iter_unpack('<3f',blob(row,'positions',corners*12)))
             outputs=list(struct.iter_unpack('<8f',blob(row,'evaluated',corners*32)))
-            flexes=list(struct.iter_unpack('<4f',blob(flex,'values',corners*16))) if flex_program else [None]*corners
-            for index,p,result,f in zip(indices,positions,outputs,flexes):
+            flexes=list(struct.iter_unpack('<4f',blob(flex,'values',corners*16))) if flex_program or skin_program else [None]*corners
+            blends=list(struct.iter_unpack('<2hI',blob(blend,'values',corners*8))) if skin_program else [None]*corners
+            if skin_program:need(sorted({o for b in blends for o in skin_bones(b[2])})==offsets,'recorded bones differ from the bones the vertices read')
+            for index,p,result,f,b in zip(indices,positions,outputs,flexes,blends):
                 need(row['minimum']<=index<row['minimum']+row['vertices'],'declared index range')
                 vertex=index+row['base'];need(vertex>=0 and row['offset']+vertex*row['stride']+12<=row['vb_size'],'vertex buffer range')
                 need(all(map(math.isfinite,(*p,*result))),'nonfinite vertex/output')
-                if flex_program:
+                if flex_program or skin_program:
                     need(flex['offset']+vertex*flex['stride']+16<=flex['vb_size'],'flex buffer range')
                     need(all(map(math.isfinite,f[:3])),'nonfinite flex value')
-                    need(flex_position_matches(constants,p,f[:3],result),'position calculation mismatch')
+                if skin_program:need(skin_position_matches(constants,palette,p,f[:3],b[:2],b[2],result),'position calculation mismatch')
+                elif flex_program:need(flex_position_matches(constants,p,f[:3],result),'position calculation mismatch')
                 else:need(position_matches(constants,p,result),'position calculation mismatch')
             if version>=11:validate_material(row)
             if version>=12:validate_pixel_material(row)
             if version>=13:validate_texture_inputs(row,assets,version>=14,version>=15,version>=16,version>=17,version>=18)
-            captured.append({'ordinal':ordinal,'program':'flex' if flex_program else 'pinned','corners':corners,'unique_indices':len(set(indices)),'stride':row['stride'],'vb_size':row['vb_size'],'ib_size':row['ib_size']})
+            captured.append({'ordinal':ordinal,'program':'skin' if skin_program else 'flex' if flex_program else 'pinned','corners':corners,'unique_indices':len(set(indices)),'stride':row['stride'],'vb_size':row['vb_size'],'ib_size':row['ib_size']})
             if include_records:records.append(row)
         else:raise ValueError('record count')
     need(header,'missing header')

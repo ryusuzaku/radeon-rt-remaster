@@ -26,7 +26,7 @@ def main():
     if args.test_dir:
         metadata = json.loads(run([args.ctest, '--test-dir', str(args.test_dir),
                                    '-C', args.config, '-L', 'local_evidence', '--show-only=json-v1']))
-        expected = {'hl2_position', 'hl2_flex_position', 'position_capture', 'recorded_position_oracle',
+        expected = {'hl2_position', 'hl2_flex_position', 'hl2_skin_position', 'position_capture', 'recorded_position_oracle',
                     'position_reconstruction', 'capture_position_scene', 'position_scene_local', 'position_groups',
                     'pixel_program_variants'}
         expected.update(f'texture_{kind}' for kind in

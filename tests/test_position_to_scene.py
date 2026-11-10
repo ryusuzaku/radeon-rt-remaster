@@ -166,7 +166,7 @@ def test_flex_program():
     assert [len(g) for g in groups] == [2], 'a flex draw under the same view joins the first program\'s scene'
     scene, provenance = p.build_scene(groups[0])
     p.check_admissible(scene)
-    assert provenance['programs'] == dict(pinned=1, flex=1) and provenance['max_relative_clip_error'] < 1e-5, provenance
+    assert provenance['programs'] == dict(pinned=1, flex=1, skin=0) and provenance['max_relative_clip_error'] < 1e-5, provenance
     stored = scene['draws'][1]['vertices'][0][:3]
     assert all(abs(a - (b + f * 0.75)) < 1e-4 for a, b, f in zip(stored, QUAD[0], flex)), ('the flex offset is folded into the vertex', stored)
     # The fold is necessary: recording a zero flex value while the program used a real one must fail the gate.
@@ -174,6 +174,33 @@ def test_flex_program():
     # A zero scale makes the flex value irrelevant, so the same mismatch is then harmless.
     p.build_scene([flex_row(33, QUAD, INDICES, MODEL, flex, scale=0.0, recorded_flex=(0.0, 0.0, 0.0))])
     raises(lambda: p.build_scene([flex_row(34, QUAD, INDICES, MODEL, flex, c0=(0.0, 0.5, 0.0, 0.0))]), 'c0.y is not one')
+
+
+def skin_row(ordinal, models, indices, view_projection=VIEW_PROJECTION, c0=(0.0, 1.0, 2.0, 0.5), clip_offset=0.0):
+    """A record of the skinned program as the converter sees it: six rows (c0, c3, c8-c11) and per-corner evaluated outputs. The
+    blend itself is the reader's to check; here every corner simply has its own model position, as skinned vertices do."""
+    constants = struct.pack('<24f', *c0, 0.5, 0.0, 0.0, 0.0, *[x for r in view_projection for x in r])
+    corners = [models[i] for i in indices]
+    evaluated = b''.join(struct.pack('<4f', *[v + clip_offset for v in apply(view_projection, m)]) + struct.pack('<3f', *m) + struct.pack('<f', 1.0) for m in corners)
+    return dict(ordinal=ordinal, primitives=len(indices) // 3, indices=struct.pack('<%dH' % len(indices), *indices).hex(),
+                positions=b''.join(struct.pack('<3f', 0.0, 0.0, 0.0) for _ in corners).hex(), evaluated=evaluated.hex(), constants=constants.hex(),
+                constant_rows=list(p.SKIN_ROWS), viewport=struct.pack('<4I2f', 0, 0, 5120, 1440, 0.0, 1.0).hex(), target=[5120, 1440, 21, 0], device=2,
+                timing=dict(reset_epoch=0, present_interval=7, indexed_draw=ordinal), render_state=None)
+
+
+def test_skinned_program():
+    skinned = [(10.0, -20.0, 130.0), (60.0, -25.0, 140.0), (35.0, 40.0, 160.0)]
+    rows = [row(40, QUAD, INDICES, MODEL), skin_row(41, skinned, [0, 1, 2])]
+    groups = p.groups_of(rows)
+    assert [len(g) for g in groups] == [2], 'a skinned draw under the same view joins the scene'
+    scene, provenance = p.build_scene(groups[0])
+    p.check_admissible(scene)
+    assert provenance['programs'] == dict(pinned=1, flex=0, skin=1) and provenance['max_relative_clip_error'] < 1e-5, provenance
+    draw = scene['draws'][1]
+    assert draw['world'] == [float(i % 5 == 0) for i in range(16)] and [v[:3] for v in draw['vertices']] == [list(m) for m in skinned], draw['vertices']
+    # The gate still decides: a recorded clip position the model position cannot produce under the camera is refused.
+    raises(lambda: p.build_scene([skin_row(42, skinned, [0, 1, 2], clip_offset=0.5)]), 'projected clip positions differ')
+    raises(lambda: p.build_scene([skin_row(43, skinned, [0, 1, 2], c0=(0.0, 0.5, 2.0, 0.5))]), 'c0.y is not one')
 
 
 def test_outputs_are_exclusive_and_checked():
@@ -196,4 +223,4 @@ def test_outputs_are_exclusive_and_checked():
 if __name__ == '__main__':
     tests = [value for name, value in sorted(globals().items()) if name.startswith('test_')]
     for test in tests: test()
-    print(f'PASS position_to_scene: {len(tests)} synthetic-ledger checks (round trip and gate, wrong convention, dedup, rejections, grouping and extent, second program, outputs)')
+    print(f'PASS position_to_scene: {len(tests)} synthetic-ledger checks (round trip and gate, wrong convention, dedup, rejections, grouping and extent, second and skinned programs, outputs)')

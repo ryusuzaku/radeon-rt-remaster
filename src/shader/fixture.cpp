@@ -61,6 +61,7 @@ std::vector<std::uint8_t> Pixels(IDirect3DDevice9* d) {
 void Clear(IDirect3DDevice9* d) { Check(d->Clear(0,nullptr,D3DCLEAR_TARGET,0xff142850,1,0)); }
 #include "position_fixture.inc"
 #include "flex_position_fixture.inc"
+#include "skin_position_fixture.inc"
 void Fixture(const std::filesystem::path& out) {
     Device source;auto* d=source.device.Get();
     ComPtr<IDirect3DVertexBuffer9> vb;ComPtr<IDirect3DIndexBuffer9> ib;ComPtr<IDirect3DVertexShader9> vs;ComPtr<IDirect3DPixelShader9> ps;ComPtr<IDirect3DVertexDeclaration9> decl;
@@ -160,6 +161,7 @@ int wmain(int argc,wchar_t** argv) {
     try {
         if(argc==2 && std::wstring(argv[1])==L"--hl2-position") PositionFixture();
         else if(argc==2 && std::wstring(argv[1])==L"--hl2-flex-position") FlexPositionFixture();
+        else if(argc==2 && std::wstring(argv[1])==L"--hl2-skin-position") SkinPositionFixture();
         else if(argc==2 && std::wstring(argv[1])==L"--recorded-position") PositionFixture(true);
         else if(argc==2 && std::wstring(argv[1])==L"--position-group") PositionGroupFixture();
         else if(argc==2 && std::wstring(argv[1])==L"--material-inputs") MaterialFixture();
