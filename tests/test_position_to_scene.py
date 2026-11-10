@@ -166,7 +166,7 @@ def test_flex_program():
     assert [len(g) for g in groups] == [2], 'a flex draw under the same view joins the first program\'s scene'
     scene, provenance = p.build_scene(groups[0])
     p.check_admissible(scene)
-    assert provenance['programs'] == dict(pinned=1, flex=1, skin=0) and provenance['max_relative_clip_error'] < 1e-5, provenance
+    assert provenance['programs'] == dict(pinned=1, flex=1, skin=0, interpreted=0) and provenance['max_relative_clip_error'] < 1e-5, provenance
     stored = scene['draws'][1]['vertices'][0][:3]
     assert all(abs(a - (b + f * 0.75)) < 1e-4 for a, b, f in zip(stored, QUAD[0], flex)), ('the flex offset is folded into the vertex', stored)
     # The fold is necessary: recording a zero flex value while the program used a real one must fail the gate.
@@ -195,12 +195,46 @@ def test_skinned_program():
     assert [len(g) for g in groups] == [2], 'a skinned draw under the same view joins the scene'
     scene, provenance = p.build_scene(groups[0])
     p.check_admissible(scene)
-    assert provenance['programs'] == dict(pinned=1, flex=0, skin=1) and provenance['max_relative_clip_error'] < 1e-5, provenance
+    assert provenance['programs'] == dict(pinned=1, flex=0, skin=1, interpreted=0) and provenance['max_relative_clip_error'] < 1e-5, provenance
     draw = scene['draws'][1]
     assert draw['world'] == [float(i % 5 == 0) for i in range(16)] and [v[:3] for v in draw['vertices']] == [list(m) for m in skinned], draw['vertices']
     # The gate still decides: a recorded clip position the model position cannot produce under the camera is refused.
     raises(lambda: p.build_scene([skin_row(42, skinned, [0, 1, 2], clip_offset=0.5)]), 'projected clip positions differ')
     raises(lambda: p.build_scene([skin_row(43, skinned, [0, 1, 2], c0=(0.0, 0.5, 2.0, 0.5))]), 'c0.y is not one')
+
+
+def interpreted_row(ordinal, worlds, indices, camera, registers, clip_scale=1.0, recorded_camera='same'):
+    """A record of a program captured through the interpreter: clip positions per corner and the camera its constant table names.
+    The registers hold what the program read; the converter only needs the camera's."""
+    used = sorted(registers)
+    values = b''.join(struct.pack('<4f', *registers[r]) for r in used)
+    view_projection = [registers[camera['view_projection'] + k] for k in range(4)] if 'view_projection' in camera else \
+        p.matmul([registers[camera['model_view_projection'] + k] for k in range(4)], p.inverse([registers[camera['model'] + k] for k in range(3)] + [[0.0, 0.0, 0.0, 1.0]]))
+    corners = [worlds[i] for i in indices]
+    clip = b''.join(struct.pack('<4f', *[clip_scale * v for v in apply(view_projection, w)]) for w in corners)
+    return dict(ordinal=ordinal, primitives=len(indices) // 3, indices=struct.pack('<%dH' % len(indices), *indices).hex(), clip=clip.hex(),
+                interpreted=dict(constants=dict(registers=used, values=values.hex()), camera=camera if recorded_camera == 'same' else recorded_camera, inputs=[]),
+                viewport=struct.pack('<4I2f', 0, 0, 5120, 1440, 0.0, 1.0).hex(), target=[5120, 1440, 21, 0], device=2,
+                timing=dict(reset_epoch=0, present_interval=7, indexed_draw=ordinal), render_state=None)
+
+
+def test_interpreted_programs():
+    worlds = [(150.0, -40.0, 135.0), (190.0, -35.0, 145.0), (170.0, 20.0, 150.0)]
+    direct = {8 + k: VIEW_PROJECTION[k] for k in range(4)}
+    model = model_matrix(0.3, (5.0, -2.0, 1.0)); clip_rows = p.matmul(VIEW_PROJECTION, model)
+    composed = {**{4 + k: clip_rows[k] for k in range(4)}, **{58 + k: model[k] for k in range(3)}}
+    rows = [row(50, QUAD, INDICES, MODEL), interpreted_row(51, worlds, [0, 1, 2], {'view_projection': 8}, direct),
+            interpreted_row(52, worlds, [2, 1, 0], {'model_view_projection': 4, 'model': 58}, composed)]
+    groups = p.groups_of(rows)
+    assert [len(g) for g in groups] == [3], 'both camera forms of the same view join the scene'
+    scene, provenance = p.build_scene(groups[0])
+    p.check_admissible(scene)
+    assert provenance['programs'] == dict(pinned=1, flex=0, skin=0, interpreted=2) and provenance['max_relative_clip_error'] < 1e-5, provenance
+    stored = [v[:3] for v in scene['draws'][1]['vertices']]
+    assert all(max(abs(a - b) for a, b in zip(s_, w)) < 1e-3 for s_, w in zip(stored, worlds)), ('vertices are VP^-1 * clip', stored)
+    # A clip position scaled by two is the same point after the divide, but not the clip the camera produces: the gate refuses it.
+    raises(lambda: p.build_scene([interpreted_row(53, worlds, [0, 1, 2], {'view_projection': 8}, direct, clip_scale=2.0)]), 'projected clip positions differ')
+    raises(lambda: p.build_scene([interpreted_row(54, worlds, [0, 1, 2], {'view_projection': 8}, direct, recorded_camera=None)]), 'no camera evidence')
 
 
 def test_outputs_are_exclusive_and_checked():
@@ -223,4 +257,4 @@ def test_outputs_are_exclusive_and_checked():
 if __name__ == '__main__':
     tests = [value for name, value in sorted(globals().items()) if name.startswith('test_')]
     for test in tests: test()
-    print(f'PASS position_to_scene: {len(tests)} synthetic-ledger checks (round trip and gate, wrong convention, dedup, rejections, grouping and extent, second and skinned programs, outputs)')
+    print(f'PASS position_to_scene: {len(tests)} synthetic-ledger checks (round trip and gate, wrong convention, dedup, rejections, grouping and extent, second, skinned and interpreted programs, outputs)')

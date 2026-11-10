@@ -894,7 +894,9 @@ triangles and the admitted program 0.3%; the skinned program is the 3348-byte on
 (48.8%). See [the frame capture result](docs/HL2_FRAME_CAPTURE_RESULT.md). The 1420-byte
 program is now admitted, position-only, as a second per-program evaluator:
 [its contract](docs/HL2_FLEX_POSITION_CONTRACT.md). The skinned 3348-byte program is the third
-([its contract](docs/HL2_SKINNED_POSITION_CONTRACT.md)); constant tracking now covers all 256 registers. The trivial family (228 bytes, 208 draws,
+([its contract](docs/HL2_SKINNED_POSITION_CONTRACT.md)); constant tracking now covers all 256 registers.
+**Decided 2026-11-10: a generic path.** The [vs_2_0 position interpreter](docs/VS_INTERPRETER.md) runs each program's own
+position slice, verified per program by an instrumented-bytecode GPU oracle; 20 further programs are admitted that way. The trivial family (228 bytes, 208 draws,
 `oPos = cModelViewProj * v0`) evaluates easily but binds no pixel shader and emits
 no model position, so it yields position evidence without material evidence.
 Per-family admission is a treadmill at 23 families; a generic path needs a

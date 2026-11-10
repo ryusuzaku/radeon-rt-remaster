@@ -101,6 +101,13 @@ jobs:
       - name: Position conditioning
         run: python3.12 tests/test_position_conditioning.py
 
+      # The reader's independent vs_2_0 interpreter, on synthetic token programs; and the admitted-program list contract.
+      - name: Position interpreter
+        run: python3.12 tests/test_vs_interpreter.py
+
+      - name: Interpreted program list
+        run: python3.12 tests/verify_interpreted_program_list.py
+
       # Scene header v2 metadata and the ledger's v20 scene object must default
       # v1 captures to the documented values rather than guessing.
       - name: Scene metadata

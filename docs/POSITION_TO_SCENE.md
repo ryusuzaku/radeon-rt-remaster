@@ -51,7 +51,8 @@ the failure. No GPU is involved.
   The second, the 1420-byte static-prop program, folds a stream-2 flex offset into each vertex and uses its view-projection
   directly ([its contract](HL2_FLEX_POSITION_CONTRACT.md)); it drew 34.4% of the 2026-11-10 frame's triangles. The third, the
   skinned 3348-byte program (48.8% of that frame), blends three bones per vertex; its vertices are the verified model positions
-  under an identity world ([its contract](HL2_SKINNED_POSITION_CONTRACT.md)). The remaining programs are a separate piece of work.
+  under an identity world ([its contract](HL2_SKINNED_POSITION_CONTRACT.md)). The 20 further programs of that frame go through the
+  [vs_2_0 interpreter](VS_INTERPRETER.md): their vertices are `VP^-1 * clip` under the camera their constant table names.
 - **The existing ledgers are tiny.** The multidraw pass has 16 draws in four render groups of four draws and 48 triangles each.
   A capture with quotas 256:1024 was made on 2026-11-10 and accepted only six draws (38 triangles) per frame, so the limits are
   not the constraint; see [the frame capture result](HL2_FRAME_CAPTURE_RESULT.md).

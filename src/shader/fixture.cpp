@@ -1,6 +1,8 @@
 #include "snapshot.h"
 #include "position.h"
 #include "position_capture.h"
+#include "vs_interpreter.h"
+#include <map>
 #include "color_contract.h"
 #include <d3dcompiler.h>
 #include <cmath>
@@ -14,6 +16,7 @@
 #include <stdexcept>
 #include <limits>
 #include <algorithm>
+#include <map>
 using Microsoft::WRL::ComPtr;
 using namespace rrt::shader;
 namespace {
@@ -62,6 +65,7 @@ void Clear(IDirect3DDevice9* d) { Check(d->Clear(0,nullptr,D3DCLEAR_TARGET,0xff1
 #include "position_fixture.inc"
 #include "flex_position_fixture.inc"
 #include "skin_position_fixture.inc"
+#include "interpreter_fixture.inc"
 void Fixture(const std::filesystem::path& out) {
     Device source;auto* d=source.device.Get();
     ComPtr<IDirect3DVertexBuffer9> vb;ComPtr<IDirect3DIndexBuffer9> ib;ComPtr<IDirect3DVertexShader9> vs;ComPtr<IDirect3DPixelShader9> ps;ComPtr<IDirect3DVertexDeclaration9> decl;
@@ -162,6 +166,10 @@ int wmain(int argc,wchar_t** argv) {
         if(argc==2 && std::wstring(argv[1])==L"--hl2-position") PositionFixture();
         else if(argc==2 && std::wstring(argv[1])==L"--hl2-flex-position") FlexPositionFixture();
         else if(argc==2 && std::wstring(argv[1])==L"--hl2-skin-position") SkinPositionFixture();
+        else if(argc==2 && std::wstring(argv[1])==L"--interpret-selftest") InterpreterSelfTest();
+        else if(argc==2 && std::wstring(argv[1])==L"--interpret-oracle") InterpreterOracle();
+        else if(argc==2 && std::wstring(argv[1])==L"--interpret-synthetic") InterpreterSynthetic();
+        else if(argc==2 && std::wstring(argv[1])==L"--interpret-capture") InterpreterCapture();
         else if(argc==2 && std::wstring(argv[1])==L"--recorded-position") PositionFixture(true);
         else if(argc==2 && std::wstring(argv[1])==L"--position-group") PositionGroupFixture();
         else if(argc==2 && std::wstring(argv[1])==L"--material-inputs") MaterialFixture();
