@@ -1,4 +1,4 @@
-# Project status — 2026-10-19
+# Project status — 2026-11-14
 
 The project is a working capture/replay and standalone AMD ray-tracing prototype.
 It is **not yet a playable Remix-style runtime for a commercial game**, and no
@@ -6,6 +6,41 @@ version is tagged. The immediate blocker is Phase 3 material evidence at game
 size; the DXR renderer is at Phase 5 and the live runtime at Phase 6.
 
 ## What changed since the 2026-09-06 revision
+
+**The generic vs_2_0 position interpreter landed (2026-11-10, merged 2026-11-14).**
+Q12 is decided: instead of one hand-written CPU evaluator per vertex program, an
+interpreter runs each program's own position slice — backward slice of `oPos`,
+named refusals, float32 evaluation in program order, camera read from the
+program's own constant table. The 20 programs still refused in the 2026-11-10
+gameplay frame are admitted position-only, each verified by an instrumented-bytecode
+GPU point oracle (2,048 vertices, four variants, both boolean-constant settings):
+all 20 plus the three hand-admitted programs pass with maximum error 0 on the
+RX 9070 XT, and the interpreter equals the three hand-written evaluators bit for
+bit over 4,000 random trials each. An independent double-precision Python
+implementation agrees on every slice. Admission stays pinned per program: a
+digest list in a JSON schema and a C++ header, kept identical by a contract test;
+admitting another program means running its oracle, not editing C++. Material
+capture still refuses interpreted programs, and the four programs with no named
+camera are refused at scene conversion rather than placed under an assumed
+camera. See [the interpreter contract](VS_INTERPRETER.md).
+
+**Frame-level capture identified the vertex program as the limit, and two
+per-program admissions followed (2026-11-10).** The first raised-quota frame
+capture (`hl2-frame-20261027`, run `frame2`) captured 270 draws against 3,293
+`unsupported_shader` refusals without reaching either quota: one frame is 92
+indexed draws / 19,004 triangles from 23 vertex programs, of which the skinned
+3348-byte program draws 48.8% of the triangles and the 1420-byte flex program
+34.4%, while the one admitted program drew 0.3%. The run also exposed an
+ill-conditioned reader check (float32 cancellation on map-sized positions), now
+fixed with a bounded rounding allowance and the `position_conditioning` test.
+The 1420-byte flex program ([contract](HL2_FLEX_POSITION_CONTRACT.md)) and the
+3348-byte skinned program ([contract](HL2_SKINNED_POSITION_CONTRACT.md)) were
+then admitted as the second and third position-only evaluators, with constant
+tracking extended to all 256 registers. In game (pass `hl2-skin-20261110`), the
+captured share of each frame rose from 5,608 to **13,520 of 18,745 triangles
+(72.1%)**; 39 draws from all three programs convert as one scene under one camera
+(clip error 8.5e-6). See [the frame result](HL2_FRAME_CAPTURE_RESULT.md). The
+interpreter above then replaced the per-program treadmill for the remaining 20.
 
 **The renderer's render resolution is now independent of the captured extent
 (2026-10-19).** `--render-scale 1..100` sizes every per-pixel buffer, dispatch and
@@ -90,7 +125,7 @@ allocates inside an 8 GiB ceiling, where 1440p and 4K were previously refused
 |---|---|---|
 | Reference title (Phase 0) | Repeatable in-repo fixtures on RX 9070 XT; HL2 gameplay observation with clean exit and proxy removal | Select and qualify an owned title; no commercial game is certified |
 | D3D9 proxy/trace (Phases 1–2) | Transparent forwarding, D3D9Ex, reset/lifetime tests, bounded capture and inspectors | Real-title and broader device/display acceptance |
-| Scene capture/replay (Phase 3) | Shader-aware selection on primitive count; **16 real HL2 material draws captured**; narrow fixed-function geometry/texture subset; exact fixture raster replay; stable asset IDs; glTF export | Shared shadow budget blocks 20 texture inputs; broader states/materials/animation; game-sized material comparison not yet run |
+| Scene capture/replay (Phase 3) | Shader-aware selection on primitive count; **16 real HL2 material draws captured**; **23 vertex programs admitted position-only** (3 hand-written evaluators + 20 via the generic vs_2_0 interpreter); 72.1% of one in-game frame's triangles captured with the three hand-written evaluators (interpreter in-game coverage not yet measured); narrow fixed-function geometry/texture subset; exact fixture raster replay; stable asset IDs; glTF export | Shared shadow budget blocks 20 texture inputs; interpreted programs are position-only (materials refused); broader states/materials/animation; game-sized material comparison not yet run |
 | Asset replacement (Phase 4) | Offline texture, mesh and material overrides with isolation tests | Live replacement and creator UI |
 | Standalone DXR (Phase 5) | AMD hardware ray tracing, one-bounce diffuse GI, filtering/history, native presentation, **resolution-independent up to 4096x4096 and an internal render grid decoupled from the capture** | Full transport/scene coverage, filtered upscaling, performance and broader hardware qualification |
 | Live runtime (Phase 6) | Shared-buffer transport, failure containment, frame admission and GPU buffer reuse foundations | Continuous game capture → renderer → game presentation, including reset/resize/fallback |
@@ -108,15 +143,21 @@ the admitted program is that it derives fog from `length(t4.xyz - c10.xyz)` inst
 of an interpolant. The contract, the evidence and the five implementation steps are
 in [the recovered contract](MATERIAL_PS2X_CONTRACT.md). It is now implemented: two
 programs admitted, a self-describing five-row payload, and a measured reconstruction
-at 2.9e-7. That unlocks 189 of 2,734 inventoried draws — **93.1% are refused by the
-vertex program instead**, which is a skinning problem, not a digest problem, and the
-next decision rather than the next task. Selection still uses `any:3` to observe
-actual targets rather than assuming a configured resolution; [game-sized material
-comparison](GAME_SIZED_MATERIAL_COMPARISON.md) describes what the comparator
-supports.
+at 2.9e-7. That unlocked 189 of 2,734 inventoried draws — but 93.1% were refused by
+the vertex program instead. That question (Q12) is now decided and implemented:
+after the flex and skinned per-program admissions took the in-game captured share
+to 72.1% of one frame's triangles, the [generic vs_2_0 interpreter](VS_INTERPRETER.md)
+admitted the remaining 20 refused programs of the 2026-11-10 frame, position-only,
+each cleared by its own GPU point oracle at maximum error 0. What remains on the
+vertex side: material capture still refuses interpreted programs, programs outside
+the pinned list each need their oracle run, and a fresh gameplay pass measuring the
+interpreter's end-to-end coverage has not been run yet. Selection still uses
+`any:3` to observe actual targets rather than assuming a configured resolution;
+[game-sized material comparison](GAME_SIZED_MATERIAL_COMPARISON.md) describes what
+the comparator supports.
 
-Renderer work does not depend on that evidence and is where the last change
-landed: the internal render grid is now decoupled from the captured extent.
+Renderer work does not depend on that evidence; its last change remains the
+2026-10-19 decoupling of the internal render grid from the captured extent.
 
 The capture-version ladder is now a named enum with a
 [machine-readable schema](schemas/capture-version.json) and a contract test that
