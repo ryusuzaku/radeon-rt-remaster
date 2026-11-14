@@ -387,7 +387,11 @@ std::unique_ptr<Pending> BeforeDraw(std::uint64_t id,IDirect3DDevice9* d,D3DPRIM
             // Stream 2 carries the flex offset that only the second admitted program reads; pass its shadow when one is tracked.
             ComPtr<IDirect3DVertexBuffer9> fb;ComPtr<Shadow> f;UINT flexOffset{},flexStride{};std::optional<Evidence> flexEvidence;
             if(SUCCEEDED(d->GetStreamSource(2,&fb,&flexOffset,&flexStride))&&fb){f=Get(fb.Get());if(f&&!f->pending)flexEvidence=Evidence{fb.Get(),f->bytes,f->known};}
-            result->stage="position_material";auto data=position::Capture(d,draw,{vb.Get(),v->bytes,v->known},{ib.Get(),i->bytes,i->known},state.constants,c.materialInputs,flexEvidence?&*flexEvidence:nullptr);
+            // Every bound stream's shadow, for programs captured through the vs_2_0 interpreter.
+            std::array<ComPtr<Shadow>,16> streamShadows;std::array<std::optional<Evidence>,16> streamEvidence;position::StreamEvidence streams{};
+            for(UINT slot=0;slot<16;++slot){ComPtr<IDirect3DVertexBuffer9> sb;UINT so{},ss{};
+                if(SUCCEEDED(d->GetStreamSource(slot,&sb,&so,&ss))&&sb){streamShadows[slot]=Get(sb.Get());if(streamShadows[slot]&&!streamShadows[slot]->pending){streamEvidence[slot]=Evidence{sb.Get(),streamShadows[slot]->bytes,streamShadows[slot]->known};streams[slot]=&*streamEvidence[slot];}}}
+            result->stage="position_material";auto data=position::Capture(d,draw,{vb.Get(),v->bytes,v->known},{ib.Get(),i->bytes,i->known},state.constants,c.materialInputs,flexEvidence?&*flexEvidence:nullptr,&streams);
             if(c.renderState){result->stage="composition";data+=","+Composition(d,state,c.clearEvidence);result->composition=true;result->clearSerial=state.clearSerial;result->bindingSerial=state.bindingSerial;}
             if(c.surfaceScope){result->stage="surface_scope";data+=",\"surface_scope\":{\"draw\":"+SurfaceScope(c,d)+",\"clear\":"+state.lastClearScope+"}";}
             if(c.colorReplay){result->stage="color_evidence";data+=ColorEvidence(d);}

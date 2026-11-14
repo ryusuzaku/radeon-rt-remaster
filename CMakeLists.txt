@@ -45,7 +45,7 @@ add_executable(d3d9_smoke_sample
 )
 target_compile_definitions(d3d9_smoke_sample PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN)
 target_link_libraries(d3d9_smoke_sample PRIVATE d3dcompiler user32)
-add_library(rrt_shader_snapshot STATIC src/shader/snapshot.cpp src/shader/position.cpp src/shader/position_capture.cpp)
+add_library(rrt_shader_snapshot STATIC src/shader/snapshot.cpp src/shader/position.cpp src/shader/position_capture.cpp src/shader/vs_interpreter.cpp)
 target_link_libraries(rrt_shader_snapshot PUBLIC rrt_scene d3dcompiler)
 target_link_libraries(radeon_d3d9_proxy PRIVATE rrt_shader_snapshot)
 add_executable(rrt_shader_fixture src/shader/fixture.cpp)
@@ -278,6 +278,8 @@ add_test(NAME scene_metadata COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURC
 add_test(NAME position_to_scene COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_position_to_scene.py)
 set_tests_properties(position_to_scene PROPERTIES TIMEOUT 60)
 add_test(NAME position_conditioning COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_position_conditioning.py)
+add_test(NAME vs_interpreter_python COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_vs_interpreter.py)
+add_test(NAME interpreted_program_list COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_interpreted_program_list.py)
 set_tests_properties(position_conditioning PROPERTIES TIMEOUT 60)
 set_tests_properties(scene_metadata PROPERTIES TIMEOUT 60)
 # The checked-in generated forwards must stay current with their generator;
@@ -331,6 +333,10 @@ set_tests_properties(hl2_flex_position PROPERTIES TIMEOUT 300)
 # The third, skinned vertex program (docs/HL2_SKINNED_POSITION_CONTRACT.md): native oracle, proxy capture and reader negatives.
 rrt_add_evidence_test(hl2_skin_position RRT_HL2_POSITION_INVENTORY ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_hl2_skin_position.py --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy> --inventory "${RRT_HL2_POSITION_INVENTORY}")
 set_tests_properties(hl2_skin_position PROPERTIES TIMEOUT 300)
+# The vs_2_0 position interpreter (docs/VS_INTERPRETER.md): hand-evaluator equality, synthetic and per-program GPU oracles, proxy capture.
+set(RRT_HL2_FRAME_INVENTORY "${CMAKE_CURRENT_SOURCE_DIR}/build/game-passes/hl2-frame-20261027/runs/frame2/shader-inventory.jsonl" CACHE FILEPATH "Local HL2 gameplay-frame inventory holding the interpreted programs")
+rrt_add_evidence_test(vs_interpreter RRT_HL2_FRAME_INVENTORY ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_vs_interpreter.py --fixture $<TARGET_FILE:rrt_shader_fixture> --proxy $<TARGET_FILE:radeon_d3d9_proxy> --inventory "${RRT_HL2_FRAME_INVENTORY}")
+set_tests_properties(vs_interpreter PROPERTIES TIMEOUT 900)
 # The second admitted pixel program is captured game bytecode: it lives only in the
 # local inventory, never in the repository. The capture supplies a real draw whose
 # accepted-program reconstruction clears the gate; the test skips without both.

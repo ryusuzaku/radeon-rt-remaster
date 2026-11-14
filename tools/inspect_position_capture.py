@@ -16,6 +16,7 @@ from position_texture_inputs import validate as validate_texture_inputs
 from texture_assets import TextureAssets
 from position_texture_diagnostic import validate as validate_texture_diagnostic
 from scene_io import DEFAULT_METADATA, UNITS, UP_AXES, HANDEDNESS
+from position_interpreted import validate as validate_interpreted
 
 DIGEST='0c16f3b5a2ba1f9f33162727e7eda81e02d599e20d95743f05a3daab846798d2'
 F32_ROUNDING=8*2.0**-24
@@ -254,6 +255,24 @@ def inspect_bytes(data,include_records=False,assets=None):
                 interval=(row['device'],timing['reset_epoch'],timing['present_interval'])
                 need(intervals[interval]<interval_limit,'accepted interval quota exceeded');intervals[interval]+=1
                 draw_key=(*interval,timing['indexed_draw']);need(draw_key not in draw_keys,'duplicate accepted draw timing');draw_keys.add(draw_key)
+            if 'interpreted' in row:  # a program captured through the vs_2_0 interpreter: clip positions only (docs/VS_INTERPRETER.md)
+                for key in ('offset','stride','minimum','vertices','start','primitives','vb_size','ib_size'):
+                    need(type(row.get(key)) is int and 0<=row[key]<2**32,'integer: '+key)
+                need(type(row.get('base')) is int and -(2**31)<=row['base']<2**31,'base')
+                need(1<=row['primitives']<=4096 and 1<=row['vertices']<=65536 and row['vb_size']<=16*1024*1024 and row['ib_size']<=16*1024*1024,'draw budget')
+                viewport=struct.unpack('<4I2f',blob(row,'viewport',24));need(all(map(math.isfinite,viewport[4:])),'nonfinite viewport')
+                target=row.get('target');need(isinstance(target,list) and len(target)==4 and all(type(v) is int and 0<=v<2**32 for v in target),'target metadata')
+                if selection is not None:
+                    need('any_target' in selection or target[:2]==[selection['target_width'],selection['target_height']],'capture violates selection')
+                    need(row['primitives']>=selection['min_primitives'],'capture violates selection')
+                corners=row['primitives']*3
+                need(row['start']*2+corners*2<=row['ib_size'],'index buffer range')
+                indices=struct.unpack('<'+'H'*corners,blob(row,'indices',corners*2))
+                need(all(row['minimum']<=index<row['minimum']+row['vertices'] for index in indices),'declared index range')
+                validate_interpreted(row,version,selection,indices)
+                captured.append({'ordinal':ordinal,'program':'interpreted','corners':corners,'unique_indices':len(set(indices)),'stride':row['stride'],'vb_size':row['vb_size'],'ib_size':row['ib_size']})
+                if include_records:records.append(row)
+                continue
             flex_program=isinstance(row.get('shader'),str) and len(row['shader'])==FLEX_BYTES*2
             skin_program=isinstance(row.get('shader'),str) and len(row['shader'])==SKIN_BYTES*2
             if skin_program:
