@@ -7,6 +7,18 @@ size; the DXR renderer is at Phase 5 and the live runtime at Phase 6.
 
 ## What changed since the 2026-09-06 revision
 
+**The interpreter's in-game coverage is measured (2026-11-14).** A triggered pass on
+the same save and view as the 2026-11-10 frame capture (`hl2-interp-20261110`, run
+`frame`) captured **every draw of at least three triangles: 18,622 of the frame's
+18,648 triangles (99.86%), with zero `unsupported_shader` refusals** and zero
+evidence failures. The only refusals are 13 sub-three-triangle draws per frame; the
+16 MiB ledger cap stopped the run after 3 presents. 14 of the 20 interpreted programs
+drew in this view (31.5% of captured triangles); the camera-less programs were
+captured and refused at conversion as designed. The largest camera group converts to
+a 65-draw / 15,804-triangle scene (clip error 1.75e-4) that the DXR renderer admits
+and renders. Position-only; materials for interpreted programs remain refused. See
+[the coverage result](HL2_INTERP_FRAME_RESULT.md).
+
 **The generic vs_2_0 position interpreter landed (2026-11-10, merged 2026-11-14).**
 Q12 is decided: instead of one hand-written CPU evaluator per vertex program, an
 interpreter runs each program's own position slice — backward slice of `oPos`,
@@ -125,7 +137,7 @@ allocates inside an 8 GiB ceiling, where 1440p and 4K were previously refused
 |---|---|---|
 | Reference title (Phase 0) | Repeatable in-repo fixtures on RX 9070 XT; HL2 gameplay observation with clean exit and proxy removal | Select and qualify an owned title; no commercial game is certified |
 | D3D9 proxy/trace (Phases 1–2) | Transparent forwarding, D3D9Ex, reset/lifetime tests, bounded capture and inspectors | Real-title and broader device/display acceptance |
-| Scene capture/replay (Phase 3) | Shader-aware selection on primitive count; **16 real HL2 material draws captured**; **23 vertex programs admitted position-only** (3 hand-written evaluators + 20 via the generic vs_2_0 interpreter); 72.1% of one in-game frame's triangles captured with the three hand-written evaluators (interpreter in-game coverage not yet measured); narrow fixed-function geometry/texture subset; exact fixture raster replay; stable asset IDs; glTF export | Shared shadow budget blocks 20 texture inputs; interpreted programs are position-only (materials refused); broader states/materials/animation; game-sized material comparison not yet run |
+| Scene capture/replay (Phase 3) | Shader-aware selection on primitive count; **16 real HL2 material draws captured**; **23 vertex programs admitted position-only** (3 hand-written evaluators + 20 via the generic vs_2_0 interpreter); 72.1% of one in-game frame's triangles captured with the three hand-written evaluators; **99.86% with the interpreter admitted (2026-11-14, zero `unsupported_shader`)**; narrow fixed-function geometry/texture subset; exact fixture raster replay; stable asset IDs; glTF export | Shared shadow budget blocks 20 texture inputs; interpreted programs are position-only (materials refused); broader states/materials/animation; game-sized material comparison not yet run |
 | Asset replacement (Phase 4) | Offline texture, mesh and material overrides with isolation tests | Live replacement and creator UI |
 | Standalone DXR (Phase 5) | AMD hardware ray tracing, one-bounce diffuse GI, filtering/history, native presentation, **resolution-independent up to 4096x4096 and an internal render grid decoupled from the capture** | Full transport/scene coverage, filtered upscaling, performance and broader hardware qualification |
 | Live runtime (Phase 6) | Shared-buffer transport, failure containment, frame admission and GPU buffer reuse foundations | Continuous game capture → renderer → game presentation, including reset/resize/fallback |
@@ -149,9 +161,11 @@ after the flex and skinned per-program admissions took the in-game captured shar
 to 72.1% of one frame's triangles, the [generic vs_2_0 interpreter](VS_INTERPRETER.md)
 admitted the remaining 20 refused programs of the 2026-11-10 frame, position-only,
 each cleared by its own GPU point oracle at maximum error 0. What remains on the
-vertex side: material capture still refuses interpreted programs, programs outside
-the pinned list each need their oracle run, and a fresh gameplay pass measuring the
-interpreter's end-to-end coverage has not been run yet. Selection still uses
+vertex side: material capture still refuses interpreted programs, and programs
+outside the pinned list each need their oracle run. The interpreter's end-to-end
+coverage is now measured: on the 2026-11-10 view it captures 99.86% of the frame's
+triangles with zero `unsupported_shader` refusals
+([result](HL2_INTERP_FRAME_RESULT.md)). Selection still uses
 `any:3` to observe actual targets rather than assuming a configured resolution;
 [game-sized material comparison](GAME_SIZED_MATERIAL_COMPARISON.md) describes what
 the comparator supports.
