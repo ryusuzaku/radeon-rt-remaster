@@ -1,0 +1,27 @@
+{
+  "schema": "rrt-pixel-programs",
+  "version": 1,
+  "description": "Pixel programs admitted by the material capture path (docs/MATERIAL_PS2X_CONTRACT.md, docs/MATERIAL_FAMILY_CONTRACTS.md). Each is identified by exact bytecode SHA-256. 'rows' are the pixel-shader constant registers the program reads, in capture order; the payload declares them beside the constant blob. 'samplers' lists the texture slots the program binds, in capture order, with the D3D resource type (3 = D3DRTYPE_TEXTURE, 4 = D3DRTYPE_CUBETEXTURE). src/shader/pixel_material.inc and the replay fixture mirror this table; tests/verify_pixel_program_table.py keeps all descriptions identical. Program bytes are captured game content and stay local; this schema carries digests only.",
+  "programs": [
+    {
+      "sha256": "ad230bcdf05abdbb558451943e3dcc7c4e9995b28905d87ea3c39d1b29d76a11",
+      "bytes": 1792,
+      "rows": [11, 12, 29, 30],
+      "samplers": [
+        {"slot": 0, "type": 3},
+        {"slot": 1, "type": 3}
+      ],
+      "family": "WorldVertexLitGeneric, fog from interpolant t4.w"
+    },
+    {
+      "sha256": "dbca89ccb0e1d72bae02fb44cef4b80a6088cec6d163f0d4fe3dbf8661b199b0",
+      "bytes": 1912,
+      "rows": [10, 11, 12, 29, 30],
+      "samplers": [
+        {"slot": 0, "type": 3},
+        {"slot": 1, "type": 3}
+      ],
+      "family": "ps_2_x, fog from length(t4.xyz - c10.xyz)"
+    }
+  ]
+}

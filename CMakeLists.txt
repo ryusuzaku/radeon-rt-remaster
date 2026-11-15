@@ -280,6 +280,9 @@ set_tests_properties(position_to_scene PROPERTIES TIMEOUT 60)
 add_test(NAME position_conditioning COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_position_conditioning.py)
 add_test(NAME vs_interpreter_python COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_vs_interpreter.py)
 add_test(NAME interpreted_program_list COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_interpreted_program_list.py)
+# The admitted pixel-program table is described in the schema, the proxy, the replay
+# fixture and the reader; nothing else checks that they agree.
+add_test(NAME pixel_program_table COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/verify_pixel_program_table.py)
 set_tests_properties(position_conditioning PROPERTIES TIMEOUT 60)
 set_tests_properties(scene_metadata PROPERTIES TIMEOUT 60)
 # The checked-in generated forwards must stay current with their generator;

@@ -108,6 +108,9 @@ jobs:
       - name: Interpreted program list
         run: python3.12 tests/verify_interpreted_program_list.py
 
+      - name: Pixel program table
+        run: python3.12 tests/verify_pixel_program_table.py
+
       # Scene header v2 metadata and the ledger's v20 scene object must default
       # v1 captures to the documented values rather than guessing.
       - name: Scene metadata
