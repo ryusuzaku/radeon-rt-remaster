@@ -5,22 +5,25 @@ more than one admitted program now. `rows` is present in captures written after
 2026-10-20; older captures predate it and are still valid, so a missing `rows` means
 "the original four-row program" rather than an error.
 
-The program table is duplicated in `src/shader/pixel_material.inc`. Adding an entry
-to one without the other makes a capture unreadable, which is the failure this
+The program table is the single source of truth in docs/schemas/pixel-programs.json,
+mirrored by src/shader/pixel_material.inc and the replay fixture;
+tests/verify_pixel_program_table.py keeps the descriptions identical. Adding an entry
+to one without the others makes a capture unreadable, which is the failure this
 validator exists to make loud.
+
+Each sampler may carry an explicit `slot` (captures written after the sampler table
+landed). A missing `slot` means the legacy implicit order — sampler i binds slot i —
+so older captures still validate.
 """
 import hashlib
+import json
 import math
 import struct
+from pathlib import Path
 
-PROGRAMS = {
-    # 1792-byte program: fog from the interpolated factor in t4.w.
-    'ad230bcdf05abdbb558451943e3dcc7c4e9995b28905d87ea3c39d1b29d76a11':
-        {'bytes': 1792, 'rows': [11, 12, 29, 30]},
-    # 1912-byte program: fog from length(t4.xyz - c10.xyz).
-    'dbca89ccb0e1d72bae02fb44cef4b80a6088cec6d163f0d4fe3dbf8661b199b0':
-        {'bytes': 1912, 'rows': [10, 11, 12, 29, 30]},
-}
+_SCHEMA = json.loads((Path(__file__).resolve().parents[1] / 'docs' / 'schemas' / 'pixel-programs.json').read_text(encoding='utf-8'))
+PROGRAMS = {p['sha256']: {'bytes': p['bytes'], 'rows': p['rows'], 'samplers': p['samplers']}
+            for p in _SCHEMA['programs']}
 DIGEST = 'ad230bcdf05abdbb558451943e3dcc7c4e9995b28905d87ea3c39d1b29d76a11'
 
 
@@ -51,17 +54,21 @@ def validate(row):
     need(all(map(math.isfinite, struct.unpack('<%df' % (4 * len(rows)), bytes.fromhex(c)))),
          'nonfinite constants')
     samplers = m['samplers']
-    need(type(samplers) is list and len(samplers) == 2, 'samplers')
+    declared = program['samplers']
+    need(type(samplers) is list and len(samplers) == len(declared), 'samplers')
     identities = {}
-    for s in samplers:
-        need(type(s) is dict and set(s) == {'states', 'texture'}, 'sampler shape')
+    for i, s in enumerate(samplers):
+        need(type(s) is dict and set(s) in ({'states', 'texture'}, {'states', 'texture', 'slot'}),
+             'sampler shape')
+        if 'slot' in s:
+            need(uint(s['slot']) and s['slot'] == declared[i]['slot'], 'declared sampler slot')
         states = s['states']
         need(type(states) is list and len(states) == 13 and all(map(uint, states)), 'states')
         t = s['texture']
         need(type(t) is dict and set(t) == {'id', 'type', 'levels', 'lod', 'autogen_filter',
                                            'contents', 'descriptors'}, 'texture shape')
         need(type(t['id']) is int and 0 < t['id'] < 2 ** 64, 'identity')
-        need(type(t['type']) is int and t['type'] == 3 and t['contents'] == 'unknown',
+        need(type(t['type']) is int and t['type'] == declared[i]['type'] and t['contents'] == 'unknown',
              'texture type/contents')
         need(type(t['levels']) is int and 1 <= t['levels'] <= 16 and uint(t['lod'])
              and uint(t['autogen_filter']), 'texture parameters')

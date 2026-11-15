@@ -1,7 +1,11 @@
 # Material family contracts: recovered 2026-11-15
 
-Status: **contracts recovered from the 2026-11-14 inventory; implementation not
-started.** This is the material-side follow-up to the
+Status: **contracts recovered from the 2026-11-14 inventory; implementation started
+2026-11-15 with the table-contract foundation** (single-source
+`docs/schemas/pixel-programs.json`, a static sync test across schema/proxy/fixture/
+reader, and a forward-compatible sampler `slot` field in the reader). Capture
+behavior is unchanged so far; the sampler-slot generalization and cube support are
+next. This is the material-side follow-up to the
 [vs_2_0 position interpreter](VS_INTERPRETER.md): position capture now admits 23
 vertex programs, but material capture still refuses every one of them. The
 [interpreter coverage result](HL2_INTERP_FRAME_RESULT.md) measured 99.86% of the
