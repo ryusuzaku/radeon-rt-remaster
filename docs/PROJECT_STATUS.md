@@ -162,7 +162,10 @@ to 72.1% of one frame's triangles, the [generic vs_2_0 interpreter](VS_INTERPRET
 admitted the remaining 20 refused programs of the 2026-11-10 frame, position-only,
 each cleared by its own GPU point oracle at maximum error 0. What remains on the
 vertex side: material capture still refuses interpreted programs, and programs
-outside the pinned list each need their oracle run. The interpreter's end-to-end
+outside the pinned list each need their oracle run. The material-family contracts
+are now recovered (census + the three dominant pairs, shared sampler/evaluator
+gaps, ordered implementation plan): see [material family contracts](MATERIAL_FAMILY_CONTRACTS.md).
+The interpreter's end-to-end
 coverage is now measured: on the 2026-11-10 view it captures 99.86% of the frame's
 triangles with zero `unsupported_shader` refusals
 ([result](HL2_INTERP_FRAME_RESULT.md)). Selection still uses
